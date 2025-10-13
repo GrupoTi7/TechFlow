@@ -1,0 +1,55 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider          = "mysql"
+  url               = env("DATABASE_URL")
+  shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
+}
+
+model Device {
+  id                      String       @id @default(cuid())
+  glpiId                  Int          @unique
+  name                    String
+  serial                  String?
+  otherserial             String?
+  contact                 String?
+  comment                 String?
+  deviceType              String
+  lastSync                DateTime     @default(now())
+  glpiDateMod             DateTime
+  createdAt               DateTime     @default(now())
+  updatedAt               DateTime     @updatedAt
+  maintenanceIntervalDays Int          @default(90)
+  nextPreventiveDate      DateTime?
+  preventives             Preventive[]
+
+  @@map("devices")
+}
+
+model Preventive {
+  id         String   @id @default(cuid())
+  date       DateTime
+  technician String
+  notes      String?
+  device     Device   @relation(fields: [deviceId], references: [id])
+  deviceId   String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("preventives")
+}
+
+model User {
+  id          String    @id @default(cuid())
+  username    String    @unique
+  displayName String?
+  email       String?   @unique
+  password    String
+  name        String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("users")
+}
