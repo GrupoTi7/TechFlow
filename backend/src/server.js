@@ -4,6 +4,7 @@ require('dotenv').config();
 
 const { connectDB } = require('./config/prismaClient'); // A sua função de conexão
 const syncRoutes = require('./routes/sync.routes');
+const preventiveRoutes = require('./routes/preventive.routes');
 // const authRoutes = require('./routes/auth.routes'); // Desativado por enquanto
 
 const app = express();
@@ -13,6 +14,7 @@ app.use(express.json());
 
 // Esta linha define o prefixo /api para as rotas de sincronização
 app.use('/api', syncRoutes);
+app.use('/api', preventiveRoutes);
 
 // app.use('/api/auth', authRoutes); // Desativado por enquanto
 
