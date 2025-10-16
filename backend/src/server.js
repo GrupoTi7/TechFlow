@@ -5,7 +5,7 @@ require('dotenv').config();
 const { connectDB } = require('./config/prismaClient'); // A sua função de conexão
 const syncRoutes = require('./routes/sync.routes');
 const preventiveRoutes = require('./routes/preventive.routes');
-// const authRoutes = require('./routes/auth.routes'); // Desativado por enquanto
+const authRoutes = require('./routes/auth.routes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -16,7 +16,7 @@ app.use(express.json());
 app.use('/api', syncRoutes);
 app.use('/api', preventiveRoutes);
 
-// app.use('/api/auth', authRoutes); // Desativado por enquanto
+app.use('/api/auth', authRoutes); 
 
 // Função de Início
 async function startServer() {
