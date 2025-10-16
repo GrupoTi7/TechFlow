@@ -1,88 +1,66 @@
+// src/controllers/sync.controller.js
 const glpiService = require('../services/glpi.service');
+const { prisma } = require('../config/prismaClient');
 
-/**
- * Controlador para operações de sincronização
- */
 class SyncController {
-  /**
-   * Manipula requisições de sincronização
-   * @param {Object} req - Objeto de requisição do Express
-   * @param {Object} res - Objeto de resposta do Express
-   */
   async handleSync(req, res) {
     try {
-      console.log('Recebida requisição de sincronização');
+      console.log('Controlador: Requisição de sincronização recebida.');
       
-      // Extrair parâmetros da requisição
-      const { force = false } = req.body;
-      
-      // Validar parâmetros se necessário
-      if (typeof force !== 'boolean') {
-        return res.status(400).json({
-          success: false,
-          message: 'Parâmetro "force" deve ser um boolean'
+      const allDevices = await glpiService.fetchAllDevices();
+
+      console.log(`Controlador: Salvando ${allDevices.length} dispositivos no banco de dados...`);
+      for (const device of allDevices) {
+        const deviceData = {
+          name: device.name,
+          serial: device.serial,
+          otherserial: device.otherserial,
+          contact: device.contact,
+          comment: device.comment,
+          deviceType: device.deviceType,
+          glpiDateMod: new Date(device.date_mod), // date_mod vem do GLPI
+          lastSync: new Date(),
+        };
+
+        // CORREÇÃO AQUI: Usamos device.id em vez de device.glpiId
+        await prisma.device.upsert({
+          where: { glpiId: device.id },
+          update: deviceData,
+          create: {
+            glpiId: device.id,
+            ...deviceData,
+          },
         });
       }
+      console.log('Controlador: Dispositivos salvos com sucesso.');
 
-      // Executar sincronização
-      const result = await glpiService.syncDevicesFromGLPI({ force });
+      await glpiService.killSession();
 
-      // Determinar status HTTP baseado no resultado
-      const statusCode = result.success ? 200 : 500;
-
-      // Retornar resposta
-      res.status(statusCode).json({
-        success: result.success,
-        message: result.message,
+      res.status(200).json({
+        success: true,
+        message: 'Sincronização concluída com sucesso!',
         data: {
-          devicesProcessed: result.devicesProcessed,
-          devicesCreated: result.devicesCreated,
-          devicesUpdated: result.devicesUpdated,
-          errors: result.errors,
-          timestamp: new Date().toISOString()
-        }
+          totalDevices: allDevices.length,
+          timestamp: new Date().toISOString(),
+        },
       });
 
     } catch (error) {
       console.error('Erro no controlador de sincronização:', error);
-      
+      await glpiService.killSession();
       res.status(500).json({
         success: false,
         message: 'Erro interno do servidor',
-        error: process.env.NODE_ENV === 'development' ? error.message : 'Erro interno'
+        error: error.message,
       });
     }
   }
-
-  /**
-   * Obtém o status da última sincronização
-   * @param {Object} req - Objeto de requisição do Express
-   * @param {Object} res - Objeto de resposta do Express
-   */
-  async getSyncStatus(req, res) {
-    try {
-      // TODO: Implementar lógica para obter status da última sincronização
-      // Pode ser útil para verificar quando foi a última sincronização
-      
-      res.json({
-        success: true,
-        message: 'Status da sincronização obtido com sucesso',
-        data: {
-          lastSync: null, // TODO: Implementar
-          nextSync: null, // TODO: Implementar
-          isSyncNeeded: true
-        }
-      });
-
-    } catch (error) {
-      console.error('Erro ao obter status da sincronização:', error);
-      
-      res.status(500).json({
-        success: false,
-        message: 'Erro ao obter status da sincronização',
-        error: process.env.NODE_ENV === 'development' ? error.message : 'Erro interno'
-      });
-    }
+  
+  async getSyncStats(req, res) {
+    res.status(501).json({ 
+      success: false, 
+      message: 'Endpoint de estatísticas ainda não implementado.' 
+    });
   }
 }
 

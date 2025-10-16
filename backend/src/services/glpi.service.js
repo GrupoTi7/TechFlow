@@ -1,93 +1,69 @@
+// src/services/glpi.service.js
 const axios = require('axios');
-const { prisma } = require('../config/prismaClient');
 
-async function syncDevicesFromGLPI() {
-  console.log('--- INICIANDO SINCRONIZAÇÃO VIA API GLPI ---');
-  
-  const GLPI_BASE_URL = process.env.GLPI_API_URL;
-  const GLPI_APP_TOKEN = process.env.GLPI_APP_TOKEN;
-  const GLPI_USER_TOKEN = process.env.GLPI_USER_TOKEN;
-
-  if (!GLPI_BASE_URL || !GLPI_APP_TOKEN || !GLPI_USER_TOKEN) {
-    throw new Error('As variáveis de ambiente do GLPI não estão configuradas corretamente no ficheiro .env');
+class GLPIService {
+  constructor() {
+    this.baseURL = process.env.GLPI_API_URL;
+    this.appToken = process.env.GLPI_APP_TOKEN;
+    this.userToken = process.env.GLPI_USER_TOKEN;
+    this.sessionToken = null;
   }
 
-  let sessionToken;
-
-  try {
-    const sessionResponse = await axios.get(`${GLPI_BASE_URL}/initSession`, {
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `user_token ${GLPI_USER_TOKEN}`,
-        'App-Token': GLPI_APP_TOKEN,
-      },
-    });
-    sessionToken = sessionResponse.data.session_token;
-    console.log('Sessão com GLPI iniciada com sucesso.');
-
-    // Vamos buscar Computadores e Impressoras
-    const computerPromise = axios.get(`${GLPI_BASE_URL}/Computer`, {
-      headers: { 'Content-Type': 'application/json', 'Session-Token': sessionToken, 'App-Token': GLPI_APP_TOKEN },
-      params: { is_deleted: 0, range: '0-9999' }
-    });
-    const printerPromise = axios.get(`${GLPI_BASE_URL}/Printer`, {
-        headers: { 'Content-Type': 'application/json', 'Session-Token': sessionToken, 'App-Token': GLPI_APP_TOKEN },
-        params: { is_deleted: 0, range: '0-9999' }
-    });
-
-    // Executa as duas requisições em paralelo para mais eficiência
-    const [computersResponse, printersResponse] = await Promise.all([computerPromise, printerPromise]);
-
-    const glpiComputers = computersResponse.data;
-    const glpiPrinters = printersResponse.data;
-    const allGlpiDevices = [...glpiComputers, ...glpiPrinters];
-
-    console.log(`${allGlpiDevices.length} dispositivos encontrados no GLPI (${glpiComputers.length} computadores, ${glpiPrinters.length} impressoras).`);
-
-    for (const glpiDevice of allGlpiDevices) {
-      // ESTE É O MAPEAMENTO CORRETO, ALINHADO COM O SEU SCHEMA MAIS RECENTE
-      const deviceData = {
-        name: glpiDevice.name,
-        serial: glpiDevice.serial || null,
-        otherserial: glpiDevice.otherserial || null,
-        contact: glpiDevice.contact || null,
-        comment: glpiDevice.comment || null,
-        // Determina o tipo com base no endpoint de origem do dispositivo
-        deviceType: glpiComputers.some(c => c.id === glpiDevice.id) ? 'computer' : 'printer',
-        glpiDateMod: new Date(glpiDevice.date_mod),
-        lastSync: new Date(),
-      };
-
-      await prisma.device.upsert({
-        where: { glpiId: glpiDevice.id },
-        update: deviceData,
-        create: {
-          glpiId: glpiDevice.id,
-          ...deviceData,
+  async initSession() {
+    try {
+      if (!this.baseURL || !this.appToken || !this.userToken) {
+        throw new Error('Variáveis de ambiente do GLPI não configuradas.');
+      }
+      const response = await axios.get(`${this.baseURL}/initSession`, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `user_token ${this.userToken}`,
+          'App-Token': this.appToken,
         },
       });
+      this.sessionToken = response.data.session_token;
+      console.log('Sessão com GLPI iniciada com sucesso.');
+    } catch (error) {
+      const errorMessage = error.response?.data?.[1] || error.message;
+      console.error('Erro na autenticação GLPI:', errorMessage);
+      throw new Error('Falha na autenticação com GLPI.');
     }
-    
-    console.log('Sincronização concluída! Dispositivos criados ou atualizados no banco local.');
-    
-    return {
-      success: true,
-      message: 'Sincronização via API concluída com sucesso!',
-      totalFound: allGlpiDevices.length,
-    };
+  }
 
-  } catch (error) {
-    const errorMessage = error.response?.data?.[1] || error.message;
-    console.error('ERRO DURANTE A SINCRONIZAÇÃO VIA API:', errorMessage);
-    throw new Error(`Falha ao sincronizar com o GLPI: ${errorMessage}`);
-  } finally {
-    if (sessionToken) {
-      await axios.get(`${GLPI_BASE_URL}/killSession`, {
-        headers: { 'Content-Type': 'application/json', 'Session-Token': sessionToken, 'App-Token': GLPI_APP_TOKEN },
+  async killSession() {
+    if (!this.sessionToken) return;
+    try {
+      await axios.get(`${this.baseURL}/killSession`, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Session-Token': this.sessionToken,
+          'App-Token': this.appToken,
+        },
       });
-      console.log('Sessão com GLPI encerrada.');
+      console.log('Sessão GLPI encerrada.');
+    } catch (error) {
+      console.error('Erro ao encerrar sessão GLPI:', error.message);
     }
+  }
+
+  async fetchAllDevices() {
+    if (!this.sessionToken) {
+      await this.initSession();
+    }
+
+    const computerPromise = axios.get(`${this.baseURL}/Computer`, { headers: { 'Session-Token': this.sessionToken, 'App-Token': this.appToken }, params: { is_deleted: 0, range: '0-9999' } });
+    const printerPromise = axios.get(`${this.baseURL}/Printer`, { headers: { 'Session-Token': this.sessionToken, 'App-Token': this.appToken }, params: { is_deleted: 0, range: '0-9999' } });
+
+    const [computersResponse, printersResponse] = await Promise.all([computerPromise, printerPromise]);
+
+    console.log(`Encontrados ${computersResponse.data.length} computadores e ${printersResponse.data.length} impressoras no GLPI.`);
+
+    const allDevices = [];
+    computersResponse.data.forEach(item => allDevices.push({ ...item, deviceType: 'computer' }));
+    printersResponse.data.forEach(item => allDevices.push({ ...item, deviceType: 'printer' }));
+
+    return allDevices;
   }
 }
 
-module.exports = { syncDevicesFromGLPI };
+module.exports = new GLPIService();
