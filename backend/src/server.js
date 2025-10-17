@@ -1,20 +1,33 @@
 // src/server.js
+
 const express = require('express');
+const cors = require('cors'); // <-- 1. IMPORTAMOS O PACOTE 'cors'
 require('dotenv').config();
 
+// Funções e Rotas do nosso projeto
 const { connectDB } = require('./config/prismaClient');
 const syncRoutes = require('./routes/sync.routes');
 const authRoutes = require('./routes/auth.routes');
+const deviceRoutes = require('./routes/device.routes.js');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// --- CONFIGURAÇÃO DO CORS (DEVE VIR ANTES DAS ROTAS) ---
+// Dizemos ao 'cors' para usar a nossa variável de ambiente como a lista de origens permitidas.
+const corsOptions = {
+  origin: process.env.ALLOWED_ORIGINS,
+};
+app.use(cors(corsOptions)); // <-- 2. USA O MIDDLEWARE 'cors' AQUI
+// ----------------------------------------------------
+
+// Outros Middlewares
 app.use(express.json());
 
-// Esta linha define o prefixo /api para as rotas de sincronização
+// --- REGISTO DAS ROTAS ---
 app.use('/api', syncRoutes);
 app.use('/api/auth', authRoutes);
-
+app.use('/api', deviceRoutes);
 
 // Função de Início
 async function startServer() {

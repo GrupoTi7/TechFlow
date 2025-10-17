@@ -5,30 +5,31 @@ import App from './App.jsx';
 import './index.css';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 
-// Importações
 import HomePage from './pages/HomePage.jsx';
 import LoginPage from './pages/LoginPage.jsx';
-import ProtectedRoute from './components/ProtectedRoute.jsx'; // <-- 1. IMPORTE O GUARDIÃO
+import ProtectedRoute from './components/ProtectedRoute.jsx';
+import DeviceListPage from './pages/DeviceListPage.jsx'; // 1. IMPORTE
 
 const router = createBrowserRouter([
   {
     path: "/",
     element: <App />,
     children: [
-      // A rota de login continua pública
       {
         path: "/login",
         element: <LoginPage />,
       },
-      // As rotas dentro deste elemento serão protegidas
       {
-        element: <ProtectedRoute />, // <-- 2. COLOQUE O GUARDIÃO AQUI
+        element: <ProtectedRoute />,
         children: [
           {
-            path: "/", // A página inicial agora está protegida
+            path: "/",
             element: <HomePage />,
           },
-          // No futuro, podemos adicionar mais rotas protegidas aqui (ex: /devices)
+          {
+            path: "/devices", // 2. ADICIONE A ROTA
+            element: <DeviceListPage />,
+          },
         ],
       },
     ],
