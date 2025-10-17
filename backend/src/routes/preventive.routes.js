@@ -1,14 +1,10 @@
-const express = require('express');
+// src/routes/preventive.routes.js
+const { Router } = require('express');
 const { getPreventivesForDevice, createPreventiveForDevice } = require('../controllers/preventive.controller');
+const { authenticateToken } = require('../middleware/auth.middleware');
+const router = Router();
 
-const router = express.Router();
-
-// GET /devices/:deviceId/preventives
-router.get('/devices/:deviceId/preventives', getPreventivesForDevice);
-
-// POST /devices/:deviceId/preventives
-router.post('/devices/:deviceId/preventives', createPreventiveForDevice);
+router.get('/devices/:deviceId/preventives', authenticateToken, getPreventivesForDevice);
+router.post('/devices/:deviceId/preventives', authenticateToken, createPreventiveForDevice);
 
 module.exports = router;
-
-
