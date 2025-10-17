@@ -10,6 +10,7 @@ const syncRoutes = require('./routes/sync.routes');
 const authRoutes = require('./routes/auth.routes');
 const deviceRoutes = require('./routes/device.routes.js');
 const preventiveRoutes = require('./routes/preventive.routes.js');
+const dashboardRoutes = require('./routes/dashboard.routes.js');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -20,15 +21,12 @@ const corsOptions = {
   origin: process.env.ALLOWED_ORIGINS,
 };
 app.use(cors(corsOptions)); 
-
-// Outros Middlewares
 app.use(express.json());
-
-// --- REGISTO DAS ROTAS ---
 app.use('/api', syncRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api', deviceRoutes);
-app.use('/api', preventiveRoutes)
+app.use('/api', preventiveRoutes);
+app.use('/api', dashboardRoutes);
 
 // Função de Início
 async function startServer() {
