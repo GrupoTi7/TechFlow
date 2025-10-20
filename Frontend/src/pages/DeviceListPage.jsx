@@ -1,5 +1,6 @@
 // src/pages/DeviceListPage.jsx
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom'; // Importa o Link
 import { getDevices } from '../services/api';
 
 function DeviceListPage() {
@@ -22,14 +23,12 @@ function DeviceListPage() {
         setIsLoading(false);
       }
     };
-
     fetchDevices();
   }, []);
 
   if (isLoading) {
     return <div>A carregar dispositivos...</div>;
   }
-
   if (error) {
     return <div style={{ color: 'red' }}>Erro: {error}</div>;
   }
@@ -49,7 +48,12 @@ function DeviceListPage() {
         <tbody>
           {devices.map((device) => (
             <tr key={device.id}>
-              <td>{device.name}</td>
+              <td>
+                {/* --- AQUI ESTÁ A CORREÇÃO --- */}
+                <Link to={`/devices/${device.id}`}>
+                  {device.name}
+                </Link>
+              </td>
               <td>{device.deviceType}</td>
               <td>{device.serial || 'N/A'}</td>
               <td>{device.nextPreventiveDate ? new Date(device.nextPreventiveDate).toLocaleDateString() : 'N/D'}</td>

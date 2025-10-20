@@ -5,18 +5,16 @@ const apiClient = axios.create({
   baseURL: 'http://localhost:3000',
 });
 
-// Interceptor que anexa o token a todas as requisições
+// Interceptor que anexa o token
 apiClient.interceptors.request.use((config) => {
   const token = localStorage.getItem('authToken');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
-}, (error) => {
-  return Promise.reject(error);
 });
 
-// Função de Login (Já existente)
+// --- AUTENTICAÇÃO ---
 export const login = async (username, password) => {
   try {
     const response = await apiClient.post('/api/auth/login', { username, password });
@@ -26,13 +24,50 @@ export const login = async (username, password) => {
   }
 };
 
-// --- ADICIONE ESTA NOVA FUNÇÃO ---
-// Função para buscar todos os dispositivos (chama GET /api/devices)
+// --- DASHBOARD ---
+export const getDashboardStats = async () => {
+  try {
+    const response = await apiClient.get('/api/dashboard/stats');
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || new Error('Erro de rede ao buscar estatísticas.');
+  }
+};
+
+// --- DISPOSITIVOS ---
 export const getDevices = async () => {
   try {
     const response = await apiClient.get('/api/devices');
-    return response.data; // Retorna { success: true, count: ..., devices: [...] }
+    return response.data;
   } catch (error) {
     throw error.response?.data || new Error('Erro de rede ao buscar dispositivos.');
+  }
+};
+
+export const getDeviceById = async (id) => {
+  try {
+    const response = await apiClient.get(`/api/devices/${id}`);
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || new Error('Erro de rede ao buscar o dispositivo.');
+  }
+};
+
+// --- PREVENTIVAS ---
+export const getPreventivesForDevice = async (deviceId) => {
+  try {
+    const response = await apiClient.get(`/api/devices/${deviceId}/preventives`);
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || new Error('Erro de rede ao buscar preventivas.');
+  }
+};
+
+export const createPreventive = async (deviceId, preventiveData) => {
+  try {
+    const response = await apiClient.post(`/api/devices/${deviceId}/preventives`, preventiveData);
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || new Error('Erro de rede ao criar preventiva.');
   }
 };
