@@ -2,7 +2,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { getDevices } from '../services/api';
-import styles from './DeviceListPage.module.css'; // <-- 1. Importe os estilos
+// 1. Importe os componentes visuais do Mantine
+import { Table, Title, Group, Button, Anchor, Text } from '@mantine/core';
 
 function DeviceListPage() {
   const [devices, setDevices] = useState([]);
@@ -11,8 +12,8 @@ function DeviceListPage() {
   const [filterType, setFilterType] = useState('all');
 
   useEffect(() => {
+    // ... (a sua lógica de fetch continua igual)
     const fetchDevices = async () => {
-      // ... (a sua lógica de fetch continua igual)
       try {
         const data = await getDevices();
         if (data.success) {
@@ -38,47 +39,66 @@ function DeviceListPage() {
   if (isLoading) {
     return <div>A carregar dispositivos...</div>;
   }
-
   if (error) {
     return <div style={{ color: 'red' }}>Erro: {error}</div>;
   }
 
-  // 2. Use as classes de estilo do .module.css
+  // 2. Crie as linhas da tabela (rows)
+  const rows = filteredDevices.map((device) => (
+    <Table.Tr key={device.id}>
+      <Table.Td>
+        {/* Usamos o Anchor do Mantine para um link com estilo */}
+        <Anchor component={Link} to={`/devices/${device.id}`} size="sm" fw={500}>
+          {device.name}
+        </Anchor>
+      </Table.Td>
+      <Table.Td>
+        {/* Capitaliza a primeira letra (ex: 'computer' -> 'Computer') */}
+        {device.deviceType.charAt(0).toUpperCase() + device.deviceType.slice(1)}
+      </Table.Td>
+      <Table.Td>{device.serial || 'N/A'}</Table.Td>
+      <Table.Td>
+        {device.nextPreventiveDate ? new Date(device.nextPreventiveDate).toLocaleDateString() : 'N/D'}
+      </Table.Td>
+    </Table.Tr>
+  ));
+
+  // 3. Renderize a página com os componentes Mantine
   return (
-    <div className={styles.container}>
-      <h2 className={styles.header}>Inventário de Dispositivos ({filteredDevices.length})</h2>
+    <div>
+      <Title order={2} mb="lg">Inventário de Dispositivos ({filteredDevices.length})</Title>
 
-      <div className={styles.filterButtons}>
-        <strong>Filtrar por: </strong>
-        <button onClick={() => setFilterType('all')} disabled={filterType === 'all'}>Todos</button>
-        <button onClick={() => setFilterType('computer')} disabled={filterType === 'computer'}>Computadores</button>
-        <button onClick={() => setFilterType('printer')} disabled={filterType === 'printer'}>Impressoras</button>
-      </div>
+      <Group mb="lg">
+        <Text fw={500} size="sm">Filtrar por:</Text>
+        <Button onClick={() => setFilterType('all')} variant={filterType === 'all' ? 'filled' : 'light'}>
+          Todos
+        </Button>
+        <Button onClick={() => setFilterType('computer')} variant={filterType === 'computer' ? 'filled' : 'light'}>
+          Computadores
+        </Button>
+        <Button onClick={() => setFilterType('printer')} variant={filterType === 'printer' ? 'filled' : 'light'}>
+          Impressoras
+        </Button>
+      </Group>
 
-      <table className={styles.deviceTable}>
-        <thead>
-          <tr>
-            <th>Nome</th>
-            <th>Tipo</th>
-            <th>Nº de Série</th>
-            <th>Próxima Preventiva</th>
-          </tr>
-        </thead>
-        <tbody>
-          {filteredDevices.map((device) => (
-            <tr key={device.id}>
-              <td>
-                <Link to={`/devices/${device.id}`} className={styles.deviceNameLink}>
-                  {device.name}
-                </Link>
-              </td>
-              <td>{device.deviceType}</td>
-              <td>{device.serial || 'N/A'}</td>
-              <td>{device.nextPreventiveDate ? new Date(device.nextPreventiveDate).toLocaleDateString() : 'N/D'}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      {/* A <Table> do Mantine adapta-se ao modo claro/escuro */}
+      <Table withTableBorder withColumnBorders highlightOnHover>
+        <Table.Thead>
+          <Table.Tr>
+            <Table.Th>Nome</Table.Th>
+            <Table.Th>Tipo</Table.Th>
+            <Table.Th>Nº de Série</Table.Th>
+            <Table.Th>Próxima Preventiva</Table.Th>
+          </Table.Tr>
+        </Table.Thead>
+        <Table.Tbody>
+          {rows.length > 0 ? rows : (
+            <Table.Tr>
+              <Table.Td colSpan={4} ta="center">Nenhum dispositivo encontrado.</Table.Td>
+            </Table.Tr>
+          )}
+        </Table.Tbody>
+      </Table>
     </div>
   );
 }

@@ -1,66 +1,99 @@
 // src/pages/LoginPage.jsx
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom'; // Hook para navegação
-import { login } from '../services/api'; // Importa a nossa função de login
+import { useNavigate } from 'react-router-dom';
+import { login } from '../services/api';
+
+// Importe os componentes visuais do Mantine
+import { 
+  Paper, 
+  Title, 
+  TextInput, 
+  PasswordInput, 
+  Button, 
+  Text, 
+  Alert,
+  Center,
+  Container
+} from '@mantine/core';
+import { IconAlertCircle } from '@tabler/icons-react';
 
 function LoginPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState(null);
-  const navigate = useNavigate(); // Inicializa o hook de navegação
+  const [isLoading, setIsLoading] = useState(false);
+  const navigate = useNavigate();
 
   const handleSubmit = async (event) => {
     event.preventDefault();
     setError(null);
+    setIsLoading(true);
 
     if (!username || !password) {
       setError('Nome de usuário e senha são obrigatórios.');
+      setIsLoading(false);
       return;
     }
 
     try {
-      // Chama a nossa função de API
       const data = await login(username, password);
-
       if (data.success && data.token) {
-        // Se o login for bem-sucedido, guarda o token no armazenamento local do navegador
         localStorage.setItem('authToken', data.token);
-        console.log('Login bem-sucedido! Redirecionando...');
-        // Redireciona o usuário para a página inicial
-        navigate('/');
+        navigate('/'); // Redireciona para o dashboard
       }
     } catch (err) {
-      // Se a API retornar um erro (ex: 401 Credenciais inválidas), mostra a mensagem
       setError(err.message || 'Falha na autenticação.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
+  // Layout que centra o cartão de login na página
   return (
-    <div>
-      <h2>Login</h2>
-      <form onSubmit={handleSubmit}>
-        <div>
-          <label htmlFor="username">Usuário:</label>
-          <input
-            type="text"
-            id="username"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-          />
-        </div>
-        <div>
-          <label htmlFor="password">Senha:</label>
-          <input
-            type="password"
-            id="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-        </div>
-        {error && <p style={{ color: 'red' }}>{error}</p>}
-        <button type="submit">Entrar</button>
-      </form>
-    </div>
+    <Container size="100vw" h="100vh">
+      <Center h="100%">
+        <Paper withBorder shadow="md" p="xl" radius="md" style={{ width: 400 }}>
+          <Title order={2} ta="center" mb="lg">
+            TechFlow Login
+          </Title>
+
+          <form onSubmit={handleSubmit}>
+            <TextInput
+              label="Usuário"
+              placeholder="Seu nome de usuário"
+              required
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              mb="md" // margem inferior
+            />
+
+            <PasswordInput
+              label="Senha"
+              placeholder="Sua senha"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              mb="lg" // margem inferior grande
+            />
+
+            {error && (
+              <Alert 
+                color="red" 
+                title="Erro no Login" 
+                icon={<IconAlertCircle />} 
+                mb="md"
+              >
+                {error}
+              </Alert>
+            )}
+
+            <Button type="submit" fullWidth loading={isLoading}>
+              Entrar
+            </Button>
+          </form>
+        </Paper>
+      </Center>
+    </Container>
   );
 }
 
