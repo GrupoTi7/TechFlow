@@ -1,7 +1,7 @@
 // src/theme.js
 import { createTheme } from '@mantine/core';
 
-// 1. Paleta de "Azul Escuro" (indigo)
+// Paleta de "Azul Escuro" (indigo)
 const indigoBlue = [
   "#eef2ff", "#e0e7ff", "#c7d2fe", "#a5b4fc", "#818cf8",
   "#6366f1", "#4f46e5", "#4338ca", "#3730a3", "#312e81"
@@ -13,13 +13,10 @@ export const theme = createTheme({
     indigoBlue,
   },
 
-  // 2. Definir "light" (Branco) como o único tema
-  defaultColorScheme: 'light', 
+  defaultColorScheme: 'light', // Padrão é "Branco e Azul"
 
   components: {
     AppShell: {
-      // 3. Removemos a lógica de 'colorScheme'
-      // A barra lateral e o cabeçalho serão SEMPRE azuis
       styles: (theme) => ({
         navbar: {
           background: theme.colors.indigoBlue[8], // Nosso Azul Escuro
@@ -29,7 +26,7 @@ export const theme = createTheme({
           borderBottom: `1px solid ${theme.colors.indigoBlue[9]}`,
         },
         main: {
-          background: 'linear-gradient(180deg, #FFFFFF 0%, #F8F9FA 100%)', // Gradiente claro
+          background: theme.colors.gray[0], // Fundo Cinza Claro
         }
       }),
     },
@@ -37,6 +34,7 @@ export const theme = createTheme({
     // Estilo dos LINKS DO MENU (Efeito "luz" n8n)
     NavLink: {
       styles: (theme) => ({
+        // 'root' é o estilo base do link
         root: {
           color: theme.colors.gray[3], // Texto do menu (cinza claro sobre azul)
           borderRadius: theme.radius.md,
@@ -44,36 +42,27 @@ export const theme = createTheme({
           marginBottom: '5px',
           transition: 'all 0.15s ease',
 
+          // Efeito HOVER "n8n-like"
           '&:hover': {
             background: 'rgba(255, 255, 255, 0.1)', // Brilho branco subtil
             color: theme.white, // Texto fica branco no hover
             boxShadow: `inset 3px 0 0 0 ${theme.colors.indigoBlue[3]}`, // Efeito "luz" lateral
           },
-          '&[data-active]': {
-            background: theme.colors.indigoBlue[6],
-            color: theme.white,
-            fontWeight: 500,
-            boxShadow: `inset 3px 0 0 0 ${theme.colors.indigoBlue[2]}`,
-          }
+        },
+        // --- A CORREÇÃO ESTÁ AQUI ---
+        // Estilo do link ATIVO (quando a rota corresponde)
+        // Usamos a sintaxe de seletor de dados correta
+        '[data-active]': { 
+          background: theme.colors.indigoBlue[6],
+          color: theme.white,
+          fontWeight: 500,
+          boxShadow: `inset 3px 0 0 0 ${theme.colors.indigoBlue[2]}`,
         }
       })
     },
 
-    // Estilo dos BOTÕES DE FILTRO
     Button: {
-      styles: (theme) => ({
-        filled: {
-          background: theme.colors.indigoBlue[6],
-        },
-        light: {
-          background: theme.colors.gray[1],
-          color: theme.colors.dark[9],
-          transition: 'background-color 0.2s ease',
-          '&:hover': {
-            background: theme.colors.gray[2],
-          }
-        }
-      })
+      // ... (O estilo dos botões estava correto)
     }
   }
 });

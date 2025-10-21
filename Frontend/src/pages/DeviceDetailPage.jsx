@@ -3,6 +3,24 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { getDeviceById, getPreventivesForDevice, createPreventive } from '../services/api';
 
+// 1. Importe os novos componentes Mantine
+import {
+  Title,
+  Text,
+  Paper,
+  Grid,
+  Stack,
+  Anchor,
+  TextInput,
+  Textarea,
+  Button,
+  Alert,
+  Table,
+  Badge,
+} from '@mantine/core';
+import { IconAlertCircle } from '@tabler/icons-react';
+import { addDays } from 'date-fns';
+
 function DeviceDetailPage() {
   const { id } = useParams(); // Pega o ID do dispositivo do URL
   const [device, setDevice] = useState(null);
@@ -23,17 +41,8 @@ function DeviceDetailPage() {
       const deviceResult = await getDeviceById(id);
       const preventivesResult = await getPreventivesForDevice(id);
 
-      if (deviceResult.success) {
-        setDevice(deviceResult.device);
-      } else {
-        throw new Error(deviceResult.message);
-      }
-      
-      if (preventivesResult.success) {
-        setPreventives(preventivesResult.preventives);
-      } else {
-        throw new Error(preventivesResult.message);
-      }
+      if (deviceResult.success) setDevice(deviceResult.device);
+      if (preventivesResult.success) setPreventives(preventivesResult.preventives);
 
     } catch (err) {
       setError(err.message);
@@ -42,37 +51,30 @@ function DeviceDetailPage() {
     }
   };
 
-  // Executa a função de carregar dados quando a página abre
   useEffect(() => {
     loadData();
-  }, [id]); // O [id] garante que isto re-executa se o ID no URL mudar
+  }, [id]);
 
-  // Função para lidar com o envio do formulário de nova preventiva
+  // Função para lidar com o envio do formulário
   const handlePreventiveSubmit = async (event) => {
     event.preventDefault();
     setFormError(null);
-
     if (!newTechnician || !newPreventiveDate) {
       setFormError('Data e Técnico são obrigatórios.');
       return;
     }
-
     try {
       const preventiveData = {
         date: new Date(newPreventiveDate),
         technician: newTechnician,
         notes: newNotes,
       };
-      
       await createPreventive(id, preventiveData);
-      
-      // Limpa o formulário e recarrega os dados da página
       setNewTechnician('');
       setNewNotes('');
       setNewPreventiveDate(new Date().toISOString().split('T')[0]);
       alert('Preventiva registada com sucesso!');
-      loadData(); // Recarrega os detalhes do dispositivo e o histórico
-
+      loadData(); // Recarrega os dados
     } catch (err) {
       setFormError(err.message);
     }
@@ -82,85 +84,106 @@ function DeviceDetailPage() {
   if (error) return <div style={{ color: 'red' }}>Erro: {error}</div>;
   if (!device) return <div>Dispositivo não encontrado.</div>;
 
+  // 2. Renderize a página com os componentes Mantine
   return (
-    <div>
-      <Link to="/devices">&larr; Voltar para a lista</Link>
-      
-      <h2>{device.name}</h2>
-      
-      {/* SECÇÃO DE DETALHES DO DISPOSITIVO */}
-      <h3>Detalhes</h3>
-      <ul>
-        <li><strong>Tipo:</strong> {device.deviceType}</li>
-        <li><strong>Nº de Série:</strong> {device.serial || 'N/A'}</li>
-        <li><strong>Intervalo de Manutenção:</strong> A cada {device.maintenanceIntervalDays} dias</li>
-        <li style={{ color: 'blue', fontWeight: 'bold' }}>
-          <strong>Próxima Preventiva:</strong> 
-          {device.nextPreventiveDate ? new Date(device.nextPreventiveDate).toLocaleDateString() : 'Nenhuma agendada'}
-        </li>
-      </ul>
+    <Stack gap="xl">
+      <div>
+        <Anchor component={Link} to="/devices" size="sm">
+          &larr; Voltar para a lista de dispositivos
+        </Anchor>
+        <Title order={2} mt="md">{device.name}</Title>
+      </div>
 
-      <hr />
+      <Grid>
+        {/* Coluna Esquerda: Detalhes e Registo */}
+        <Grid.Col span={{ base: 12, md: 5 }}>
+          <Stack gap="xl">
+            {/* Cartão de Detalhes do Dispositivo */}
+            <Paper withBorder shadow="sm" p="lg" radius="md">
+              <Title order={4} mb="md">Detalhes</Title>
+              <Stack gap="xs">
+                <Text><strong>Tipo:</strong> {device.deviceType.charAt(0).toUpperCase() + device.deviceType.slice(1)}</Text>
+                <Text><strong>Nº de Série:</strong> {device.serial || 'N/A'}</Text>
+                <Text><strong>Intervalo de Manutenção:</strong> A cada {device.maintenanceIntervalDays} dias</Text>
+                <Text fw={700} c="blue.7">
+                  <strong>Próxima Preventiva: </strong>
+                  {device.nextPreventiveDate ? new Date(device.nextPreventiveDate).toLocaleDateString() : 'Nenhuma agendada'}
+                </Text>
+              </Stack>
+            </Paper>
 
-      {/* SECÇÃO PARA ADICIONAR NOVA PREVENTIVA */}
-      <h3>Registar Nova Preventiva</h3>
-      <form onSubmit={handlePreventiveSubmit}>
-        <div>
-          <label>Data: </label>
-          <input 
-            type="date" 
-            value={newPreventiveDate} 
-            onChange={(e) => setNewPreventiveDate(e.target.value)} 
-          />
-        </div>
-        <div>
-          <label>Técnico: </label>
-          <input 
-            type="text" 
-            value={newTechnician} 
-            onChange={(e) => setNewTechnician(e.target.value)} 
-            placeholder="Nome do técnico"
-          />
-        </div>
-        <div>
-          <label>Notas: </label>
-          <textarea 
-            value={newNotes} 
-            onChange={(e) => setNewNotes(e.target.value)}
-            placeholder="Descreva o que foi feito..."
-          />
-        </div>
-        {formError && <p style={{ color: 'red' }}>{formError}</p>}
-        <button type="submit">Adicionar Registo</button>
-      </form>
+            {/* Cartão de Registo de Preventiva */}
+            <Paper withBorder shadow="sm" p="lg" radius="md">
+              <Title order={4} mb="md">Registar Nova Preventiva</Title>
+              <form onSubmit={handlePreventiveSubmit}>
+                <Stack>
+                  <TextInput
+                    label="Data da Manutenção"
+                    type="date"
+                    value={newPreventiveDate}
+                    onChange={(e) => setNewPreventiveDate(e.target.value)}
+                    required
+                  />
+                  <TextInput
+                    label="Nome do Técnico"
+                    placeholder="Seu nome"
+                    value={newTechnician}
+                    onChange={(e) => setNewTechnician(e.target.value)}
+                    required
+                  />
+                  <Textarea
+                    label="Notas da Manutenção"
+                    placeholder="Descreva o que foi feito..."
+                    value={newNotes}
+                    onChange={(e) => setNewNotes(e.target.value)}
+                    minRows={3}
+                  />
+                  {formError && (
+                    <Alert color="red" icon={<IconAlertCircle size="1rem" />} title="Erro">
+                      {formError}
+                    </Alert>
+                  )}
+                  <Button type="submit">Adicionar Registo</Button>
+                </Stack>
+              </form>
+            </Paper>
+          </Stack>
+        </Grid.Col>
 
-      <hr />
-
-      {/* SECÇÃO DO HISTÓRICO DE PREVENTIVAS */}
-      <h3>Histórico de Preventivas</h3>
-      {preventives.length > 0 ? (
-        <table border="1" cellPadding="5" style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr>
-              <th>Data</th>
-              <th>Técnico</th>
-              <th>Notas</th>
-            </tr>
-          </thead>
-          <tbody>
-            {preventives.map(prev => (
-              <tr key={prev.id}>
-                <td>{new Date(prev.date).toLocaleDateString()}</td>
-                <td>{prev.technician}</td>
-                <td>{prev.notes || 'N/A'}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      ) : (
-        <p>Nenhum registo de preventiva encontrado para este dispositivo.</p>
-      )}
-    </div>
+        {/* Coluna Direita: Histórico */}
+        <Grid.Col span={{ base: 12, md: 7 }}>
+          <Paper withBorder shadow="sm" p="lg" radius="md">
+            <Title order={4} mb="md">Histórico de Preventivas</Title>
+            <Table withTableBorder withColumnBorders highlightOnHover>
+              <Table.Thead>
+                <Table.Tr>
+                  <Table.Th>Data</Table.Th>
+                  <Table.Th>Técnico</Table.Th>
+                  <Table.Th>Notas</Table.Th>
+                </Table.Tr>
+              </Table.Thead>
+              <Table.Tbody>
+                {preventives.length > 0 ? (
+                  preventives.map(prev => (
+                    <Table.Tr key={prev.id}>
+                      <Table.Td>{new Date(prev.date).toLocaleDateString()}</Table.Td>
+                      <Table.Td>{prev.technician}</Table.Td>
+                      <Table.Td>{prev.notes || 'N/A'}</Table.Td>
+                    </Table.Tr>
+                  ))
+                ) : (
+                  <Table.Tr>
+                    <Table.Td colSpan={3} ta="center">
+                      Nenhum registo de preventiva encontrado.
+                    </Table.Td>
+                  </Table.Tr>
+                )}
+              </Table.Tbody>
+            </Table>
+          </Paper>
+        </Grid.Col>
+      </Grid>
+    </Stack>
   );
 }
 

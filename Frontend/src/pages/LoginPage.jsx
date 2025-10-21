@@ -3,7 +3,6 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { login } from '../services/api';
 
-// Importe os componentes visuais do Mantine
 import { 
   Paper, 
   Title, 
@@ -13,7 +12,8 @@ import {
   Text, 
   Alert,
   Center,
-  Container
+  Container,
+  useMantineTheme // Para aceder às cores do tema
 } from '@mantine/core';
 import { IconAlertCircle } from '@tabler/icons-react';
 
@@ -23,6 +23,7 @@ function LoginPage() {
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+  const theme = useMantineTheme(); // Hook para aceder ao tema
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -48,51 +49,67 @@ function LoginPage() {
     }
   };
 
-  // Layout que centra o cartão de login na página
   return (
-    <Container size="100vw" h="100vh">
-      <Center h="100%">
-        <Paper withBorder shadow="md" p="xl" radius="md" style={{ width: 400 }}>
-          <Title order={2} ta="center" mb="lg">
-            TechFlow Login
-          </Title>
+    // 1. Fundo Azul Escuro (do seu tema)
+    <Container 
+      size="100vw" 
+      h="100vh" 
+      style={{ 
+        // --- A CORREÇÃO ESTÁ AQUI ---
+        // Usa a cor "indigoBlue" do seu theme.js
+        background: theme.colors.indigoBlue[8], 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center' 
+      }}
+    >
+      <Paper 
+        withBorder 
+        shadow="md" 
+        p="xl" 
+        radius="lg" 
+        style={{ 
+          width: 'min(90%, 450px)', // Elementos maiores
+          padding: '2.5rem' // Preenchimento interno maior
+        }}
+      >
+        {/* 2. Título "TechFlow" */}
+        <Title order={1} ta="center" mb="xl" style={{ fontSize: '2.5rem' }}> 
+          TechFlow
+        </Title>
+        
+        <form onSubmit={handleSubmit}>
+          <TextInput
+            label="Usuário"
+            placeholder="Seu nome de usuário"
+            required
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            mb="lg"
+            size="md" // Campo de texto maior
+          />
+          
+          <PasswordInput
+            label="Senha"
+            placeholder="Sua senha"
+            required
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            mb="xl"
+            size="md" // Campo de senha maior
+          />
 
-          <form onSubmit={handleSubmit}>
-            <TextInput
-              label="Usuário"
-              placeholder="Seu nome de usuário"
-              required
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              mb="md" // margem inferior
-            />
+          {error && (
+            <Alert color="red" title="Erro no Login" icon={<IconAlertCircle />} mb="lg" size="md">
+              {error}
+            </Alert>
+          )}
 
-            <PasswordInput
-              label="Senha"
-              placeholder="Sua senha"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              mb="lg" // margem inferior grande
-            />
-
-            {error && (
-              <Alert 
-                color="red" 
-                title="Erro no Login" 
-                icon={<IconAlertCircle />} 
-                mb="md"
-              >
-                {error}
-              </Alert>
-            )}
-
-            <Button type="submit" fullWidth loading={isLoading}>
-              Entrar
-            </Button>
-          </form>
-        </Paper>
-      </Center>
+          <Button type="submit" fullWidth loading={isLoading} size="lg">
+            Entrar
+          </Button>
+        </form>
+      </Paper>
     </Container>
   );
 }
