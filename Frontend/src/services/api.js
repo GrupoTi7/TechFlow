@@ -71,3 +71,13 @@ export const createPreventive = async (deviceId, preventiveData) => {
     throw error.response?.data || new Error('Erro de rede ao criar preventiva.');
   }
 };
+
+// Função para buscar os dados do gráfico de locais
+export const getLocationChart = async () => {
+  try {
+    const response = await apiClient.get('/api/dashboard/chart/locations');
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || new Error('Erro de rede ao buscar dados do gráfico.');
+  }
+};

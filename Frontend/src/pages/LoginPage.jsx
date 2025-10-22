@@ -50,14 +50,13 @@ function LoginPage() {
   };
 
   return (
-    // 1. Fundo Azul Escuro (do seu tema)
+    // Fundo Azul Royal (do seu tema)
     <Container 
       size="100vw" 
       h="100vh" 
       style={{ 
-        // --- A CORREÇÃO ESTÁ AQUI ---
-        // Usa a cor "indigoBlue" do seu theme.js
-        background: theme.colors.indigoBlue[8], 
+        
+        background: theme.colors.blue[8], 
         display: 'flex', 
         alignItems: 'center', 
         justifyContent: 'center' 
@@ -69,11 +68,10 @@ function LoginPage() {
         p="xl" 
         radius="lg" 
         style={{ 
-          width: 'min(90%, 450px)', // Elementos maiores
-          padding: '2.5rem' // Preenchimento interno maior
+          width: 'min(90%, 450px)', 
+          padding: '2.5rem'
         }}
       >
-        {/* 2. Título "TechFlow" */}
         <Title order={1} ta="center" mb="xl" style={{ fontSize: '2.5rem' }}> 
           TechFlow
         </Title>
@@ -86,7 +84,7 @@ function LoginPage() {
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             mb="lg"
-            size="md" // Campo de texto maior
+            size="md" 
           />
           
           <PasswordInput
@@ -96,7 +94,7 @@ function LoginPage() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             mb="xl"
-            size="md" // Campo de senha maior
+            size="md"
           />
 
           {error && (

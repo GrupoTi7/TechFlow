@@ -1,25 +1,13 @@
 // src/pages/DeviceListPage.jsx
 import React, { useState, useEffect, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom'; // <-- 1. Importe useLocation
 import { getDevices } from '../services/api';
-
-// 1. Importe TextInput e o ícone de Lupa
 import { 
-  Table, 
-  Title, 
-  Group, 
-  Button, 
-  Anchor, 
-  Text, 
-  Menu, 
-  TextInput // <-- Importe o TextInput
+  Table, Title, Group, Button, Anchor, Text, Menu, TextInput 
 } from '@mantine/core';
 import { 
-  IconFilter, 
-  IconDeviceDesktop, 
-  IconPrinter, 
-  IconList,
-  IconSearch // <-- Importe o ícone de Lupa
+  IconFilter, IconDeviceDesktop, IconPrinter, IconList, IconSearch,
+  IconAlertTriangle, IconClock // <-- 2. Importe os ícones de status
 } from '@tabler/icons-react';
 
 const filterLabels = {
@@ -32,10 +20,14 @@ function DeviceListPage() {
   const [devices, setDevices] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [filterType, setFilterType] = useState('computer'); 
   
-  // --- 2. ADICIONE O ESTADO PARA A PESQUISA ---
+  const location = useLocation(); // <-- 3. Obtenha a localização
+  
+  const [filterType, setFilterType] = useState('computer');
   const [searchQuery, setSearchQuery] = useState('');
+  
+  // 4. O novo filtro de status, lido do clique no dashboard (ou 'all' por defeito)
+  const [statusFilter, setStatusFilter] = useState(location.state?.initialStatusFilter || 'all'); 
 
   useEffect(() => {
     // ... (lógica de fetch igual)
@@ -56,17 +48,31 @@ function DeviceListPage() {
     fetchDevices();
   }, []);
 
-  // --- 3. ATUALIZE A LÓGICA DE FILTRAGEM ---
-  // Agora, filtramos por TIPO e DEPOIS por NOME
+  // --- 5. ATUALIZE A LÓGICA DE FILTRAGEM ---
   const filteredDevices = useMemo(() => {
     let tempDevices = devices;
+    const now = new Date();
 
-    // Primeiro, filtra por tipo
+    // Filtro por TIPO (Computador/Impressora)
     if (filterType !== 'all') {
       tempDevices = tempDevices.filter(device => device.deviceType === filterType);
     }
 
-    // Depois, filtra pelo texto da pesquisa
+    // Filtro por STATUS (Atrasado/Próximo)
+    if (statusFilter === 'overdue') {
+      tempDevices = tempDevices.filter(device => 
+        device.nextPreventiveDate && new Date(device.nextPreventiveDate) <= now
+      );
+    } else if (statusFilter === 'upcoming') {
+      const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+      tempDevices = tempDevices.filter(device => 
+        device.nextPreventiveDate && 
+        new Date(device.nextPreventiveDate) > now && 
+        new Date(device.nextPreventiveDate) <= thirtyDaysFromNow
+      );
+    }
+    
+    // Filtro por PESQUISA (Nome)
     if (searchQuery.trim() !== '') {
       tempDevices = tempDevices.filter(device => 
         device.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -74,15 +80,10 @@ function DeviceListPage() {
     }
 
     return tempDevices;
-  }, [devices, filterType, searchQuery]); // Adicione searchQuery às dependências
-
+  }, [devices, filterType, statusFilter, searchQuery]); // Adicione statusFilter e searchQuery
   
-  if (isLoading) {
-    return <div>A carregar dispositivos...</div>;
-  }
-  if (error) {
-    return <div style={{ color: 'red' }}>Erro: {error}</div>;
-  }
+  if (isLoading) return <div>A carregar dispositivos...</div>;
+  if (error) return <div style={{ color: 'red' }}>Erro: {error}</div>;
 
   const rows = filteredDevices.map((device) => (
     <Table.Tr key={device.id}>
@@ -91,23 +92,16 @@ function DeviceListPage() {
           {device.name}
         </Anchor>
       </Table.Td>
-      <Table.Td>
-        {device.deviceType.charAt(0).toUpperCase() + device.deviceType.slice(1)}
-      </Table.Td>
+      <Table.Td>{device.deviceType.charAt(0).toUpperCase() + device.deviceType.slice(1)}</Table.Td>
       <Table.Td>{device.serial || 'N/A'}</Table.Td>
-      <Table.Td>
-        {device.nextPreventiveDate ? new Date(device.nextPreventiveDate).toLocaleDateString() : 'N/D'}
-      </Table.Td>
+      <Table.Td>{device.nextPreventiveDate ? new Date(device.nextPreventiveDate).toLocaleDateString() : 'N/D'}</Table.Td>
     </Table.Tr>
   ));
-
-
+  
   return (
     <div>
       <Group justify="space-between" mb="lg">
         <Title order={2}>Inventário de Dispositivos ({filteredDevices.length})</Title>
-        
-        {/* --- 4. ADICIONE O CAMPO DE PESQUISA --- */}
         <Group>
           <TextInput
             placeholder="Buscar por nome..."
@@ -116,32 +110,48 @@ function DeviceListPage() {
             onChange={(e) => setSearchQuery(e.target.value)}
           />
 
+          {/* --- 6. MENU DE FILTRO DE STATUS --- */}
+          <Menu shadow="md" width={200}>
+            <Menu.Target>
+              <Button 
+                leftSection={<IconFilter size={16} />} 
+                variant="light"
+                // Muda a cor do botão com base no filtro ativo
+                color={statusFilter === 'overdue' ? 'red' : (statusFilter === 'upcoming' ? 'yellow' : 'blue')}
+              >
+                Status: {statusFilter === 'all' ? 'Todos' : (statusFilter === 'overdue' ? 'Atrasados' : 'Próximos')}
+              </Button>
+            </Menu.Target>
+            <Menu.Dropdown>
+              <Menu.Label>Filtrar por Status</Menu.Label>
+              <Menu.Item leftSection={<IconList size={14} />} onClick={() => setStatusFilter('all')}>Todos</Menu.Item>
+              <Menu.Item color="red" leftSection={<IconAlertTriangle size={14} />} onClick={() => setStatusFilter('overdue')}>Atrasados</Menu.Item>
+              <Menu.Item color="yellow" leftSection={<IconClock size={14} />} onClick={() => setStatusFilter('upcoming')}>Próximos</Menu.Item>
+            </Menu.Dropdown>
+          </Menu>
+
+          {/* Menu de Filtro de TIPO */}
           <Menu shadow="md" width={200}>
             <Menu.Target>
               <Button 
                 leftSection={<IconFilter size={16} />} 
                 variant="light"
               >
-                Filtro: {filterLabels[filterType]}
+                Tipo: {filterLabels[filterType]}
               </Button>
             </Menu.Target>
             <Menu.Dropdown>
               <Menu.Label>Filtrar por tipo</Menu.Label>
-              <Menu.Item leftSection={<IconList size={14} />} onClick={() => setFilterType('all')}>
-                Todos
-              </Menu.Item>
-              <Menu.Item leftSection={<IconDeviceDesktop size={14} />} onClick={() => setFilterType('computer')}>
-                Computadores
-              </Menu.Item>
-              <Menu.Item leftSection={<IconPrinter size={14} />} onClick={() => setFilterType('printer')}>
-                Impressoras
-              </Menu.Item>
+              <Menu.Item leftSection={<IconList size={14} />} onClick={() => setFilterType('all')}>Todos</Menu.Item>
+              <Menu.Item leftSection={<IconDeviceDesktop size={14} />} onClick={() => setFilterType('computer')}>Computadores</Menu.Item>
+              <Menu.Item leftSection={<IconPrinter size={14} />} onClick={() => setFilterType('printer')}>Impressoras</Menu.Item>
             </Menu.Dropdown>
           </Menu>
+          
         </Group>
       </Group>
 
-      {/* Tabela (sem alterações) */}
+      {/* Tabela */}
       <Table withTableBorder withColumnBorders highlightOnHover>
         <Table.Thead>
           <Table.Tr>
