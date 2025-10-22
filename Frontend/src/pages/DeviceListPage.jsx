@@ -1,14 +1,15 @@
 // src/pages/DeviceListPage.jsx
 import React, { useState, useEffect, useMemo } from 'react';
-import { Link, useLocation } from 'react-router-dom'; // <-- 1. Importe useLocation
+import { Link, useLocation } from 'react-router-dom';
 import { getDevices } from '../services/api';
 import { 
   Table, Title, Group, Button, Anchor, Text, Menu, TextInput 
 } from '@mantine/core';
 import { 
   IconFilter, IconDeviceDesktop, IconPrinter, IconList, IconSearch,
-  IconAlertTriangle, IconClock // <-- 2. Importe os ícones de status
+  IconAlertTriangle, IconClock 
 } from '@tabler/icons-react';
+// (Não precisamos mais de IconBuildingStore ou IconBuildingFactory aqui)
 
 const filterLabels = {
   all: 'Todos',
@@ -21,19 +22,29 @@ function DeviceListPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   
-  const location = useLocation(); // <-- 3. Obtenha a localização
+  const location = useLocation();
   
   const [filterType, setFilterType] = useState('computer');
   const [searchQuery, setSearchQuery] = useState('');
-  
-  // 4. O novo filtro de status, lido do clique no dashboard (ou 'all' por defeito)
   const [statusFilter, setStatusFilter] = useState(location.state?.initialStatusFilter || 'all'); 
+  
+  // --- 1. LEIA O NOVO FILTRO DO DASHBOARD ---
+  // Este estado controla o filtro, mas o botão para o mudar foi removido
+  const [nomenclatureFilter, setNomenclatureFilter] = useState(location.state?.initialNomenclatureFilter || 'all');
 
   useEffect(() => {
-    // ... (lógica de fetch igual)
     const fetchDevices = async () => {
       try {
-        const data = await getDevices();
+        setIsLoading(true);
+        // --- 2. PASSE TODOS OS FILTROS PARA A API ---
+        const filters = {
+          deviceType: filterType,
+          status: statusFilter,
+          searchQuery: searchQuery,
+          nomenclature: nomenclatureFilter,
+        };
+        const data = await getDevices(filters);
+        
         if (data.success) {
           setDevices(data.devices);
         } else {
@@ -45,43 +56,30 @@ function DeviceListPage() {
         setIsLoading(false);
       }
     };
+
+    // 3. RE-BUSQUE OS DADOS sempre que qualquer filtro mudar
     fetchDevices();
-  }, []);
+  }, [filterType, statusFilter, searchQuery, nomenclatureFilter]); 
 
-  // --- 5. ATUALIZE A LÓGICA DE FILTRAGEM ---
-  const filteredDevices = useMemo(() => {
-    let tempDevices = devices;
-    const now = new Date();
+  // 4. O backend está a fazer a filtragem
+  const filteredDevices = devices; 
 
-    // Filtro por TIPO (Computador/Impressora)
-    if (filterType !== 'all') {
-      tempDevices = tempDevices.filter(device => device.deviceType === filterType);
+  // --- 5. NOVA LÓGICA: Calcular contagens de subgrupos ---
+  const subGroupCounts = useMemo(() => {
+    if (nomenclatureFilter === 'owned') {
+      const ptrCount = filteredDevices.filter(d => d.name.startsWith('PTR')).length;
+      const trcCount = filteredDevices.filter(d => d.name.startsWith('TRC')).length;
+      return `(Comprados: ${ptrCount} PTR, ${trcCount} TRC)`;
     }
-
-    // Filtro por STATUS (Atrasado/Próximo)
-    if (statusFilter === 'overdue') {
-      tempDevices = tempDevices.filter(device => 
-        device.nextPreventiveDate && new Date(device.nextPreventiveDate) <= now
-      );
-    } else if (statusFilter === 'upcoming') {
-      const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-      tempDevices = tempDevices.filter(device => 
-        device.nextPreventiveDate && 
-        new Date(device.nextPreventiveDate) > now && 
-        new Date(device.nextPreventiveDate) <= thirtyDaysFromNow
-      );
+    if (nomenclatureFilter === 'rented') {
+      const netsiteCount = filteredDevices.filter(d => d.name.startsWith('NETSITE')).length;
+      const vivoCount = filteredDevices.filter(d => d.name.startsWith('VIVO')).length;
+      return `(Alugados: ${netsiteCount} NETSITE, ${vivoCount} VIVO)`;
     }
-    
-    // Filtro por PESQUISA (Nome)
-    if (searchQuery.trim() !== '') {
-      tempDevices = tempDevices.filter(device => 
-        device.name.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-    }
+    return null; // Não mostra nada se o filtro for "all"
+  }, [filteredDevices, nomenclatureFilter]);
 
-    return tempDevices;
-  }, [devices, filterType, statusFilter, searchQuery]); // Adicione statusFilter e searchQuery
-  
+
   if (isLoading) return <div>A carregar dispositivos...</div>;
   if (error) return <div style={{ color: 'red' }}>Erro: {error}</div>;
 
@@ -101,7 +99,12 @@ function DeviceListPage() {
   return (
     <div>
       <Group justify="space-between" mb="lg">
-        <Title order={2}>Inventário de Dispositivos ({filteredDevices.length})</Title>
+        <Group>
+          <Title order={2}>Inventário de Dispositivos ({filteredDevices.length})</Title>
+          {/* --- 6. MOSTRAR AS CONTAGENS DOS SUBGRUPOS --- */}
+          {subGroupCounts && <Text c="dimmed" size="lg">{subGroupCounts}</Text>}
+        </Group>
+        
         <Group>
           <TextInput
             placeholder="Buscar por nome..."
@@ -109,14 +112,12 @@ function DeviceListPage() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
-
-          {/* --- 6. MENU DE FILTRO DE STATUS --- */}
+          {/* Menu de Filtro de Status */}
           <Menu shadow="md" width={200}>
             <Menu.Target>
               <Button 
                 leftSection={<IconFilter size={16} />} 
                 variant="light"
-                // Muda a cor do botão com base no filtro ativo
                 color={statusFilter === 'overdue' ? 'red' : (statusFilter === 'upcoming' ? 'yellow' : 'blue')}
               >
                 Status: {statusFilter === 'all' ? 'Todos' : (statusFilter === 'overdue' ? 'Atrasados' : 'Próximos')}
@@ -129,8 +130,8 @@ function DeviceListPage() {
               <Menu.Item color="yellow" leftSection={<IconClock size={14} />} onClick={() => setStatusFilter('upcoming')}>Próximos</Menu.Item>
             </Menu.Dropdown>
           </Menu>
-
-          {/* Menu de Filtro de TIPO */}
+          
+          {/* Menu de Filtro de Tipo */}
           <Menu shadow="md" width={200}>
             <Menu.Target>
               <Button 
@@ -147,6 +148,8 @@ function DeviceListPage() {
               <Menu.Item leftSection={<IconPrinter size={14} />} onClick={() => setFilterType('printer')}>Impressoras</Menu.Item>
             </Menu.Dropdown>
           </Menu>
+          
+          {/* --- 7. O MENU DE FILTRO DE NOMENCLATURA FOI REMOVIDO --- */}
           
         </Group>
       </Group>

@@ -5,7 +5,6 @@ const apiClient = axios.create({
   baseURL: 'http://localhost:3000',
 });
 
-// Interceptor que anexa o token
 apiClient.interceptors.request.use((config) => {
   const token = localStorage.getItem('authToken');
   if (token) {
@@ -14,7 +13,6 @@ apiClient.interceptors.request.use((config) => {
   return config;
 });
 
-// --- AUTENTICAÇÃO ---
 export const login = async (username, password) => {
   try {
     const response = await apiClient.post('/api/auth/login', { username, password });
@@ -24,7 +22,6 @@ export const login = async (username, password) => {
   }
 };
 
-// --- DASHBOARD ---
 export const getDashboardStats = async () => {
   try {
     const response = await apiClient.get('/api/dashboard/stats');
@@ -34,10 +31,17 @@ export const getDashboardStats = async () => {
   }
 };
 
-// --- DISPOSITIVOS ---
-export const getDevices = async () => {
+export const getDevices = async (filters = {}) => {
   try {
-    const response = await apiClient.get('/api/devices');
+    // Constrói os parâmetros de query a partir do objeto de filtros
+    const params = new URLSearchParams();
+    if (filters.deviceType) params.append('deviceType', filters.deviceType);
+    if (filters.status) params.append('status', filters.status);
+    if (filters.searchQuery) params.append('searchQuery', filters.searchQuery);
+    if (filters.nomenclature) params.append('nomenclature', filters.nomenclature); // <-- ADICIONA O NOVO FILTRO
+
+    // Faz a chamada GET com os parâmetros
+    const response = await apiClient.get('/api/devices', { params });
     return response.data;
   } catch (error) {
     throw error.response?.data || new Error('Erro de rede ao buscar dispositivos.');
@@ -53,7 +57,6 @@ export const getDeviceById = async (id) => {
   }
 };
 
-// --- PREVENTIVAS ---
 export const getPreventivesForDevice = async (deviceId) => {
   try {
     const response = await apiClient.get(`/api/devices/${deviceId}/preventives`);
@@ -69,15 +72,5 @@ export const createPreventive = async (deviceId, preventiveData) => {
     return response.data;
   } catch (error) {
     throw error.response?.data || new Error('Erro de rede ao criar preventiva.');
-  }
-};
-
-// Função para buscar os dados do gráfico de locais
-export const getLocationChart = async () => {
-  try {
-    const response = await apiClient.get('/api/dashboard/chart/locations');
-    return response.data;
-  } catch (error) {
-    throw error.response?.data || new Error('Erro de rede ao buscar dados do gráfico.');
   }
 };
