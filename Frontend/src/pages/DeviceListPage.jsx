@@ -7,9 +7,8 @@ import {
 } from '@mantine/core';
 import { 
   IconFilter, IconDeviceDesktop, IconPrinter, IconList, IconSearch,
-  IconAlertTriangle, IconClock 
+  IconAlertTriangle, IconClock, IconBuildingStore, IconBuildingFactory
 } from '@tabler/icons-react';
-// (Não precisamos mais de IconBuildingStore ou IconBuildingFactory aqui)
 
 const filterLabels = {
   all: 'Todos',
@@ -24,29 +23,20 @@ function DeviceListPage() {
   
   const location = useLocation();
   
+  // --- Definição de TODOS os estados de filtro ---
   const [filterType, setFilterType] = useState('computer');
-  const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState(location.state?.initialStatusFilter || 'all'); 
-  
-  // --- 1. LEIA O NOVO FILTRO DO DASHBOARD ---
-  // Este estado controla o filtro, mas o botão para o mudar foi removido
   const [nomenclatureFilter, setNomenclatureFilter] = useState(location.state?.initialNomenclatureFilter || 'all');
+  const [searchQuery, setSearchQuery] = useState(''); // <-- Corrige o 'searchQuery is not defined'
 
   useEffect(() => {
+    // Busca os dados APENAS UMA VEZ
     const fetchDevices = async () => {
       try {
         setIsLoading(true);
-        // --- 2. PASSE TODOS OS FILTROS PARA A API ---
-        const filters = {
-          deviceType: filterType,
-          status: statusFilter,
-          searchQuery: searchQuery,
-          nomenclature: nomenclatureFilter,
-        };
-        const data = await getDevices(filters);
-        
+        const data = await getDevices(); // Busca todos
         if (data.success) {
-          setDevices(data.devices);
+          setDevices(data.devices); // Salva a lista completa
         } else {
           setError(data.message);
         }
@@ -56,15 +46,47 @@ function DeviceListPage() {
         setIsLoading(false);
       }
     };
-
-    // 3. RE-BUSQUE OS DADOS sempre que qualquer filtro mudar
     fetchDevices();
-  }, [filterType, statusFilter, searchQuery, nomenclatureFilter]); 
+  }, []); // <-- Array de dependências VAZIO
 
-  // 4. O backend está a fazer a filtragem
-  const filteredDevices = devices; 
+  // Toda a lógica de filtragem agora acontece AQUI, no frontend
+  const filteredDevices = useMemo(() => {
+    let tempDevices = devices;
+    const now = new Date();
 
-  // --- 5. NOVA LÓGICA: Calcular contagens de subgrupos ---
+    // Filtro por TIPO
+    if (filterType !== 'all') {
+      tempDevices = tempDevices.filter(device => device.deviceType === filterType);
+    }
+    // Filtro por STATUS
+    if (statusFilter === 'overdue') {
+      tempDevices = tempDevices.filter(device => 
+        device.nextPreventiveDate && new Date(device.nextPreventiveDate) <= now
+      );
+    } else if (statusFilter === 'upcoming') {
+      const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+      tempDevices = tempDevices.filter(device => 
+        device.nextPreventiveDate && 
+        new Date(device.nextPreventiveDate) > now && 
+        new Date(device.nextPreventiveDate) <= thirtyDaysFromNow
+      );
+    }
+    // Filtro por NOMENCLATURA (vinda do dashboard)
+    if (nomenclatureFilter === 'owned') {
+      tempDevices = tempDevices.filter(d => d.name.startsWith('PTR') || d.name.startsWith('TRC'));
+    } else if (nomenclatureFilter === 'rented') {
+      tempDevices = tempDevices.filter(d => d.name.startsWith('NETSITE') || d.name.startsWith('VIVO'));
+    }
+    // Filtro por PESQUISA (Nome)
+    if (searchQuery.trim() !== '') {
+      tempDevices = tempDevices.filter(device => 
+        device.name.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+    return tempDevices;
+  }, [devices, filterType, statusFilter, searchQuery, nomenclatureFilter]); 
+
+  // Lógica dos Subgrupos (para mostrar o título)
   const subGroupCounts = useMemo(() => {
     if (nomenclatureFilter === 'owned') {
       const ptrCount = filteredDevices.filter(d => d.name.startsWith('PTR')).length;
@@ -76,7 +98,7 @@ function DeviceListPage() {
       const vivoCount = filteredDevices.filter(d => d.name.startsWith('VIVO')).length;
       return `(Alugados: ${netsiteCount} NETSITE, ${vivoCount} VIVO)`;
     }
-    return null; // Não mostra nada se o filtro for "all"
+    return null;
   }, [filteredDevices, nomenclatureFilter]);
 
 
@@ -101,7 +123,6 @@ function DeviceListPage() {
       <Group justify="space-between" mb="lg">
         <Group>
           <Title order={2}>Inventário de Dispositivos ({filteredDevices.length})</Title>
-          {/* --- 6. MOSTRAR AS CONTAGENS DOS SUBGRUPOS --- */}
           {subGroupCounts && <Text c="dimmed" size="lg">{subGroupCounts}</Text>}
         </Group>
         
@@ -148,8 +169,25 @@ function DeviceListPage() {
               <Menu.Item leftSection={<IconPrinter size={14} />} onClick={() => setFilterType('printer')}>Impressoras</Menu.Item>
             </Menu.Dropdown>
           </Menu>
-          
-          {/* --- 7. O MENU DE FILTRO DE NOMENCLATURA FOI REMOVIDO --- */}
+
+          {/* O menu de Nomenclatura, que era clicável apenas a partir do dashboard */}
+          <Menu shadow="md" width={200}>
+            <Menu.Target>
+              <Button 
+                leftSection={<IconFilter size={16} />} 
+                variant="light"
+                color={nomenclatureFilter === 'all' ? 'blue' : 'gray'}
+              >
+                Nomenclatura: {nomenclatureFilter === 'all' ? 'Todas' : (nomenclatureFilter === 'owned' ? 'Comprados' : 'Alugados')}
+              </Button>
+            </Menu.Target>
+            <Menu.Dropdown>
+              <Menu.Label>Filtrar por Nomenclatura</Menu.Label>
+              <Menu.Item leftSection={<IconList size={14} />} onClick={() => setNomenclatureFilter('all')}>Todas</Menu.Item>
+              <Menu.Item leftSection={<IconBuildingStore size={14} />} onClick={() => setNomenclatureFilter('owned')}>Comprados</Menu.Item>
+              <Menu.Item leftSection={<IconBuildingFactory size={14} />} onClick={() => setNomenclatureFilter('rented')}>Alugados</Menu.Item>
+            </Menu.Dropdown>
+          </Menu>
           
         </Group>
       </Group>

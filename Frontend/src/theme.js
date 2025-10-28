@@ -1,11 +1,8 @@
 // src/theme.js
 import { createTheme } from '@mantine/core';
 
-// 1. NÃO precisamos mais da paleta 'indigoBlue'.
-//    Vamos usar a paleta 'blue' padrão do Mantine, que é um "azul royal" mais puro.
-
 export const theme = createTheme({
-  // 2. Mude a cor primária para 'blue'
+  
   primaryColor: 'blue',
   
   defaultColorScheme: 'light', // Padrão é "Branco e Azul"
@@ -16,7 +13,6 @@ export const theme = createTheme({
         const colorScheme = options?.colorScheme || 'light';
         const isDark = colorScheme === 'dark';
         return {
-          // 3. Substitua 'indigoBlue' por 'blue'
           navbar: {
             background: isDark ? theme.colors.dark[7] : theme.colors.blue[8],
           },

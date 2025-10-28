@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { getDashboardStats } from '../services/api';
 import { useNavigate } from 'react-router-dom';
-import { Grid, Card, Text, Group, ThemeIcon, useMantineTheme, Stack } from '@mantine/core'; // Garanta que Stack está aqui
+import { Grid, Card, Text, Group, ThemeIcon, useMantineTheme, Stack } from '@mantine/core';
 import { BarChart } from '@mantine/charts';
 import {
   IconDeviceDesktop,
@@ -23,19 +23,13 @@ function HomePage() {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        console.log("HomePage: Iniciando busca de dados..."); // <-- LOG 1
         const data = await getDashboardStats();
-        console.log("HomePage: Dados recebidos da API:", data); // <-- LOG 2 (Veja a estrutura completa)
-
-        if (data && data.success && data.stats) { // <-- Verificação mais segura
-          console.log("HomePage: API retornou sucesso. Stats:", data.stats); // <-- LOG 3 (Veja o objeto stats)
+        if (data.success) {
           setStats(data.stats);
         } else {
-          console.error("HomePage: API não retornou sucesso ou 'stats' está em falta.", data); // <-- LOG 4
-          setError(data?.message || 'Resposta inválida da API.');
+          setError(data.message);
         }
       } catch (err) {
-        console.error("HomePage: Erro no fetchStats:", err); // <-- LOG 5
         setError(err.message);
       } finally {
         setIsLoading(false);
@@ -44,30 +38,24 @@ function HomePage() {
     fetchStats();
   }, []);
 
-  // Função para navegar para a lista de dispositivos com um filtro de status
   const handleCardClick = (statusFilter) => {
     navigate('/devices', { state: { initialStatusFilter: statusFilter } });
   };
 
-  // Função para navegar para a lista de dispositivos com filtro de nomenclatura
+  // --- A CORREÇÃO ESTÁ AQUI ---
   const handleNomenclatureClick = (nomenclatureFilter) => {
-    // --- ADICIONE ESTE CONSOLE.LOG ---
-    console.log(`Tentando navegar para lista com filtro: ${nomenclatureFilter}`);
+    console.log(`Navegando com filtro de nomenclatura: ${nomenclatureFilter}`);
+    // Corrigimos o nome da variável para corresponder ao parâmetro
+    // A chave é 'initialNomenclatureFilter', o valor é a variável 'nomenclatureFilter'
     navigate('/devices', { state: { initialNomenclatureFilter: nomenclatureFilter } });
   };
+  // --- FIM DA CORREÇÃO ---
 
   if (isLoading) return <div>A carregar estatísticas do dashboard...</div>;
-  if (error) return <div style={{ color: 'red' }}>Erro ao carregar dashboard: {error}</div>; // Mensagem de erro mais clara
+  if (error) return <div style={{ color: 'red' }}>Erro ao carregar dashboard: {error}</div>;
+  if (!stats) return <p>Não foi possível carregar as estatísticas.</p>;
 
-  // Verificação crucial ANTES de tentar usar 'stats'
-  if (!stats) {
-     console.warn("HomePage: Tentando renderizar, mas 'stats' ainda é null."); // <-- LOG 6
-     return <p>Aguardando dados das estatísticas...</p>; // Ou <LoadingOverlay visible={true} />
-  }
-
-  // Cálculos (só executam se 'stats' existir)
   const inComplianceCount = (stats.totalDevices || 0) - (stats.overdueCount || 0) - (stats.upcomingCount || 0);
-  console.log("HomePage: Calculando inComplianceCount:", inComplianceCount); // <-- LOG 7
 
   return (
     <div>
@@ -124,7 +112,6 @@ function HomePage() {
               <ThemeIcon variant="light" size="xl" radius="md"><IconHistory /></ThemeIcon>
               <Text size="lg" fw={700}>Preventivas Realizadas (Últimos 90 dias)</Text>
             </Group>
-            {/* Garanta que stats.preventiveChartData existe antes de renderizar */}
             {stats.preventiveChartData && (
               <BarChart
                 h={300}
@@ -133,8 +120,9 @@ function HomePage() {
                 series={[{ name: 'value', color: 'blue.6' }]}
                 tickLine="y"
                 tooltipProps={{
+                  wrapperStyle: { background: 'transparent', border: '0', padding: '0' },
                   content: ({ label, payload }) =>
-                    <Card withBorder p="sm" radius="sm">
+                    <Card p="sm" radius="sm" shadow="md" withBorder={false}>
                       <Text size="sm">{label}</Text>
                       {payload && payload.length > 0 &&
                         <Text size="sm" fw={700}>{payload[0].value} manutenções</Text>
@@ -155,10 +143,7 @@ function HomePage() {
                description="Prefixos PTR e TRC."
                icon={<IconBuildingStore />}
                color="blue"
-               onClick={() => {
-                   console.log('Clicou em Comprados!'); // <-- LOG DE CLIQUE
-                   handleNomenclatureClick('owned');
-               }}
+               onClick={() => handleNomenclatureClick('owned')} // <-- Agora chama a função correta
              />
              <StatCard
                title="Dispositivos Alugados"
@@ -166,10 +151,7 @@ function HomePage() {
                description="Prefixos NETSITE e VIVO."
                icon={<IconBuildingFactory />}
                color="gray"
-               onClick={() => {
-                   console.log('Clicou em Alugados!'); // <-- LOG DE CLIQUE
-                   handleNomenclatureClick('rented');
-               }}
+               onClick={() => handleNomenclatureClick('rented')} // <-- Agora chama a função correta
              />
            </Stack>
         </Grid.Col>
@@ -178,7 +160,7 @@ function HomePage() {
   );
 }
 
-// O componente StatCard (com tamanho de fonte ajustado)
+// O componente StatCard
 function StatCard({ title, value, description, icon, color, onClick }) {
   const theme = useMantineTheme();
   const isDark = theme.colorScheme === 'dark';

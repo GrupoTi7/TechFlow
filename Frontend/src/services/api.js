@@ -13,6 +13,26 @@ apiClient.interceptors.request.use((config) => {
   return config;
 });
 
+// Busca o relatório de preventivas por técnico
+export const getTechnicianReport = async () => {
+  try {
+    const response = await apiClient.get('/api/reports/by-technician');
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || new Error('Erro de rede ao buscar relatório de técnicos.');
+  }
+};
+
+// Busca o relatório de dispositivos com mais manutenções
+export const getTopDevicesReport = async () => {
+  try {
+    const response = await apiClient.get('/api/reports/top-devices');
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || new Error('Erro de rede ao buscar relatório top 10.');
+  }
+};
+
 export const login = async (username, password) => {
   try {
     const response = await apiClient.post('/api/auth/login', { username, password });
@@ -31,22 +51,16 @@ export const getDashboardStats = async () => {
   }
 };
 
-export const getDevices = async (filters = {}) => {
+// Não aceita mais filtros, apenas busca todos os dispositivos
+export const getDevices = async () => {
   try {
-    // Constrói os parâmetros de query a partir do objeto de filtros
-    const params = new URLSearchParams();
-    if (filters.deviceType) params.append('deviceType', filters.deviceType);
-    if (filters.status) params.append('status', filters.status);
-    if (filters.searchQuery) params.append('searchQuery', filters.searchQuery);
-    if (filters.nomenclature) params.append('nomenclature', filters.nomenclature); // <-- ADICIONA O NOVO FILTRO
-
-    // Faz a chamada GET com os parâmetros
-    const response = await apiClient.get('/api/devices', { params });
+    const response = await apiClient.get('/api/devices');
     return response.data;
   } catch (error) {
     throw error.response?.data || new Error('Erro de rede ao buscar dispositivos.');
   }
 };
+
 
 export const getDeviceById = async (id) => {
   try {

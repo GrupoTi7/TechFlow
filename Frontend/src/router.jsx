@@ -6,6 +6,7 @@ import LoginPage from './pages/LoginPage.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
 import DeviceListPage from './pages/DeviceListPage.jsx';
 import DeviceDetailPage from './pages/DeviceDetailPage.jsx';
+import ReportsPage from './pages/ReportsPage.jsx';
 
 export const router = createBrowserRouter([
   // --- ROTA PÚBLICA (Sem o layout do AppShell) ---
@@ -21,7 +22,7 @@ export const router = createBrowserRouter([
     children: [
       {
         path: "/",
-        element: <App />, // 2. Se sim, mostra o layout (cabeçalho/sidebar)
+        element: <App />, 
         children: [
           // 3. E renderiza as páginas filhas dentro do <Outlet> do App
           {
@@ -35,6 +36,10 @@ export const router = createBrowserRouter([
           {
             path: "/devices/:id",
             element: <DeviceDetailPage />,
+          },
+          {
+            path: "/history", 
+            element: <ReportsPage />, 
           },
         ]
       }
