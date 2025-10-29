@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { login } from '../services/api';
 
+// 1. Importe todos os componentes Mantine necessários
 import { 
   Paper, 
   Title, 
@@ -13,7 +14,7 @@ import {
   Alert,
   Center,
   Container,
-  useMantineTheme // Para aceder às cores do tema
+  useMantineTheme // Importe o hook para aceder ao tema
 } from '@mantine/core';
 import { IconAlertCircle } from '@tabler/icons-react';
 
@@ -23,7 +24,7 @@ function LoginPage() {
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
-  const theme = useMantineTheme(); // Hook para aceder ao tema
+  const theme = useMantineTheme(); // Use o hook para aceder ao tema
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -50,13 +51,13 @@ function LoginPage() {
   };
 
   return (
-    // Fundo Azul Royal (do seu tema)
+    // 2. Fundo Azul (usando a sua nova cor 'techFlowBlue' do tema)
     <Container 
       size="100vw" 
       h="100vh" 
       style={{ 
-        
-        background: theme.colors.blue[8], 
+        // --- A CORREÇÃO ESTÁ AQUI ---
+        background: theme.colors.techFlowBlue[7], 
         display: 'flex', 
         alignItems: 'center', 
         justifyContent: 'center' 

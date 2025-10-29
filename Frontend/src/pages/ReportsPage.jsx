@@ -86,8 +86,8 @@ function ReportsPage() {
     datasets: [{
       label: 'Preventivas',
       data: techReportData.map(d => d.value),
-      backgroundColor: 'rgba(34, 139, 230, 0.6)',
-      borderColor: 'rgba(34, 139, 230, 1)',
+      backgroundColor: 'rgba(0, 4, 240, 0.6)',
+      borderColor: 'rgba(0, 4, 240, 1)',
       borderWidth: 1,
     }]
   };
