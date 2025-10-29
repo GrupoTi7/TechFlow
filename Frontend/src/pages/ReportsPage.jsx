@@ -2,8 +2,28 @@
 import React, { useState, useEffect } from 'react'; 
 import { getTechnicianReport, getTopDevicesReport } from '../services/api';
 import { Card, Text, Title, ThemeIcon, Group, Stack } from '@mantine/core'; 
-import { BarChart } from '@mantine/charts';
+// 1. Importe o Chart.js
+import { Bar } from 'react-chartjs-2';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title as ChartTitle,
+  Tooltip,
+  Legend,
+} from 'chart.js';
 import { IconChartBar, IconTool } from '@tabler/icons-react';
+
+// 2. Registe os componentes do Chart.js
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  ChartTitle,
+  Tooltip,
+  Legend
+);
 
 function ReportsPage() {
   const [techReportData, setTechReportData] = useState([]);
@@ -12,15 +32,16 @@ function ReportsPage() {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    // ... (a sua lógica de fetch continua igual)
     const fetchReports = async () => {
       try {
         const [techResult, topDevicesResult] = await Promise.all([
           getTechnicianReport(),
           getTopDevicesReport()
         ]);
+
         if (techResult.success) setTechReportData(techResult.data);
         if (topDevicesResult.success) setTopDevicesData(topDevicesResult.data);
+
         if (!techResult.success || !topDevicesResult.success) {
           throw new Error('Falha ao carregar um ou mais relatórios.');
         }
@@ -31,75 +52,81 @@ function ReportsPage() {
       }
     };
     fetchReports();
-  }, []);
+  }, []); 
 
   if (isLoading) return <div>A carregar relatórios...</div>;
   if (error) return <div style={{ color: 'red' }}>Erro: {error}</div>;
 
-  // --- A NOVA ABORDAGEM PARA O TOOLTIP ---
-  const tooltipStyles = {
-    wrapperStyle: { 
-      background: 'white', 
-      borderColor: '#e0e0e0',
-      borderRadius: '8px',
-      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
-      padding: '8px 12px'
-    },
-    labelStyle: { 
-      color: '#333', 
-      fontSize: '12px',
-      marginBottom: '5px' 
-    },
-    itemStyle: { 
-      color: '#111',
-      fontSize: '12px',
-      fontWeight: 'bold'
-    },
+  // 3. Opções para os gráficos (incluindo o tooltip branco)
+  const chartOptions = {
+    maintainAspectRatio: false,
+    plugins: {
+      tooltip: {
+        backgroundColor: '#fff',
+        titleColor: '#333',
+        bodyColor: '#111',
+        borderColor: '#e0e0e0',
+        borderWidth: 1,
+        padding: 10,
+        callbacks: {
+          label: function(context) {
+              return `${context.dataset.label}: ${context.parsed.y} manutenções`;
+          }
+        }
+      },
+      legend: {
+        display: false
+      }
+    }
   };
-  // ------------------------------------------
+
+  // 4. Transforme os dados para o formato do Chart.js
+  const techChartData = {
+    labels: techReportData.map(d => d.name),
+    datasets: [{
+      label: 'Preventivas',
+      data: techReportData.map(d => d.value),
+      backgroundColor: 'rgba(34, 139, 230, 0.6)',
+      borderColor: 'rgba(34, 139, 230, 1)',
+      borderWidth: 1,
+    }]
+  };
+  
+  const topDevicesChartData = {
+    labels: topDevicesData.map(d => d.name),
+    datasets: [{
+      label: 'Preventivas',
+      data: topDevicesData.map(d => d.value),
+      backgroundColor: 'rgba(134, 142, 150, 0.6)',
+      borderColor: 'rgba(134, 142, 150, 1)',
+      borderWidth: 1,
+    }]
+  };
 
   return (
     <Stack gap="xl">
       <Title order={2}>Relatórios de Manutenção</Title>
 
       {/* Gráfico 1: Preventivas por Técnico */}
-      <Card withBorder radius="md" p="lg" shadow="sm">
+      <Card withBorder radius="md" p="lg" shadow="sm" style={{ minHeight: 400 }}>
         <Group>
           <ThemeIcon variant="light" size="xl" radius="md"><IconTool /></ThemeIcon>
           <Text size="lg" fw={700}>Preventivas Realizadas por Técnico</Text>
         </Group>
-        <BarChart
-          h={300}
-          data={techReportData}
-          dataKey="name"
-          series={[{ name: 'value', color: 'blue.6', label: 'Preventivas' }]}
-          tickLine="y"
-          // APLICA OS NOVOS ESTILOS DE TOOLTIP
-          tooltipProps={{
-            ...tooltipStyles,
-            formatter: (value) => `${value} manutenções`,
-          }}
-        />
+        <div style={{ height: '300px', marginTop: '20px' }}>
+          <Bar data={techChartData} options={chartOptions} />
+        </div>
       </Card>
 
       {/* Gráfico 2: Top 10 Dispositivos */}
-      <Card withBorder radius="md" p="lg" shadow="sm">
+      <Card withBorder radius="md" p="lg" shadow="sm" style={{ minHeight: 400 }}>
         <Group>
           <ThemeIcon variant="light" size="xl" radius="md" color="gray"><IconChartBar /></ThemeIcon>
           <Text size="lg" fw={700}>Top 10 Dispositivos por N.º de Manutenções</Text>
         </Group>
-        <BarChart
-          h={300}
-          data={topDevicesData}
-          dataKey="name"
-          series={[{ name: 'value', color: 'gray.6', label: 'Preventivas' }]}
-          tickLine="y"
-          // APLICA OS NOVOS ESTILOS DE TOOLTIP
-          tooltipProps={{
-            ...tooltipStyles,
-            formatter: (value) => `${value} manutenções`,
-          }}
-        />
+        <div style={{ height: '300px', marginTop: '20px' }}>
+          <Bar data={topDevicesChartData} options={chartOptions} />
+        </div>
       </Card>
     </Stack>
   );
