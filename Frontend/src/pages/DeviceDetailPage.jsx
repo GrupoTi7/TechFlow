@@ -1,190 +1,318 @@
 // src/pages/DeviceDetailPage.jsx
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { getDeviceById, getPreventivesForDevice, createPreventive } from '../services/api';
 
-// 1. Importe os novos componentes Mantine
+// 1. Funções da API (sem alterações)
+import { 
+  getDeviceById, 
+  getPreventivesForDevice, 
+  createPreventive, 
+  deletePreventive
+} from '../services/api';
+
+// 2. Componentes Mantine (Novas importações: ThemeIcon, SimpleGrid, Center)
 import {
-  Title,
-  Text,
-  Paper,
-  Grid,
-  Stack,
-  Anchor,
-  TextInput,
-  Textarea,
-  Button,
-  Alert,
-  Table,
-  Badge,
+  Title,
+  Text,
+  Paper,
+  Grid,
+  Stack,
+  Anchor,
+  TextInput,
+  Textarea,
+  Button,
+  Alert,
+  Table,
+  ThemeIcon,
+  Group,
+  SimpleGrid,
+  Center
 } from '@mantine/core';
-import { IconAlertCircle } from '@tabler/icons-react';
-import { addDays } from 'date-fns';
 
-function DeviceDetailPage() {
-  const { id } = useParams(); // Pega o ID do dispositivo do URL
-  const [device, setDevice] = useState(null);
-  const [preventives, setPreventives] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
+// 3. Ícones (Novas importações)
 
-  // Estados para o formulário da nova preventiva
-  const [newPreventiveDate, setNewPreventiveDate] = useState(new Date().toISOString().split('T')[0]);
-  const [newTechnician, setNewTechnician] = useState('');
-  const [newNotes, setNewNotes] = useState('');
-  const [formError, setFormError] = useState(null);
+import { 
+  IconAlertCircle, 
+  IconDeviceDesktop, 
+  IconBuildingCommunity, 
+  IconBuildingFactory, 
+  IconId, 
+  IconUserCircle, 
+  IconBrandWindows, 
+  IconCalendarDue, 
+  IconPencilPlus,
+  IconHistory,
+  IconSearchOff,
+  IconCalendarTime,
+  IconDeviceAnalytics,
+  IconCalendarCheck,
+  IconWorldWww, 
+  IconTag         
+} from '@tabler/icons-react';
 
-  // Função para carregar todos os dados (detalhes + histórico)
-  const loadData = async () => {
-    try {
-      setIsLoading(true);
-      const deviceResult = await getDeviceById(id);
-      const preventivesResult = await getPreventivesForDevice(id);
 
-      if (deviceResult.success) setDevice(deviceResult.device);
-      if (preventivesResult.success) setPreventives(preventivesResult.preventives);
+// --- Componente Auxiliar para o Cartão de Informações ---
+// (Isso torna o nosso cartão principal muito mais limpo)
+function InfoItem({ icon, label, children }) {
+  // Se o filho for nulo ou N/D, usa um estilo "dimmed"
+  const isValueEmpty = !children || children === 'N/D' || children === 'Não categorizado';
 
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadData();
-  }, [id]);
-
-  // Função para lidar com o envio do formulário
-  const handlePreventiveSubmit = async (event) => {
-    event.preventDefault();
-    setFormError(null);
-    if (!newTechnician || !newPreventiveDate) {
-      setFormError('Data e Técnico são obrigatórios.');
-      return;
-    }
-    try {
-      const preventiveData = {
-        date: new Date(newPreventiveDate),
-        technician: newTechnician,
-        notes: newNotes,
-      };
-      await createPreventive(id, preventiveData);
-      setNewTechnician('');
-      setNewNotes('');
-      setNewPreventiveDate(new Date().toISOString().split('T')[0]);
-      alert('Preventiva registada com sucesso!');
-      loadData(); // Recarrega os dados
-    } catch (err) {
-      setFormError(err.message);
-    }
-  };
-
-  if (isLoading) return <div>A carregar detalhes do dispositivo...</div>;
-  if (error) return <div style={{ color: 'red' }}>Erro: {error}</div>;
-  if (!device) return <div>Dispositivo não encontrado.</div>;
-
-  // 2. Renderize a página com os componentes Mantine
   return (
-    <Stack gap="xl">
+    <Group gap="sm" wrap="nowrap">
+      <ThemeIcon variant="light" size="lg" radius="md">
+        {icon}
+      </ThemeIcon>
       <div>
-        <Anchor component={Link} to="/devices" size="sm">
-          &larr; Voltar para a lista de dispositivos
-        </Anchor>
-        <Title order={2} mt="md">{device.name}</Title>
+        <Text size="xs" c="dimmed">{label}</Text>
+        <Text size="sm" fw={500} c={isValueEmpty ? 'dimmed' : 'inherit'}>
+          {isValueEmpty ? 'Não definido' : children}
+        </Text>
       </div>
-
-      <Grid>
-        {/* Coluna Esquerda: Detalhes e Registo */}
-        <Grid.Col span={{ base: 12, md: 5 }}>
-          <Stack gap="xl">
-            {/* Cartão de Detalhes do Dispositivo */}
-            <Paper withBorder shadow="sm" p="lg" radius="md">
-              <Title order={4} mb="md">Detalhes</Title>
-              <Stack gap="xs">
-                <Text><strong>Tipo:</strong> {device.deviceType.charAt(0).toUpperCase() + device.deviceType.slice(1)}</Text>
-                <Text><strong>Nº de Série:</strong> {device.serial || 'N/A'}</Text>
-                <Text><strong>Intervalo de Manutenção:</strong> A cada {device.maintenanceIntervalDays} dias</Text>
-                <Text fw={700} c="blue.7">
-                  <strong>Próxima Preventiva: </strong>
-                  {device.nextPreventiveDate ? new Date(device.nextPreventiveDate).toLocaleDateString() : 'Nenhuma agendada'}
-                </Text>
-              </Stack>
-            </Paper>
-
-            {/* Cartão de Registo de Preventiva */}
-            <Paper withBorder shadow="sm" p="lg" radius="md">
-              <Title order={4} mb="md">Registar Nova Preventiva</Title>
-              <form onSubmit={handlePreventiveSubmit}>
-                <Stack>
-                  <TextInput
-                    label="Data da Manutenção"
-                    type="date"
-                    value={newPreventiveDate}
-                    onChange={(e) => setNewPreventiveDate(e.target.value)}
-                    required
-                  />
-                  <TextInput
-                    label="Nome do Técnico"
-                    placeholder="Seu nome"
-                    value={newTechnician}
-                    onChange={(e) => setNewTechnician(e.target.value)}
-                    required
-                  />
-                  <Textarea
-                    label="Notas da Manutenção"
-                    placeholder="Descreva o que foi feito..."
-                    value={newNotes}
-                    onChange={(e) => setNewNotes(e.target.value)}
-                    minRows={3}
-                  />
-                  {formError && (
-                    <Alert color="red" icon={<IconAlertCircle size="1rem" />} title="Erro">
-                      {formError}
-                    </Alert>
-                  )}
-                  <Button type="submit">Adicionar Registo</Button>
-                </Stack>
-              </form>
-            </Paper>
-          </Stack>
-        </Grid.Col>
-
-        {/* Coluna Direita: Histórico */}
-        <Grid.Col span={{ base: 12, md: 7 }}>
-          <Paper withBorder shadow="sm" p="lg" radius="md">
-            <Title order={4} mb="md">Histórico de Preventivas</Title>
-            <Table withTableBorder withColumnBorders highlightOnHover>
-              <Table.Thead>
-                <Table.Tr>
-                  <Table.Th>Data</Table.Th>
-                  <Table.Th>Técnico</Table.Th>
-                  <Table.Th>Notas</Table.Th>
-                </Table.Tr>
-              </Table.Thead>
-              <Table.Tbody>
-                {preventives.length > 0 ? (
-                  preventives.map(prev => (
-                    <Table.Tr key={prev.id}>
-                      <Table.Td>{new Date(prev.date).toLocaleDateString()}</Table.Td>
-                      <Table.Td>{prev.technician}</Table.Td>
-                      <Table.Td>{prev.notes || 'N/A'}</Table.Td>
-                    </Table.Tr>
-                  ))
-                ) : (
-                  <Table.Tr>
-                    <Table.Td colSpan={3} ta="center">
-                      Nenhum registo de preventiva encontrado.
-                    </Table.Td>
-                  </Table.Tr>
-                )}
-              </Table.Tbody>
-            </Table>
-          </Paper>
-        </Grid.Col>
-      </Grid>
-    </Stack>
+    </Group>
   );
+}
+
+
+// --- Componente Principal da Página ---
+function DeviceDetailPage() {
+  const { id } = useParams();
+  const [device, setDevice] = useState(null);
+  const [preventives, setPreventives] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [newPreventiveDate, setNewPreventiveDate] = useState(new Date().toISOString().split('T')[0]);
+  const [newNotes, setNewNotes] = useState('');
+  const [formError, setFormError] = useState(null);
+
+  // --- Funções de Lógica (sem alteração) ---
+  const loadData = async () => {
+    try {
+      setError(null); 
+      setIsLoading(true); 
+      const [deviceRes, preventivesRes] = await Promise.all([
+        getDeviceById(id),
+        getPreventivesForDevice(id)
+      ]);
+      if (deviceRes.success) setDevice(deviceRes.device);
+      else throw new Error(deviceRes.message || 'Falha ao buscar dispositivo');
+    	if (preventivesRes.success) setPreventives(preventivesRes.preventives);
+    	else throw new Error(preventivesRes.message || 'Falha ao buscar preventivas');
+    } catch (err) {
+    	console.error("Falha ao carregar dados:", err);
+    	setError(err.message || 'Erro ao carregar dados do dispositivo.');
+    } finally {
+    	setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+  	if (id) loadData();
+  	else {
+    	setError("ID do dispositivo não fornecido na URL.");
+    	setIsLoading(false);
+  	}
+  }, [id]);
+
+  const handlePreventiveSubmit = async (event) => {
+  	event.preventDefault();
+  	setFormError(null);
+  	if (!newPreventiveDate) { 
+    	setFormError('Data é obrigatória.');
+    	return;
+  	}
+  	try {
+    	const preventiveData = { date: new Date(newPreventiveDate), notes: newNotes };
+    	await createPreventive(id, preventiveData);
+    	setNewNotes('');
+    	setNewPreventiveDate(new Date().toISOString().split('T')[0]);
+    	alert('Preventiva registada com sucesso!');
+    	loadData(); 
+  	} catch (err) {
+    	console.error("Erro ao criar preventiva:", err);
+    	setFormError(err.message || "Erro desconhecido ao salvar.");
+  	}
+  };
+
+  const handleDeletePreventive = async (preventiveId) => {
+  	if (!window.confirm('Tem certeza que deseja apagar este registo? Esta ação é irreversível.')) {
+    	return;
+  	}
+  	try {
+    	await deletePreventive(preventiveId);
+    	alert('Preventiva apagada com sucesso.');
+    	loadData(); 
+  	} catch (err) {
+    	console.error("Erro ao apagar preventiva:", err);
+    	alert(err.message || "Erro desconhecido ao apagar.");
+  	}
+  };
+
+  // --- Renderização condicional ---
+  if (isLoading) return <div>A carregar detalhes do dispositivo...</div>;
+  if (error) return <Alert color="red" title="Erro Crítico">{error}</Alert>;
+  if (!device) return <div>Dispositivo não encontrado.</div>;
+
+  // --- Renderização Principal (JSX) ---
+  return (
+    <Stack gap="xl">
+      <Anchor component={Link} to="/">
+        &larr; Voltar para a Lista
+      </Anchor>
+
+      <Title order={2}>
+        Detalhes: {device.name}
+      </Title>
+
+      <Grid>
+        {/* Coluna Esquerda: Detalhes e Registo */}
+    	<Grid.Col span={{ base: 12, md: 5 }}>
+      	<Stack gap="xl">
+          
+          	{/* --- CARTÃO DE INFORMAÇÕES REFINADO --- */}
+          	<Paper withBorder shadow="sm" p="lg" radius="md">
+            	<Group gap="sm" mb="lg">
+                <ThemeIcon size="xl" variant="light" radius="md">
+                  <IconDeviceAnalytics size="1.5rem" />
+                </ThemeIcon>
+            	  <Title order={4}>Informações do Dispositivo</Title>
+              </Group>
+
+              {/* Grelha de 2 colunas para os detalhes */}
+              <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="lg">
+                <InfoItem icon={<IconDeviceDesktop size="1.2rem" />} label="Tipo">
+                  {device.deviceType}
+                </InfoItem>
+                <InfoItem icon={<IconBuildingCommunity size="1.2rem" />} label="Setor">
+                  {device.setor}
+                </InfoItem>
+                <InfoItem icon={<IconBuildingFactory size="1.2rem" />} label="Fabricante">
+                  {device.manufacturer}
+                </InfoItem>
+                <InfoItem icon={<IconId size="1.2rem" />} label="Modelo">
+                  {device.model}
+                </InfoItem>
+                <InfoItem icon={<IconUserCircle size="1.2rem" />} label="Usuário">
+                  {device.contact}
+                </InfoItem>
+                <InfoItem icon={<IconBrandWindows size="1.2rem" />} label="Sistema Operacional">
+                  {device.operatingSystem}
+                </InfoItem>
+                 {/*}
+                 <InfoItem icon={<IconWorldWww size="1.2rem" />} label="Endereço IP">
+                  {device.ipAddress}
+                </InfoItem>
+               <InfoItem icon={<IconTag size="1.2rem" />} label="Tag de Inventário">
+                  {device.inventoryTag} 
+                </InfoItem> 
+                */}
+              </SimpleGrid>
+
+              {/* Seção de Manutenção */}
+              <Stack mt="xl" gap="md">
+                <Title order={5} ta="center">Manutenção</Title>
+                <InfoItem icon={<IconCalendarTime size="1.2rem" />} label="Intervalo (Dias)">
+                  {device.maintenanceIntervalDays} 
+                </InfoItem>
+                <InfoItem icon={<IconCalendarCheck size="1.2rem" />} label="Última Preventiva">
+                  {device.lastPreventiveDate ? new Date(device.lastPreventiveDate).toLocaleDateString() : 'N/D'}
+                </InfoItem>
+                <InfoItem icon={<IconCalendarDue size="1.2rem" />} label="Próxima Preventiva">
+                  {device.nextPreventiveDate ? new Date(device.nextPreventiveDate).toLocaleDateString() : 'N/D'}
+                </InfoItem>
+              </Stack>
+          	</Paper>
+
+        	{/* --- CARTÃO DE REGISTO REFINADO --- */}
+        	<Paper withBorder shadow="sm" p="lg" radius="md">
+          		<Group gap="sm" mb="lg">
+                <ThemeIcon size="xl" variant="light" color="blue" radius="md">
+                  <IconPencilPlus size="1.5rem" />
+                </ThemeIcon>
+          	    <Title order={4}>Registar Nova Preventiva</Title>
+            </Group>
+          		<form onSubmit={handlePreventiveSubmit}>
+            		<Stack>
+              		<TextInput
+                		label="Data da Manutenção"
+                		type="date"
+                		value={newPreventiveDate}
+              		onChange={(e) => setNewPreventiveDate(e.target.value)}
+              		required
+            		/>
+            		<Textarea
+              		label="Notas da Manutenção"
+              		placeholder="Descreva o que foi feito..."
+              		value={newNotes}
+              		onChange={(e) => setNewNotes(e.target.value)}
+              		minRows={3}
+            		/>
+            		{formError && (
+              		<Alert color="red" icon={<IconAlertCircle size="1rem" />} title="Erro no Formulário">
+                		{formError}
+              		</Alert>
+            		)}
+            		<Button type="submit" leftSection={<IconPencilPlus size={18} />}>
+                  Adicionar Registo
+                </Button>
+          		</Stack>
+        	</form>
+        	</Paper>
+      	</Stack>
+    	</Grid.Col>
+
+    	{/* --- COLUNA DIREITA: HISTÓRICO REFINADO --- */}
+    	<Grid.Col span={{ base: 12, md: 7 }}>
+      		<Paper withBorder shadow="sm" p="lg" radius="md">
+        		<Group gap="sm" mb="lg">
+                <ThemeIcon size="xl" variant="light" color="gray" radius="md">
+                  <IconHistory size="1.5rem" />
+                </ThemeIcon>
+        		  <Title order={4}>Histórico de Preventivas</Title>
+            </Group>
+        		{preventives.length > 0 ? (
+        		<Table striped highlightOnHover verticalSpacing="sm">
+          		<Table.Thead>
+            	<Table.Tr>
+              	<Table.Th>Data</Table.Th>
+              	<Table.Th>Técnico</Table.Th>
+              	<Table.Th>Notas</Table.Th>
+              	<Table.Th ta="right">Ações</Table.Th>
+             </Table.Tr>
+            	</Table.Thead>
+            	<Table.Tbody>
+            		{preventives.map((prev) => (
+              		<Table.Tr key={prev.id}>
+                		<Table.Td>{new Date(prev.date).toLocaleDateString()}</Table.Td>
+                		<Table.Td>{prev.technician}</Table.Td>
+                		<Table.Td>{prev.notes}</Table.Td>
+              		<Table.Td ta="right">
+                  		<Button
+                    		color="red"
+                    		variant="outline"
+                    		size="xs"
+                    		onClick={() => handleDeletePreventive(prev.id)}
+               	>
+                    		Apagar
+                  		</Button>
+                	</Table.Td>
+              		</Table.Tr>
+            		))}
+            	</Table.Tbody>
+         	</Table>
+    	) : (
+          // --- Mensagem de "Vazio" Refinada ---
+        	<Center style={{ height: 100, flexDirection: 'column' }}>
+            <ThemeIcon variant="light" color="gray" size="xl" radius="xl">
+              <IconSearchOff />
+            </ThemeIcon>
+        		  <Text c="dimmed" mt="md">Nenhum registo de preventiva encontrado.</Text>
+          </Center>
+    	)}
+    	</Paper>
+  	</Grid.Col>
+  	</Grid>
+  </Stack>
+  );
 }
 
 export default DeviceDetailPage;

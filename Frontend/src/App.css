@@ -1,0 +1,34 @@
+/* Em src/index.css ou src/App.css */
+
+.login-logo {
+  display: block;
+  max-width: 180px;  /* Ajuste o tamanho máximo da logo */
+  height: auto;
+  margin-left: auto;
+  margin-right: auto;
+  margin-bottom: 20px; /* Espaço entre a logo e o título */
+}
+
+/* (Você provavelmente já tem estilos para seu container e card) */
+.login-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background-color: #f0f2f5; /* Apenas um exemplo de fundo */
+}
+
+.login-form-card {
+  background: #ffffff;
+  padding: 2.5rem;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  width: min(90%, 450px);
+  text-align: center;
+}
+
+.login-form-card h2 {
+  margin-bottom: 1.5rem;
+  color: #333333;
+}
+

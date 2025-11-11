@@ -1,15 +1,18 @@
 // src/routes/sync.routes.js
 const express = require('express');
-const syncController = require('../controllers/sync.controller');
+const router = express.Router();
+const { syncGlpiDevices } = require('../services/glpi.service.js');
 const { authenticateToken } = require('../middleware/auth.middleware');
 
-const router = express.Router();
-
-// O caminho aqui deve ser '/sync' para combinar com o prefixo '/api' do server.js
-// Juntando os dois, o URL final fica /api/sync
-router.post('/sync', authenticateToken, syncController.handleSync);
-
-// A rota de stats, se existir, também precisa do caminho completo
-router.get('/sync/stats', authenticateToken, syncController.getSyncStats);
+// Endpoint para disparar a sincronização manualmente (ex: por um botão no admin)
+router.post('/sync/glpi', authenticateToken, async (req, res) => {
+  try {
+    const result = await syncGlpiDevices();
+    res.status(200).json({ success: true, message: 'Sincronização concluída!', ...result });
+  } catch (error) {
+    console.error('Erro na rota de sync:', error);
+    res.status(500).json({ success: false, message: 'Erro ao sincronizar.', error: error.message });
+  }
+});
 
 module.exports = router;

@@ -7,6 +7,8 @@ import ProtectedRoute from './components/ProtectedRoute.jsx';
 import DeviceListPage from './pages/DeviceListPage.jsx';
 import DeviceDetailPage from './pages/DeviceDetailPage.jsx';
 import ReportsPage from './pages/ReportsPage.jsx';
+import AdminSetorPage from './pages/AdminSetorPage.jsx';
+import AdminRoutes from './components/AdminRoutes.jsx';
 
 export const router = createBrowserRouter([
   // --- ROTA PÚBLICA (Sem o layout do AppShell) ---
@@ -34,8 +36,22 @@ export const router = createBrowserRouter([
             element: <DeviceListPage />,
           },
           {
+        path: 'admin',
+        element: <AdminRoutes />, // Protege (Verifica se é ADMIN)
+        children: [
+          {
+            path: 'setores',
+            element: <AdminSetorPage />
+          }
+        ]
+      },
+          {
             path: "/devices/:id",
             element: <DeviceDetailPage />,
+          },
+          {
+            path: 'admin/setores',
+            element: <AdminSetorPage />,
           },
           {
             path: "/history", 

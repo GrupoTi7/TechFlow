@@ -3,51 +3,25 @@ const { prisma } = require('../config/prismaClient');
 const { addDays } = require('date-fns'); // Já deve estar importado
 
 // Esta função agora aceita um objeto de query com todos os nossos filtros
-async function findAllDevices(query) {
-  const { deviceType, status, searchQuery, nomenclature } = query;
-  
-  let where = {};
-  const now = new Date();
+async function findAllDevices(queryParams) {
+  // Extrai os filtros que vêm da URL (ex: ?deviceType=PC)
+  const { deviceType, department /* ...outros filtros... */ } = queryParams;
 
-  // Filtro de TIPO (Computador/Impressora)
-  if (deviceType && deviceType !== 'all') {
-    where.deviceType = deviceType;
-  }
+  // Começa com o filtro OBRIGATÓRIO
+  const filters = {
+    isActive: true // <-- A CORREÇÃO ESTÁ AQUI
+  };
 
-  // Filtro de STATUS (Atrasado/Próximo)
-  if (status === 'overdue') {
-    where.nextPreventiveDate = { lte: now };
-  } else if (status === 'upcoming') {
-    const thirtyDaysFromNow = addDays(now, 30);
-    where.nextPreventiveDate = { gte: now, lte: thirtyDaysFromNow };
-  }
+  // Adiciona os filtros opcionais se eles existirem
+  if (deviceType) filters.deviceType = deviceType;
+  if (department) filters.department = department;
+  // ...
 
-  // --- 1. NOVA LÓGICA DE FILTRO DE NOMENCLATURA ---
-  if (nomenclature === 'owned') {
-    // Se o filtro for "Comprados"
-    where.OR = [ 
-      { name: { startsWith: 'PTR' } }, 
-      { name: { startsWith: 'TRC' } } 
-    ];
-  } else if (nomenclature === 'rented') {
-    // Se o filtro for "Alugados"
-    where.OR = [ 
-      { name: { startsWith: 'NETSITE' } }, 
-      { name: { startsWith: 'VIVO' } } 
-    ];
-  }
-
-  // Filtro de PESQUISA (Nome)
-  if (searchQuery && searchQuery.trim() !== '') {
-    where.name = { contains: searchQuery };
-  }
-
-  // 2. Executa a consulta no Prisma com os filtros construídos
+  // A consulta agora SEMPRE filtrará por 'isActive: true'
+  // E também pelos filtros da query, se houver
   return prisma.device.findMany({
-    where: where,
-    orderBy: {
-      name: 'asc',
-    },
+    where: filters, 
+    orderBy: { name: 'asc' }
   });
 }
 
@@ -62,7 +36,64 @@ async function findDeviceById(id) {
   return device;
 }
 
+async function cleanupDefaultValues() {
+  const result = await prisma.device.updateMany({
+    where: {
+      // Procura por qualquer dispositivo que ainda tenha os padrões errados
+      OR: [
+        { setor: "Escritório" },
+        { maintenanceIntervalDays: 120 }
+      ]
+    },
+    data: {
+      setor: null, // Limpa o setor
+      maintenanceIntervalDays: null // Limpa o intervalo
+    }
+  });
+  return result.count;
+}
+
+async function bulkUpdateSetors(updates) {
+  // 'updates' é um array, ex: [{ id: "123", setor: "Solda", interval: 30 }, ...]
+
+  const transactions = updates.map(update => 
+    prisma.device.update({
+      where: { id: update.id },
+      data: {
+        setor: update.setor,
+        maintenanceIntervalDays: update.interval
+      }
+    })
+  );
+
+  // Executa todas as atualizações dentro de uma única transação
+  await prisma.$transaction(transactions);
+  
+  return updates.length; // Retorna quantos dispositivos foram atualizados
+}
+
+async function cleanupDefaultValues() {
+  
+  // Nós não podemos usar 'updateMany' com 'NOT: {setor: null}' 
+  // porque o Prisma pode ter limitações.
+  // Em vez disso, vamos forçar a limpeza em TODOS OS DISPOSITIVOS.
+  
+  const countResult = await prisma.device.count();
+  
+  await prisma.device.updateMany({
+    where: {}, // ATENÇÃO: Isto vai atualizar TODOS os 405 dispositivos
+    data: {
+      setor: null, // Limpa o setor
+      maintenanceIntervalDays: null // Limpa o intervalo
+    }
+  });
+
+  return countResult; // Retorna o número total de dispositivos que foram limpos
+}
+
 module.exports = { 
   findAllDevices,
-  findDeviceById 
+  findDeviceById, 
+ cleanupDefaultValues,
+ bulkUpdateSetors
 };

@@ -1,13 +1,30 @@
 // src/routes/device.routes.js
-const { Router } = require('express');
-const { getAllDevices, getDeviceById } = require('../controllers/device.controller');
+const express = require('express');
+const router = express.Router();
+
+// --- A CORREÇÃO ESTÁ AQUI ---
+// Faltava importar o controlador
+const deviceController = require('../controllers/device.controller');
+// ----------------------------
+
 const { authenticateToken } = require('../middleware/auth.middleware');
-const router = Router();
 
-// Rota para buscar TODOS os dispositivos (para a nossa lista)
-router.get('/devices', authenticateToken, getAllDevices);
+// Suas rotas existentes (que já funcionavam)
+router.get('/devices', authenticateToken, deviceController.getAllDevices);
+router.get('/devices/:id', authenticateToken, deviceController.getDeviceById);
 
-// Rota para buscar UM dispositivo pelo seu ID (para a futura página de detalhes)
-router.get('/devices/:id', authenticateToken, getDeviceById);
+
+router.post(
+  '/devices/admin/cleanup-defaults', 
+  authenticateToken, 
+  deviceController.cleanupDefaultValues
+);
+
+// --- NOVA ROTA DE ADMIN PARA ATUALIZAÇÃO EM MASSA ---
+router.patch(
+  '/devices/bulk-setor',
+  authenticateToken,
+  deviceController.bulkUpdateSetors
+);
 
 module.exports = router;

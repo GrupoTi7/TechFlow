@@ -88,3 +88,30 @@ export const createPreventive = async (deviceId, preventiveData) => {
     throw error.response?.data || new Error('Erro de rede ao criar preventiva.');
   }
 };
+
+export const deletePreventive = async (preventiveId) => {
+  try {
+    const response = await apiClient.delete(`/api/preventives/${preventiveId}`);
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || new Error('Erro de rede ao apagar preventiva.');
+  }
+};
+
+export const updateDeviceSetor = async (deviceId, setor, interval) => {
+  try {
+    const response = await apiClient.put(`/api/devices/${deviceId}/setor`, { setor, interval });
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || new Error('Erro de rede ao atualizar setor.');
+  }
+};
+export const bulkUpdateSetors = async (updates) => {
+  try {
+    // O 'data' é um objeto { updates: [...] }
+    const response = await apiClient.patch('/api/devices/bulk-setor', { updates });
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || new Error('Erro de rede ao atualizar setores em massa.');
+  }
+};

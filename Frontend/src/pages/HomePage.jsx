@@ -193,7 +193,7 @@ function HomePage() {
              <StatCard 
                title="Dispositivos Alugados" 
                value={stats.rentedCount} 
-               description="Prefixos NETSITE e VIVO."
+               description="Prefixos NETSITE, VIVO, SOROCAMP e INFOBRAS."
                icon={<IconBuildingFactory />} 
                color="gray"
                onClick={() => handleNomenclatureClick('rented')} // <-- Clicável
