@@ -1,0 +1,49 @@
+# docker-compose.yml (na pasta raiz TechFlow/)
+version: '3.8'
+
+services:
+  # O seu backend Node.js
+  backend:
+    build: ./backend # Diz ao Docker para ler o 'backend/Dockerfile'
+    restart: unless-stopped
+    environment:
+      # O Docker vai ler estas variáveis do seu ficheiro .env
+      # que está na pasta 'backend/'
+      DATABASE_URL: ${DATABASE_URL}
+      GLPI_LOGIN: ${GLPI_LOGIN}
+      GLPI_PASSWORD: ${GLPI_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+      # (Adicione aqui quaisquer outras variáveis do seu .env)
+    env_file:
+      - ./backend/.env # Caminho para o seu ficheiro .env
+    depends_on:
+      - db # Diz ao backend para esperar que o DB esteja pronto
+
+  # O seu frontend React + Nginx
+  frontend:
+    build: ./frontend # Diz ao Docker para ler o 'frontend/Dockerfile'
+    restart: unless-stopped
+    ports:
+      # Mapeia a porta 80 do contêiner para a porta 80 do servidor físico
+      # (Pode mudar "80:80" para "8080:80" se quiser aceder em http://servidor:8080)
+      - "80:80" 
+    depends_on:
+      - backend # Só inicia depois do backend estar pronto
+
+  # O seu Banco de Dados MySQL
+  db:
+    image: mysql:8.0 # Usa a imagem oficial do MySQL
+    restart: unless-stopped
+    environment:
+      # Lê as senhas do seu .env (mais seguro)
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD} # Crie esta no seu .env (ex: "root_pass_muito_segura")
+      MYSQL_DATABASE: "preventiva_db"
+      MYSQL_USER: "techflow_user"
+      MYSQL_PASSWORD: "123456db" # (Idealmente, isto também viria do .env)
+    volumes:
+      # Isto guarda os seus dados do MySQL numa pasta 'mysql-data'
+      # no servidor físico, para que não se percam.
+      - mysql_data:/var/lib/mysql
+
+volumes:
+  mysql_data: # Define o "volume"
