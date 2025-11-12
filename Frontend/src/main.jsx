@@ -3,7 +3,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { RouterProvider } from 'react-router-dom';
 import { MantineProvider } from '@mantine/core';
-import { AuthProvider } from './context/AuthContext'; // <-- Importação (correta)
+import { AuthProvider } from './context/AuthContext.jsx'; // <-- Importação (correta)
 
 // Importações de CSS
 import '@mantine/core/styles.css';
