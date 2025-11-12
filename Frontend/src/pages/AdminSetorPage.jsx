@@ -1,6 +1,6 @@
 // src/pages/AdminSetorPage.jsx
 import React, { useState, useEffect, useMemo } from 'react';
-import { getDevices, bulkUpdateSetors } from '../services/api';
+import { getDevices, bulkUpdateSetors } from '../services/api.js';
 import { 
   Title, 
   Table, 

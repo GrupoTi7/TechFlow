@@ -1,7 +1,7 @@
 // src/pages/DeviceListPage.jsx
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { getDevices } from '../services/api';
+import { getDevices } from '../services/api.js';
 
 // 1. Importações do Mantine (Badge e SimpleGrid estão aqui)
 import { 

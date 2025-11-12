@@ -8,7 +8,7 @@ import {
   getPreventivesForDevice, 
   createPreventive, 
   deletePreventive
-} from '../services/api';
+} from '../services/api.js';
 
 // 2. Componentes Mantine (Novas importações: ThemeIcon, SimpleGrid, Center)
 import {

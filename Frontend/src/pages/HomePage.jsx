@@ -1,6 +1,6 @@
 // src/pages/HomePage.jsx
 import React, { useState, useEffect } from 'react';
-import { getDashboardStats } from '../services/api';
+import { getDashboardStats } from '../services/api.js';
 import { useNavigate } from 'react-router-dom';
 import { Grid, Card, Text, Group, ThemeIcon, useMantineTheme, Stack } from '@mantine/core';
 

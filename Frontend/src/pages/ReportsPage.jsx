@@ -1,6 +1,6 @@
 // src/pages/ReportsPage.jsx
 import React, { useState, useEffect } from 'react'; 
-import { getTechnicianReport, getTopDevicesReport } from '../services/api';
+import { getTechnicianReport, getTopDevicesReport } from '../services/api.js';
 import { Card, Text, Title, ThemeIcon, Group, Stack } from '@mantine/core'; 
 // 1. Importe o Chart.js
 import { Bar } from 'react-chartjs-2';

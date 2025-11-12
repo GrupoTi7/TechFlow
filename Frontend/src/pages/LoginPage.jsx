@@ -1,7 +1,7 @@
 // src/pages/LoginPage.jsx
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { login } from '../services/api'; // (Usando a sua função de login correta)
+import { login } from '../services/api.js'; // (Usando a sua função de login correta)
 
 // 1. Importações do Mantine (Limpas)
 import { 
