@@ -1,34 +1,33 @@
-# docker-compose.yml (VERSÃO CORRIGIDA PARA O GIT)
+# docker-compose.yml
 version: '3.8'
 
 services:
   backend:
-    build: ./backend # <-- Correto (caminho relativo)
+    build: ./backend
     restart: unless-stopped
     environment:
-      # O Portainer vai injetar estas variáveis a partir da UI
-      DATABASE_URL: ${DATABASE_URL}
+      # URL de conexão ao banco (usando o nome do serviço "db" como host)
+      DATABASE_URL: mysql://techflow_user:${123456db}@db:3306/preventiva_db
+      
       GLPI_LOGIN: ${GLPI_LOGIN}
       GLPI_PASSWORD: ${GLPI_PASSWORD}
       JWT_SECRET: ${JWT_SECRET}
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD} # Senha para o techflow_user
-      # (E todas as suas variáveis de E-mail)
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
       EMAIL_HOST: ${EMAIL_HOST}
       EMAIL_PORT: ${EMAIL_PORT}
       EMAIL_SECURE: ${EMAIL_SECURE}
       EMAIL_USER: ${EMAIL_USER}
       EMAIL_FROM: ${EMAIL_FROM}
       EMAIL_TO: ${EMAIL_TO}
-    # A secção 'env_file:' FOI REMOVIDA
     depends_on:
       - db
 
   frontend:
-    build: ./Frontend # <-- Correto (caminho relativo)
+    build: ./Frontend
     restart: unless-stopped
     ports:
-      - "8080:80" 
+      - "8080:80"
     depends_on:
       - backend
 
@@ -37,15 +36,14 @@ services:
     command: --default-authentication-plugin=mysql_native_password
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD} # Senha do Admin do BD
-      MYSQL_DATABASE: "preventiva_db"
-      MYSQL_USER: "techflow_user"         # O utilizador da sua aplicação
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD}      # A senha do utilizador da aplicação
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: preventiva_db
+      MYSQL_USER: techflow_user
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
     ports:
-      - "3306:3306"  # Mapeia a porta 3306 do host para a porta 3306 do container
+      - "3306:3306"
     volumes:
       - mysql_data:/var/lib/mysql
 
 volumes:
   mysql_data:
-
