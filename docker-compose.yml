@@ -1,14 +1,13 @@
-# docker-compose.yml
 version: '3.8'
 
 services:
   backend:
+    # Caminho correto (b minúsculo)
     build: ./backend
     restart: unless-stopped
     environment:
-      # URL de conexão ao banco (usando o nome do serviço "db" como host)
-      DATABASE_URL: mysql://techflow_user:$${123456db}@db:3306/preventiva_db
-      
+      # O Portainer vai preencher estas variáveis (do Passo 3)
+      DATABASE_URL: ${DATABASE_URL}
       GLPI_LOGIN: ${GLPI_LOGIN}
       GLPI_PASSWORD: ${GLPI_PASSWORD}
       JWT_SECRET: ${JWT_SECRET}
@@ -24,24 +23,24 @@ services:
       - db
 
   frontend:
-    build: ./Frontend
+    # Caminho correto (F maiúsculo)
+    build: ./Frontend 
     restart: unless-stopped
     ports:
-      - "8080:80"
+      - "8080:80" # Usando a porta que sabemos que está livre
     depends_on:
       - backend
 
   db:
     image: mysql:8.0
+    # Força o MySQL 8 a usar o plugin de senha antigo
     command: --default-authentication-plugin=mysql_native_password
     restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      MYSQL_DATABASE: preventiva_db
-      MYSQL_USER: techflow_user
+      MYSQL_DATABASE: "preventiva_db"
+      MYSQL_USER: "techflow_user"
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
-    ports:
-      - "3306:3306"
     volumes:
       - mysql_data:/var/lib/mysql
 
