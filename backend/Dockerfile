@@ -11,7 +11,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # 4. Instalar as dependências
-RUN npm install
+RUN npm install --include=dev
 
 # 5. Copiar a pasta do Prisma
 COPY prisma ./prisma/
