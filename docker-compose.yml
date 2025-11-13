@@ -7,7 +7,7 @@ services:
     restart: unless-stopped
     environment:
       # URL de conexão ao banco (usando o nome do serviço "db" como host)
-      DATABASE_URL: mysql://techflow_user:${123456db}@db:3306/preventiva_db
+      DATABASE_URL: mysql://techflow_user:$${123456db}@db:3306/preventiva_db
       
       GLPI_LOGIN: ${GLPI_LOGIN}
       GLPI_PASSWORD: ${GLPI_PASSWORD}
