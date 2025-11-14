@@ -1,13 +1,13 @@
 // src/routes/sync.routes.js
 const express = require('express');
 const router = express.Router();
-const { authenticateToken } = require('../middleware/auth.middleware');
+const { authenticateToken } = require('../middleware/auth.middleware.js');
 
 // 1. REMOVA a importação do serviço (não será executado aqui)
 // const { syncGlpiDevices } = require('../services/glpi.service.js');
 
 // 2. IMPORTE a fila (que criámos no config)
-const { syncQueue } = require('../config/queue');
+const { syncQueue } = require('../config/queue.js');
 
 // Endpoint para disparar a sincronização manualmente
 // (agora ele apenas "agenda" a tarefa)

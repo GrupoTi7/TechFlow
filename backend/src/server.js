@@ -11,12 +11,12 @@ const { sendNotificationEmail } = require('./services/notification.service');
 // const { syncGlpiDevices } = require('./services/glpi.service.js'); 
 
 // IMPORTA O WORKER E A FILA
-const { initWorker } = require('./worker/sync.worker');
-const { syncQueue } = require('./config/queue');
+const { initWorker } = require('./worker/sync.worker.js');
+const { syncQueue } = require('./config/queue.js');
 
 // Rotas
-const syncRoutes = require('./routes/sync.routes');
-const authRoutes = require('./routes/auth.routes');
+const syncRoutes = require('./routes/sync.routes.js');
+const authRoutes = require('./routes/auth.routes.js');
 const deviceRoutes = require('./routes/device.routes.js');
 const preventiveRoutes = require('./routes/preventive.routes.js');
 const dashboardRoutes = require('./routes/dashboard.routes.js');
