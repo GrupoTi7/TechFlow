@@ -1,7 +1,6 @@
 # frontend/Dockerfile (VERSÃO SIMPLIFICADA - SEM BUILD)
 
 # --- 1. Estágio de "Servir" (O Porteiro Nginx) ---
-# (Começamos direto com o Nginx)
 FROM nginx:1.21-alpine
 
 # 2. Apagamos o HTML de boas-vindas padrão do Nginx
@@ -12,7 +11,6 @@ RUN rm -rf /usr/share/nginx/html/*
 COPY dist /usr/share/nginx/html
 
 # 4. Copiamos as nossas "Regras do Porteiro" (o proxy) para o Nginx
-# (Isto assume que o seu ficheiro nginx.conf está na pasta 'Frontend/')
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 # 5. Expomos a porta 80
