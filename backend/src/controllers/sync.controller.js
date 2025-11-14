@@ -1,67 +1,53 @@
-// src/controllers/sync.controller.js
-const glpiService = require('../services/glpi.service');
-const { prisma } = require('../config/prismaClient');
+// backend/src/controllers/sync.controller.js
+const { Queue } = require('bullmq');
 
-class SyncController {
-  async handleSync(req, res) {
-    try {
-      console.log('Controlador: Requisição de sincronização recebida.');
-      
-      const allDevices = await glpiService.fetchAllDevices();
+// Aponta para a fila 'syncQueue' no Redis
+const syncQueue = new Queue('syncQueue', {
+  connection: {
+    host: 'redis', // O nome do serviço no docker-compose
+    port: 6379
+  }
+});
 
-      console.log(`Controlador: Salvando ${allDevices.length} dispositivos no banco de dados...`);
-      for (const device of allDevices) {
-        const deviceData = {
-          name: device.name,
-          serial: device.serial,
-          otherserial: device.otherserial,
-          contact: device.contact,
-          comment: device.comment,
-          deviceType: device.deviceType,
-          glpiDateMod: new Date(device.date_mod), // date_mod vem do GLPI
-          lastSync: new Date(),
-        };
-
-        // CORREÇÃO AQUI: Usamos device.id em vez de device.glpiId
-        await prisma.device.upsert({
-          where: { glpiId: device.id },
-          update: deviceData,
-          create: {
-            glpiId: device.id,
-            ...deviceData,
-          },
-        });
-      }
-      console.log('Controlador: Dispositivos salvos com sucesso.');
-
-      await glpiService.killSession();
-
-      res.status(200).json({
-        success: true,
-        message: 'Sincronização concluída com sucesso!',
-        data: {
-          totalDevices: allDevices.length,
-          timestamp: new Date().toISOString(),
-        },
-      });
-
-    } catch (error) {
-      console.error('Erro no controlador de sincronização:', error);
-      await glpiService.killSession();
-      res.status(500).json({
+/**
+ * Rota que agenda (adiciona à fila) a sincronização do GLPI.
+ * Responde imediatamente com 202 (Aceito).
+ */
+const httpSyncGlpi = async (req, res) => {
+  try {
+    // 1. Verifica se já existe um job ativo ou em espera
+    const activeJobs = await syncQueue.getJobs(['active', 'waiting']);
+    if (activeJobs.length > 0) {
+      return res.status(429).json({ // 429 = Too Many Requests
         success: false,
-        message: 'Erro interno do servidor',
-        error: error.message,
+        message: "Sincronização já está em andamento. Tente novamente mais tarde.",
+        jobId: activeJobs[0].id
       });
     }
-  }
-  
-  async getSyncStats(req, res) {
-    res.status(501).json({ 
+
+    // 2. Adiciona o novo job à fila
+    const job = await syncQueue.add('sincronizar-dispositivos-glpi', {
+      triggeredBy: req.user.username // (req.user vem do seu authenticateToken)
+    });
+
+    // 3. RESPONDE IMEDIATAMENTE (202 Accepted)
+    res.status(202).json({
+      success: true,
+      message: "Sincronização iniciada. O processo está a decorrer em segundo plano e pode demorar 15 minutos.",
+      jobId: job.id
+    });
+
+  } catch (error) {
+    // Se falhar ao *adicionar* à fila (ex: Redis offline)
+    console.error("Erro ao agendar a sincronização:", error);
+    res.status(500).json({ 
       success: false, 
-      message: 'Endpoint de estatísticas ainda não implementado.' 
+      message: "Erro ao agendar a sincronização.",
+      error: error.message
     });
   }
-}
+};
 
-module.exports = new SyncController();
+module.exports = {
+  httpSyncGlpi
+};
