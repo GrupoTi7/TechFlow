@@ -10,9 +10,15 @@ RUN rm -rf /usr/share/nginx/html/*
 # para a pasta de 'html' do Nginx.
 COPY dist /usr/share/nginx/html
 
-# 4. Copiamos as nossas "Regras do Porteiro" (o proxy) para o Nginx
+# 4. Copia a pasta de certificados SSL
+COPY certs /etc/nginx/certs/
+
+# 5. Copiamos as nossas "Regras do Porteiro" (o proxy) para o Nginx
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# 5. Expomos a porta 80
+# 6. Expomos a porta 80
 EXPOSE 80
+# 7. Expomos a porta 443 para HTTPS
+EXPOSE 443
+
 CMD ["nginx", "-g", "daemon off;"]
