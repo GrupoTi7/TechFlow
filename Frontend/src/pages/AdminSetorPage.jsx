@@ -23,9 +23,22 @@ import { IconAlertCircle, IconDeviceFloppy, IconSearch } from '@tabler/icons-rea
 const setoresAdministrativos = [
   // (Por favor, adicione os seus 11 setores de escritório aqui)
   { value: 'TI', label: 'TI' },
-  { value: 'Financeiro', label: 'Financeiro' },
   { value: 'Recursos Humanos', label: 'Recursos Humanos' },
-  { value: 'Escritório', label: 'Escritório (Padrão)' },
+  { value: 'PCP', label: 'PCP' },
+  { value: 'Ambulatório', label: 'Ambulatório' },
+  { value: 'Segurança do Trabalho', label: 'Segurança do Trabalho' },
+  { value: 'SGI', label: 'SGI' },
+  { value: 'Gerência de Produção', label: 'Gerência de Produção' },
+  { value: 'Faturamento', label: 'Faturamento' },
+  { value: 'Contabilidade', label: 'Contabilidade' },
+  { value: 'Automação Industrial', label: 'Automação Industrial' },
+  { value: 'Portaria', label: 'Portaria' },
+  { value: 'Recursos Humanos', label: 'Recursos Humanos' },
+  { value: 'Compras', label: 'Compras' },
+  { value: 'Qualidade Escritório', label: 'Qualidade Escritório' },
+  { value: 'Cotação', label: 'Cotação' },
+  { value: 'Gerencia', label: 'Gerencia' },
+  { value: 'Sala do Fernando', label: 'Sala do Fernando' },
   // ...
 ];
 
@@ -39,14 +52,15 @@ const setoresProducao = [
   { value: 'Prensa', label: 'Prensa' },
   { value: 'Solda Robo', label: 'Solda Robo' },
   { value: 'Ecoat', label: 'Ecoat' },
-  { value: 'Qualidade', label: 'Qualidade' },
+  { value: 'Qualidade Produção', label: 'Qualidade Produção' },
   { value: 'Seis Sigma', label: 'Seis Sigma' },
   { value: 'Manutenção', label: 'Manutenção' },
   { value: 'Expedição (Deni)', label: 'Expedição (Deni)' },
   { value: 'Laser', label: 'Laser' },
   { value: 'Puncionadeira', label: 'Puncionadeira' },
   { value: 'Recebimento', label: 'Recebimento' },
-  { value: 'Pintura', label: 'Pintura' },
+  { value: 'Pintura Liquida', label: 'Pintura Liquida' },
+  { value: 'Pintura Pó', label: 'Pintura Pó' },
   { value: 'Logística', label: 'Logística' },
   { value: 'Portaria Catraca', label: 'Portaria Catraca' },
   { value: 'Laboratório Químico', label: 'Laboratório Químico' },
@@ -60,7 +74,9 @@ const setoresProducao = [
   { value: 'Casa de Tintas', label: 'Casa de Tintas' },
   { value: 'Depart. Técnico de Solda', label: 'Depart. Técnico de Solda' },
   { value: 'Logística Empilhadeiras', label: 'Logística Empilhadeiras' },
-  { value: 'Almoxarifado Transferíveis', label: 'Almoxarifado Transferíveis' }
+  { value: 'Almoxarifado Transferíveis', label: 'Almoxarifado Transferíveis' },
+  { value: 'Amostra', label: 'Amostra' },
+  { value: 'Jato de Granalha', label: 'Jato de Granalha' },
 ];
 // ==========================================================
 
