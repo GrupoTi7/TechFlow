@@ -134,92 +134,107 @@ async function fetchDeviceTag(deviceId, sessionToken) {
  * ===================================================================
  */
 async function syncGlpiDevices() {
-  console.log('Iniciando sincronização de dispositivos...');
-  const freshSessionToken = await getGlpiSessionToken();
-  const glpiDevices = await fetchAllDevicesFromGLPI(freshSessionToken);
-  
-  if (!glpiDevices || glpiDevices.length === 0) {
-  	throw new Error('Nenhum dispositivo encontrado no GLPI.');
-  }
+  console.log('Iniciando sincronização de dispositivos...');
+  const freshSessionToken = await getGlpiSessionToken();
+  const glpiDevices = await fetchAllDevicesFromGLPI(freshSessionToken);
   
-  console.log(`Encontrados ${glpiDevices.length} dispositivos. Buscando SO, IP e Tag em modo serial... (Isto VAI demorar MUITO)`);
-
-  // --- ETAPA B.5: BUSCA AVANÇADA (EM LOOP SERIAL) ---
-  let enhancedDevicesData = [];
-  let count = 0;
-
-  for (const device of glpiDevices) {
-    count++;
-    console.log(`Processando dispositivo ${count} de ${glpiDevices.length}: ${device.name}`);
-    
-    // Fazemos as chamadas UMA DE CADA VEZ para não sobrecarregar
-    const operatingSystem = await fetchDeviceSO(device.id, freshSessionToken);
-    const ipAddress = await fetchDeviceIP(device.id, freshSessionToken);
-    const inventoryTag = await fetchDeviceTag(device.id, freshSessionToken);
-    
-    enhancedDevicesData.push({
-      ...device, 
-      operatingSystem: operatingSystem,
-      ipAddress: ipAddress,
-      inventoryTag: inventoryTag
-    });
+  if (!glpiDevices || glpiDevices.length === 0) {
+    throw new Error('Nenhum dispositivo encontrado no GLPI.');
   }
-  // ------------------------------------------
+  
+  console.log(`Encontrados ${glpiDevices.length} dispositivos.`);
+  
+  // --- CONFIGURAÇÃO DE VELOCIDADE ---
+  // Quantos dispositivos processar AO MESMO TEMPO.
+  // 20 a 30 é seguro. 50+ pode deixar o GLPI lento ou dar erro de timeout.
+  const BATCH_SIZE = 25; 
+  // ----------------------------------
+
+  let enhancedDevicesData = [];
+  
+  // Loop para processar em blocos (Chunks)
+  for (let i = 0; i < glpiDevices.length; i += BATCH_SIZE) {
+    const batch = glpiDevices.slice(i, i + BATCH_SIZE);
+    console.log(`Processando lote ${Math.ceil((i + 1) / BATCH_SIZE)} de ${Math.ceil(glpiDevices.length / BATCH_SIZE)}... (Dispositivos ${i + 1} a ${Math.min(i + BATCH_SIZE, glpiDevices.length)})`);
+
+    // Aqui está a mágica: Promise.all dispara todas as requisições do lote SIMULTANEAMENTE
+    const batchResults = await Promise.all(batch.map(async (device) => {
+      try {
+        // Dispara as 3 buscas ao mesmo tempo para este dispositivo também
+        const [operatingSystem, ipAddress, inventoryTag] = await Promise.all([
+            fetchDeviceSO(device.id, freshSessionToken),
+            fetchDeviceIP(device.id, freshSessionToken),
+            fetchDeviceTag(device.id, freshSessionToken)
+        ]);
+
+        return {
+          ...device, 
+          operatingSystem,
+          ipAddress,
+          inventoryTag
+        };
+      } catch (err) {
+        console.error(`Erro ao processar dispositivo ${device.id}:`, err.message);
+        // Retorna o dispositivo com dados parciais para não quebrar o lote inteiro
+        return { ...device, operatingSystem: null, ipAddress: null, inventoryTag: null };
+      }
+    }));
+
+    // Adiciona os resultados deste lote à lista final
+    enhancedDevicesData.push(...batchResults);
+  }
 
   console.log('Busca avançada concluída. Atualizando banco de dados...');
 
+  // --- PREPARAÇÃO PARA O BANCO ---
   const glpiDeviceIds = enhancedDevicesData.map(device => device.id); 
-  const operations = enhancedDevicesData.map(glpiDevice => {
-
-    // --- REMOVEMOS A LÓGICA DE CATEGORIZAÇÃO (30/120 DIAS) DAQUI ---
-
-  	const deviceData = {
-    	name: glpiDevice.name,
-    	serial: glpiDevice.serial || null,
-    	otherserial: glpiDevice.otherserial || null,
-    	contact: glpiDevice.contact || null,
-    	comment: glpiDevice.comment || null,
-    	deviceType: glpiDevice.computertypes_id || 'Desconhecido',
-    	department: glpiDevice.locations_id || null, 
+  const operations = enhancedDevicesData.map(glpiDevice => {
+    const deviceData = {
+      name: glpiDevice.name,
+      serial: glpiDevice.serial || null,
+      otherserial: glpiDevice.otherserial || null,
+      contact: glpiDevice.contact || null,
+      comment: glpiDevice.comment || null,
+      deviceType: typeof glpiDevice.computertypes_id === 'string' ? glpiDevice.computertypes_id : 'Desconhecido', // Pequena proteção de tipo
+      department: glpiDevice.locations_id || null, 
       manufacturer: glpiDevice.manufacturers_id || null, 
       model: glpiDevice.computermodels_id || null, 
-    	glpiDateMod: new Date(glpiDevice.date_mod),
-    	isActive: true,
+      glpiDateMod: new Date(glpiDevice.date_mod),
+      isActive: true,
       operatingSystem: glpiDevice.operatingSystem,
       ipAddress: glpiDevice.ipAddress, 
       inventoryTag: glpiDevice.inventoryTag, 
-      // O campo 'maintenanceIntervalDays' FOI REMOVIDO daqui
-  	};
+    };
 
-  	return prisma.device.upsert({
-    	where: { glpiId: glpiDevice.id }, 
-    	update: deviceData, // Atualiza dados do GLPI, NÃO TOCA no 'setor' ou 'maintenanceIntervalDays'
-    	create: {
-      	glpiId: glpiDevice.id,
-      	...deviceData,
-        setor: null, // Padrão 'null' (limpo)
-        maintenanceIntervalDays: null // Padrão 'null' (limpo)
-    	}
-  	});
-  });
+    return prisma.device.upsert({
+      where: { glpiId: glpiDevice.id }, 
+      update: deviceData,
+      create: {
+        glpiId: glpiDevice.id,
+        ...deviceData,
+        setor: null,
+        maintenanceIntervalDays: null
+      }
+    });
+  });
 
-  await prisma.$transaction(operations);
+  // Dica: Se tiver MUITOS dispositivos (1000+), o $transaction pode falhar.
+  // Para 400, ainda deve aguentar bem.
+  await prisma.$transaction(operations);
 
-  const deactivationResult = await prisma.device.updateMany({
-  	where: { glpiId: { notIn: glpiDeviceIds }, isActive: true },
-  	data: { isActive: false }
-  });
-  if (deactivationResult.count > 0) {
-  	  console.log(`Desativados ${deactivationResult.count} dispositivos antigos.`);
-  }
-  console.log(`Sincronização concluída. ${enhancedDevicesData.length} dispositivos processados (com SO, IP e Tag).`);
-  return { 
-  	success: true, 
-  	processed: enhancedDevicesData.length, 
-  	deactivated: deactivationResult.count 
+  const deactivationResult = await prisma.device.updateMany({
+    where: { glpiId: { notIn: glpiDeviceIds }, isActive: true },
+    data: { isActive: false }
+  });
+
+  console.log(`Sincronização concluída. ${enhancedDevicesData.length} processados.`);
+  
+  return { 
+    success: true, 
+    processed: enhancedDevicesData.length, 
+    deactivated: deactivationResult.count 
   };
-} // <-- Fim da função async syncGlpiDevices()
-
+}
 module.exports = { 
   syncGlpiDevices 
 };
