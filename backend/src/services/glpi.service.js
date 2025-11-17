@@ -147,7 +147,7 @@ async function syncGlpiDevices() {
   // --- CONFIGURAÇÃO DE VELOCIDADE ---
   // Quantos dispositivos processar AO MESMO TEMPO.
   // 20 a 30 é seguro. 50+ pode deixar o GLPI lento ou dar erro de timeout.
-  const BATCH_SIZE = 25; 
+  const BATCH_SIZE = 45; 
   // ----------------------------------
 
   let enhancedDevicesData = [];
@@ -235,6 +235,7 @@ async function syncGlpiDevices() {
     deactivated: deactivationResult.count 
   };
 }
+
 module.exports = { 
   syncGlpiDevices 
 };
