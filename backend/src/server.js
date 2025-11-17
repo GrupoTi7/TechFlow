@@ -21,7 +21,7 @@ const deviceRoutes = require('./routes/device.routes.js');
 const preventiveRoutes = require('./routes/preventive.routes.js');
 const dashboardRoutes = require('./routes/dashboard.routes.js');
 const reportsRoutes = require('./routes/reports.routes.js');
-const userRoutes = require('./routes/user.routes.js');
+
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -37,7 +37,7 @@ app.use('/api', deviceRoutes);
 app.use('/api', preventiveRoutes);
 app.use('/api', dashboardRoutes);
 app.use('/api', reportsRoutes);
-app.use('/api', userRoutes);
+
 
 async function startServer() {
   try {
