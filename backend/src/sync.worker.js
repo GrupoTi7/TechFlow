@@ -1,7 +1,7 @@
 // src/workers/sync.worker.js
 const { Worker } = require('bullmq');
 const { connection } = require('./config/queue.js');
-const { syncGlpiDevices } = require('../services/glpi.service.js'); // Sua lógica original
+const { syncGlpiDevices } = require('./services/glpi.service.js'); // Sua lógica original
 
 const initWorker = () => {
   const worker = new Worker('glpi-sync-queue', async (job) => {
