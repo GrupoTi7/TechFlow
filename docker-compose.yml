@@ -56,30 +56,5 @@ services:
     image: redis:7-alpine
     restart: always
 
-  # --- NOVO SERVIÇO: O TRABALHADOR (WORKER) ---
-  worker:
-    build: ./backend # Usa a mesma imagem do backend
-    restart: unless-stopped
-    # Comando diferente: Em vez de iniciar o server.js, inicia o worker.js
-    command: node src/syncWorker.js 
-    environment:
-      DATABASE_URL: ${DATABASE_URL}
-      GLPI_LOGIN: ${GLPI_LOGIN}
-      GLPI_PASSWORD: ${GLPI_PASSWORD}
-      JWT_SECRET: ${JWT_SECRET}
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD} 
-      EMAIL_HOST: ${EMAIL_HOST}
-      EMAIL_PORT: ${EMAIL_PORT}
-      EMAIL_SECURE: ${EMAIL_SECURE}
-      EMAIL_USER: ${EMAIL_USER}
-      EMAIL_FROM: ${EMAIL_FROM}
-      EMAIL_TO: ${EMAIL_TO}
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_started
-
 volumes:
   mysql_data:
