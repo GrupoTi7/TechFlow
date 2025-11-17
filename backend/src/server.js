@@ -11,7 +11,7 @@ const { sendNotificationEmail } = require('./services/notification.service');
 // const { syncGlpiDevices } = require('./services/glpi.service.js'); 
 
 // IMPORTA O WORKER E A FILA
-const { initWorker } = require('./workers/sync.worker.js');
+const { initWorker } = require('./sync.worker.js');
 const { syncQueue } = require('./config/queue.js');
 
 // Rotas
