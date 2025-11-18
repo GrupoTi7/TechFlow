@@ -38,6 +38,7 @@ const setoresAdministrativos = [
   { value: 'Cotação', label: 'Cotação' },
   { value: 'Gerencia', label: 'Gerencia' },
   { value: 'Sala do Fernando', label: 'Sala do Fernando' },
+  { value: 'Controladoria', label: 'Controladoria' },
   // ...
 ];
 
@@ -77,6 +78,7 @@ const setoresProducao = [
   { value: 'Amostra', label: 'Amostra' },
   { value: 'Jato de Granalha', label: 'Jato de Granalha' },
   { value: 'Treinamento', label: 'Treinamento' },
+  { value: 'Corte', label: 'Corte' },
 ];
 // ==========================================================
 
