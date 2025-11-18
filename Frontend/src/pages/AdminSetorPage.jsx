@@ -33,7 +33,6 @@ const setoresAdministrativos = [
   { value: 'Contabilidade', label: 'Contabilidade' },
   { value: 'Automação Industrial', label: 'Automação Industrial' },
   { value: 'Portaria', label: 'Portaria' },
-  { value: 'Recursos Humanos', label: 'Recursos Humanos' },
   { value: 'Compras', label: 'Compras' },
   { value: 'Qualidade Escritório', label: 'Qualidade Escritório' },
   { value: 'Cotação', label: 'Cotação' },
