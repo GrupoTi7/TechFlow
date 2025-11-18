@@ -76,6 +76,7 @@ const setoresProducao = [
   { value: 'Almoxarifado Transferíveis', label: 'Almoxarifado Transferíveis' },
   { value: 'Amostra', label: 'Amostra' },
   { value: 'Jato de Granalha', label: 'Jato de Granalha' },
+  { value: 'Treinamento', label: 'Treinamento' },
 ];
 // ==========================================================
 
