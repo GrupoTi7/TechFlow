@@ -10,28 +10,21 @@ const transporter = nodemailer.createTransport({
   secure: process.env.EMAIL_SECURE === 'true', 
   auth: {
     user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASSWORD, // (Confirme se no Portainer está EMAIL_PASSWORD)
+    pass: process.env.EMAIL_PASSWORD, 
   },
-  tls: {
-    rejectUnauthorized: false 
-  },
-  // Adiciona timeout para não ficar "pendurado"
+  tls: { rejectUnauthorized: false },
   connectionTimeout: 10000, 
   greetingTimeout: 10000
 });
 
-/**
- * TESTE DE CONEXÃO (Novo)
- * Verifica se o servidor consegue falar com o SMTP
- */
+// Teste de conexão SMTP
 async function verifySmtpConnection() {
-  console.log(`[SMTP Test] Tentando conectar a ${process.env.EMAIL_HOST}:${process.env.EMAIL_PORT}...`);
+  console.log(`[SMTP Test] Tentando conectar a ${process.env.EMAIL_HOST}...`);
   try {
     await transporter.verify();
-    console.log('[SMTP Test] ✅ Conexão SMTP BEM SUCEDIDA!');
     return true;
   } catch (error) {
-    console.error('[SMTP Test] ❌ FALHA na conexão SMTP:', error.message);
+    console.error('[SMTP Test] ❌ FALHA:', error.message);
     return false;
   }
 }
@@ -42,33 +35,22 @@ async function verifySmtpConnection() {
 async function checkAndSendNotifications() {
   console.log('--- [Email Job] Iniciando verificação ---');
 
-  // 1. Testa a conexão primeiro
   const isConnected = await verifySmtpConnection();
-  if (!isConnected) {
-    throw new Error(`Não foi possível conectar ao servidor de e-mail ${process.env.EMAIL_HOST}`);
-  }
+  if (!isConnected) throw new Error(`Falha conexão SMTP`);
 
   const now = startOfDay(new Date());
   const upcomingLimit = addDays(now, 30);
 
-  console.log(`[Email Job] Data base: ${format(now, 'dd/MM/yyyy')}`);
-
-  // 2. Busca TODOS os dispositivos ativos para filtrar no código (mais seguro para debug)
+  // Busca dispositivos
   const allDevices = await prisma.device.findMany({
     where: { isActive: true, nextPreventiveDate: { not: null } }
   });
-
-  console.log(`[Email Job] Total de dispositivos analisados: ${allDevices.length}`);
 
   const overdueDevices = [];
   const upcomingDevices = [];
 
   allDevices.forEach(device => {
     const nextDate = startOfDay(new Date(device.nextPreventiveDate));
-    
-    // Log para debug de um dispositivo específico (opcional)
-    // console.log(`Device: ${device.name}, Next: ${format(nextDate, 'dd/MM/yyyy')}`);
-
     if (isBefore(nextDate, now)) {
       overdueDevices.push(device);
     } else if (isBefore(nextDate, upcomingLimit) || isEqual(nextDate, upcomingLimit)) {
@@ -76,51 +58,83 @@ async function checkAndSendNotifications() {
     }
   });
 
-  console.log(`[Email Job] Resultados: ${overdueDevices.length} atrasados, ${upcomingDevices.length} próximos.`);
-
   if (overdueDevices.length === 0 && upcomingDevices.length === 0) {
-    return { success: true, message: "Nenhum dispositivo precisa de alerta hoje." };
+    return { success: true, message: "Nenhum alerta necessário." };
   }
 
-  // 3. Monta o HTML
+  // --- CONSTRUÇÃO DO HTML ---
+  const reportDate = format(new Date(), 'dd/MM/yyyy HH:mm');
+  
+  // Link de Acesso solicitado
+  const systemLink = "https://10.20.2.75/login";
+
+  // Estilos Inline
+  const styleContainer = "font-family: Arial, sans-serif; color: #000; max-width: 800px;";
+  const styleTitle = "font-size: 24px; font-weight: bold; margin-bottom: 5px; color: #000;";
+  const styleDate = "margin-top: 0; font-size: 14px; color: #333; margin-bottom: 20px;";
+  const styleH2 = "font-size: 18px; font-weight: bold; margin-top: 20px; margin-bottom: 10px; border-bottom: 1px solid #ccc; padding-bottom: 5px;";
+  const styleUl = "list-style-type: disc; margin-left: 20px; padding: 0;";
+  const styleLi = "margin-bottom: 5px; font-size: 14px;";
+  const styleLink = "color: #0056b3; text-decoration: none; font-weight: bold;";
+  const styleFooter = "margin-top: 30px; border-top: 1px solid #ddd; padding-top: 15px; font-size: 12px; color: #888; text-align: center;";
+
   let emailBody = `
-    <div style="font-family: Arial;">
-      <h2 style="color: #333;">Relatório TechFlow</h2>
-      <p>Gerado em: ${format(new Date(), 'dd/MM/yyyy HH:mm')}</p>
+    <div style="${styleContainer}">
+      
+      <h1 style="${styleTitle}">Alerta de Manutenção Preventiva - TechFlow</h1>
+      <p style="${styleDate}">Relatório gerado em: ${reportDate}</p>
   `;
 
+  // Seção Atrasadas (Vermelho)
   if (overdueDevices.length > 0) {
-    emailBody += `<h3 style="color: red;">🚨 Atrasadas (${overdueDevices.length})</h3><ul>`;
-    overdueDevices.forEach(d => {
-      emailBody += `<li><b>${d.name}</b> (${d.setor || 'S/ Setor'}) - Venceu: ${format(d.nextPreventiveDate, 'dd/MM/yyyy')}</li>`;
-    });
-    emailBody += `</ul>`;
+    emailBody += `
+      <h2 style="${styleH2} color: red;">🚨 Preventivas Atrasadas (${overdueDevices.length})</h2>
+      <ul style="${styleUl}">
+        ${overdueDevices.map(d => `
+          <li style="${styleLi}">
+            <strong>${d.name}</strong> (${d.setor || 'N/D'}) - Venceu em: ${format(new Date(d.nextPreventiveDate), 'dd/MM/yyyy')}
+          </li>
+        `).join('')}
+      </ul>
+    `;
   }
 
+  // Seção Próximas (Laranja)
   if (upcomingDevices.length > 0) {
-    emailBody += `<h3 style="color: orange;">⚠️ Próximas 30 Dias (${upcomingDevices.length})</h3><ul>`;
-    upcomingDevices.forEach(d => {
-      emailBody += `<li><b>${d.name}</b> (${d.setor || 'S/ Setor'}) - Vence: ${format(d.nextPreventiveDate, 'dd/MM/yyyy')}</li>`;
-    });
-    emailBody += `</ul>`;
+    emailBody += `
+      <h2 style="${styleH2} color: #e67e22;">⚠️ Preventivas Próximas (${upcomingDevices.length})</h2>
+      <ul style="${styleUl}">
+        ${upcomingDevices.map(d => `
+          <li style="${styleLi}">
+            <strong>${d.name}</strong> (${d.setor || 'N/D'}) - Vence em: ${format(new Date(d.nextPreventiveDate), 'dd/MM/yyyy')}
+          </li>
+        `).join('')}
+      </ul>
+    `;
   }
 
-  emailBody += `</div>`;
+  // Rodapé com o Link
+  emailBody += `
+      <div style="${styleFooter}">
+        <p>Acesse o sistema para mais detalhes:</p>
+        <p><a href="${systemLink}" style="${styleLink}">Acessar TechFlow</a></p>
+        <p>Este é um e-mail automático.</p>
+      </div>
+    </div>
+  `;
 
   // 4. Envia
-  console.log(`[Email Job] Enviando e-mail para: ${process.env.EMAIL_TO}...`);
-  
   try {
     const info = await transporter.sendMail({
       from: process.env.EMAIL_FROM,
       to: process.env.EMAIL_TO,
-      subject: `[TechFlow] Alerta de Manutenção - ${format(new Date(), 'dd/MM')}`,
+      subject: `[TechFlow] Alerta: ${overdueDevices.length} Atrasadas | ${upcomingDevices.length} Próximas`,
       html: emailBody
     });
-    console.log(`[Email Job] ✅ E-mail enviado! ID: ${info.messageId}`);
+    console.log(`[Email Job] ✅ Enviado! ID: ${info.messageId}`);
     return { success: true, message: "E-mail enviado com sucesso." };
   } catch (error) {
-    console.error('[Email Job] ❌ Erro no sendMail:', error);
+    console.error('[Email Job] ❌ Erro:', error);
     throw error;
   }
 }
