@@ -2,14 +2,19 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { getDevices } from '../services/api';
 import { 
-  Table, Title, Group, Button, Text, TextInput, Paper, 
-  LoadingOverlay, Stack, Pagination, ScrollArea, ActionIcon, Tooltip
+  Table, 
+  Title, 
+  Group, 
+  Button, 
+  Text, 
+  TextInput, 
+  Paper, 
+  LoadingOverlay, 
+  Stack,
+  Pagination,
+  ScrollArea // <-- A única importação nova necessária
 } from '@mantine/core';
-import { IconSearch, IconEye, IconRefresh } from '@tabler/icons-react';
-
-// Importação dos componentes visuais
-import StatusBadge from '../components/StatusBadge';
-import DashboardStats from '../components/DashboardStats';
+import { IconSearch, IconEye } from '@tabler/icons-react';
 
 function DeviceListPage() {
   const [devices, setDevices] = useState([]);
@@ -18,23 +23,27 @@ function DeviceListPage() {
   
   // Paginação
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10; // Mostra 10 itens por página para caber bem em notebooks
+  const itemsPerPage = 10;
+
+  useEffect(() => {
+    fetchDevices();
+  }, []);
 
   const fetchDevices = async () => {
     setLoading(true);
     try {
       const data = await getDevices();
-      if (data.success) setDevices(data.devices);
+      if (data.success) {
+        setDevices(data.devices);
+      }
     } catch (error) {
-      console.error(error);
+      console.error('Erro ao buscar dispositivos:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { fetchDevices(); }, []);
-
-  // Filtro de Pesquisa
+  // Filtro
   const filteredDevices = useMemo(() => {
     if (!search) return devices;
     const lower = search.toLowerCase();
@@ -45,7 +54,7 @@ function DeviceListPage() {
     );
   }, [devices, search]);
 
-  // Cálculo da Paginação
+  // Paginação
   const totalPages = Math.ceil(filteredDevices.length / itemsPerPage);
   const paginatedData = filteredDevices.slice(
     (currentPage - 1) * itemsPerPage,
@@ -53,63 +62,64 @@ function DeviceListPage() {
   );
 
   return (
-    <Stack gap="md">
-      {/* 1. DASHBOARD DE RESUMO */}
-      <DashboardStats devices={devices} />
-
+    <Stack gap="lg">
       <Paper withBorder p="md" radius="md" shadow="sm">
-        {/* Cabeçalho da Tabela */}
         <Group justify="space-between" mb="md">
-          <Title order={4}>Inventário ({filteredDevices.length})</Title>
-          <Group gap="xs">
-            <TextInput
-              placeholder="Buscar dispositivo..."
-              leftSection={<IconSearch size={14} />}
-              size="sm"
+          <Title order={3}>Inventário de Dispositivos ({filteredDevices.length})</Title>
+          
+          <Group>
+             <TextInput
+              placeholder="Buscar por nome, serial..."
+              leftSection={<IconSearch size={16} />}
               value={search}
               onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
-              style={{ width: 250 }}
+              style={{ width: 300 }}
             />
-            <Tooltip label="Atualizar Lista">
-              <ActionIcon variant="light" size="lg" onClick={fetchDevices} loading={loading}>
-                <IconRefresh size="1.1rem" />
-              </ActionIcon>
-            </Tooltip>
+            <Button variant="light" onClick={fetchDevices} loading={loading}>
+              Atualizar
+            </Button>
           </Group>
         </Group>
 
-        {/* 2. TABELA COM SCROLL HORIZONTAL (Crucial para Notebooks) */}
         <div style={{ position: 'relative', minHeight: 200 }}>
           <LoadingOverlay visible={loading} />
           
+          {/* --- AQUI ESTÁ A CORREÇÃO DE RESPONSIVIDADE --- */}
           <ScrollArea>
-            <Table striped highlightOnHover verticalSpacing="xs" minWidth={800}>
+            {/* minWidth=800 garante que a tabela não esmaga em telas pequenas */}
+            <Table striped highlightOnHover verticalSpacing="sm" minWidth={800}>
               <Table.Thead>
                 <Table.Tr>
                   <Table.Th>Nome</Table.Th>
                   <Table.Th>Setor</Table.Th>
+                  <Table.Th>Tipo</Table.Th>
                   <Table.Th>Usuário</Table.Th>
-                  <Table.Th style={{ textAlign: 'center' }}>Status</Table.Th>
-                  <Table.Th style={{ textAlign: 'right' }}>Ações</Table.Th>
+                  {/* Mantendo o seu texto original de Status */}
+                  <Table.Th>Status</Table.Th> 
+                  <Table.Th>Ações</Table.Th>
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
                 {paginatedData.length > 0 ? (
                   paginatedData.map((device) => (
                     <Table.Tr key={device.id}>
-                      <Table.Td fw={600}>{device.name}</Table.Td>
-                      <Table.Td style={{ fontSize: '0.9rem' }}>{device.setor || '-'}</Table.Td>
-                      <Table.Td style={{ fontSize: '0.9rem' }}>{device.contact?.split('@')[0] || '-'}</Table.Td>
-                      <Table.Td style={{ textAlign: 'center' }}>
-                        <StatusBadge nextDate={device.nextPreventiveDate} />
+                      <Table.Td fw={500}>{device.name}</Table.Td>
+                      <Table.Td>{device.setor || 'N/D'}</Table.Td>
+                      <Table.Td>{device.deviceType || 'N/D'}</Table.Td>
+                      <Table.Td>{device.contact || 'N/D'}</Table.Td>
+                      <Table.Td>
+                        {/* Lógica simples de texto para status, como antes */}
+                        {device.maintenanceIntervalDays ? (
+                            device.maintenanceIntervalDays === 30 ? 'Produção (30d)' : 'Adm (120d)'
+                        ) : 'N/D'}
                       </Table.Td>
-                      <Table.Td style={{ textAlign: 'right' }}>
+                      <Table.Td>
                         <Button 
                           component={Link} 
                           to={`/devices/${device.id}`} 
                           variant="subtle" 
-                          size="xs" 
-                          compact
+                          size="xs"
+                          leftSection={<IconEye size={16} />}
                         >
                           Detalhes
                         </Button>
@@ -118,19 +128,19 @@ function DeviceListPage() {
                   ))
                 ) : (
                   <Table.Tr>
-                    <Table.Td colSpan={5} ta="center" py="xl" c="dimmed">
-                      Nenhum dispositivo encontrado
+                    <Table.Td colSpan={6} ta="center">
+                      <Text c="dimmed">Nenhum dispositivo encontrado.</Text>
                     </Table.Td>
                   </Table.Tr>
                 )}
               </Table.Tbody>
             </Table>
           </ScrollArea>
-          
-          {/* Paginação */}
+          {/* --------------------------------------------- */}
+
           {totalPages > 1 && (
-            <Group justify="center" mt="md">
-              <Pagination total={totalPages} value={currentPage} onChange={setCurrentPage} size="sm" />
+            <Group justify="center" mt="lg">
+              <Pagination total={totalPages} value={currentPage} onChange={setCurrentPage} />
             </Group>
           )}
         </div>
