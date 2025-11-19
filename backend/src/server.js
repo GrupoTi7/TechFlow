@@ -5,6 +5,7 @@ require('dotenv').config();
 const cron = require('node-cron'); 
 const { connectDB } = require('./config/prismaClient');
 const { checkAndSendNotifications } = require('./services/notification.service');
+const nodemailer = require('nodemailer');
 
 // --- IMPORTAÇÕES ---
 const { sendNotificationEmail } = require('./services/notification.service');
@@ -77,21 +78,43 @@ async function startServer() {
 }
 
 //ajuste
-app.post('/api/test-email', async (req, res) => {
-  console.log("Recebida requisição manual de teste de e-mail...");
+// --- ROTA DE DEPURAÇÃO (FORCE SEND) ---
+app.post('/api/debug-email', async (req, res) => {
+  console.log(">>> Iniciando teste de Força Bruta de E-mail...");
+  
+  // 1. Configura o Transporter diretamente aqui
+  const transporter = nodemailer.createTransport({
+    host: process.env.EMAIL_HOST,
+    port: parseInt(process.env.EMAIL_PORT || '25'),
+    secure: false, // Geralmente false para porta 25
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASSWORD,
+    },
+    tls: { rejectUnauthorized: false }
+  });
+
+  // 2. Tenta enviar um e-mail simples
   try {
-    // Chama a função diretamente (sem fila) para vermos o erro na hora
-    const result = await checkAndSendNotifications();
-    res.json(result);
+    const info = await transporter.sendMail({
+      from: process.env.EMAIL_FROM,
+      to: process.env.EMAIL_TO, // Vai enviar para ti@ptractor.com.br
+      subject: "Teste de Força Bruta - TechFlow",
+      text: "Se você recebeu este e-mail, o sistema de envio está 100% funcional e as credenciais estão corretas.",
+      html: "<h1>Sucesso!</h1><p>O envio de e-mail está funcionando.</p>"
+    });
+
+    console.log(">>> E-mail enviado: ", info.messageId);
+    res.json({ success: true, message: "E-mail enviado!", id: info.messageId });
+
   } catch (error) {
-    console.error("Falha no teste manual:", error);
-    // Retorna o erro completo para o Postman
+    console.error(">>> ERRO FATAL NO ENVIO:", error);
     res.status(500).json({ 
       success: false, 
-      error: error.message, 
-      stack: error.stack 
+      error: error.message,
+      code: error.code,
+      command: error.command
     });
   }
 });
-
 startServer();
