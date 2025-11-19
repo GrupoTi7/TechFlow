@@ -36,7 +36,7 @@ app.use('/api', dashboardRoutes);
 app.use('/api', reportsRoutes);
 
 // Rota de teste manual de e-mail
-app.post('/api/test-email', async (req, res) => {
+app.all('/api/test-email', async (req, res) => {
   console.log("Recebida requisição manual de teste de e-mail...");
   try {
     const result = await checkAndSendNotifications();
