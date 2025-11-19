@@ -4,11 +4,12 @@ const cors = require('cors');
 require('dotenv').config();
 const cron = require('node-cron'); 
 const { connectDB } = require('./config/prismaClient');
+const { checkAndSendNotifications } = require('./services/notification.service');
 
 // --- IMPORTAÇÕES ---
 const { sendNotificationEmail } = require('./services/notification.service');
 // REMOVA A IMPORTAÇÃO DIRETA DO SERVIÇO GLPI AQUI, NÃO PRECISA MAIS
-// const { syncGlpiDevices } = require('./services/glpi.service.js'); 
+ const { syncGlpiDevices } = require('./services/glpi.service.js'); 
 
 // IMPORTA O WORKER E A FILA
 const { initWorker } = require('./sync.worker.js');
@@ -76,5 +77,21 @@ async function startServer() {
 }
 
 //ajuste
+app.post('/api/test-email', async (req, res) => {
+  console.log("Recebida requisição manual de teste de e-mail...");
+  try {
+    // Chama a função diretamente (sem fila) para vermos o erro na hora
+    const result = await checkAndSendNotifications();
+    res.json(result);
+  } catch (error) {
+    console.error("Falha no teste manual:", error);
+    // Retorna o erro completo para o Postman
+    res.status(500).json({ 
+      success: false, 
+      error: error.message, 
+      stack: error.stack 
+    });
+  }
+});
 
 startServer();
