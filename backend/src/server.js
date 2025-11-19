@@ -79,7 +79,7 @@ async function startServer() {
 
 //ajuste
 // --- ROTA DE DEPURAÇÃO (FORCE SEND) ---
-app.post('/api/debug-email', async (req, res) => {
+app.get('/api/debug-email', async (req, res) => {
   console.log(">>> Iniciando teste de Força Bruta de E-mail...");
   
   // 1. Configura o Transporter diretamente aqui
