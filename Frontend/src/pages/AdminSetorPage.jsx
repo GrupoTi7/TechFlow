@@ -79,6 +79,12 @@ const setoresProducao = [
   { value: 'Jato de Granalha', label: 'Jato de Granalha' },
   { value: 'Treinamento', label: 'Treinamento' },
   { value: 'Corte', label: 'Corte' },
+  { value: 'Sala Liderança', label: 'Sala Liderança' },
+  { value: 'Logistica Tractor', label: 'Logistica Tractor' },
+  { value: 'Laboratório Químico Tractor', label: 'Laboratório Químico Tractor' },
+  { value: 'Recebimento Tractor', label: 'Recebimento Tractor' },
+  { value: 'Almoxarifado Tractor', label: 'Almoxarifado Tractor' },
+  { value: 'Portaria Tractor', label: 'Portaria Tractor' },
 ];
 // ==========================================================
 
