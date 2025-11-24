@@ -54,17 +54,25 @@ import {
 // --- Componente Auxiliar para o Cartão de Informações ---
 // (Isso torna o nosso cartão principal muito mais limpo)
 function InfoItem({ icon, label, children }) {
-  // Se o filho for nulo ou N/D, usa um estilo "dimmed"
   const isValueEmpty = !children || children === 'N/D' || children === 'Não categorizado';
 
   return (
-    <Group gap="sm" wrap="nowrap">
-      <ThemeIcon variant="light" size="lg" radius="md">
+    <Group gap="sm" wrap="nowrap" align="flex-start"> {/* align="flex-start" alinha o ícone ao topo se o texto tiver várias linhas */}
+      <ThemeIcon variant="light" size="lg" radius="md" style={{ flexShrink: 0 }}> {/* flexShrink: 0 impede o ícone de esmagar */}
         {icon}
       </ThemeIcon>
-      <div>
+      <div style={{ overflow: 'hidden', width: '100%' }}> {/* Garante que o texto respeite a largura */}
         <Text size="xs" c="dimmed">{label}</Text>
-        <Text size="sm" fw={500} c={isValueEmpty ? 'dimmed' : 'inherit'}>
+        <Text 
+          size="sm" 
+          fw={500} 
+          c={isValueEmpty ? 'dimmed' : 'inherit'}
+          style={{ 
+            wordBreak: 'break-word',      // Força a quebra de palavras longas (como e-mails)
+            overflowWrap: 'anywhere',     // Garante a quebra em qualquer ponto se necessário
+            whiteSpace: 'normal'          // Permite que o texto ocupe várias linhas
+          }}
+        >
           {isValueEmpty ? 'Não definido' : children}
         </Text>
       </div>
