@@ -1,4 +1,3 @@
-// src/pages/DeviceListPage.jsx
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { getDevices } from '../services/api.js';
@@ -10,10 +9,10 @@ import {
   ThemeIcon,
   SimpleGrid,
   Stack,
-  Paper,          // Adicionado para o container
-  ScrollArea,     // Adicionado para responsividade
-  LoadingOverlay, // Adicionado para estado de carregamento
-  Pagination      // Adicionado para paginação
+  Paper,          
+  ScrollArea,     
+  LoadingOverlay, 
+  Pagination      
 } from '@mantine/core';
 
 // 2. Importações de Ícones
@@ -23,8 +22,8 @@ import {
   IconDeviceLaptop,
   IconServer,
   IconDeviceFloppy,
-  IconEye,        // Adicionado para o botão de detalhes
-  IconRefresh     // Adicionado para o botão de atualizar
+  IconEye,        
+  IconRefresh     
 } from '@tabler/icons-react';
 
 const filterLabels = {
@@ -37,18 +36,18 @@ const filterLabels = {
 function getDeviceIcon(deviceType) {
   const type = (deviceType || '').toLowerCase();
   if (type.includes('notebook')) {
-    return <ThemeIcon variant="light" color="blue"><IconDeviceLaptop size="1.1rem" /></ThemeIcon>;
+    return <ThemeIcon variant="light" color="blue" radius="md"><IconDeviceLaptop size="1.1rem" /></ThemeIcon>;
   }
   if (type.includes('printer') || type.includes('impressora')) {
-    return <ThemeIcon variant="light" color="gray"><IconPrinter size="1.1rem" /></ThemeIcon>;
+    return <ThemeIcon variant="light" color="gray" radius="md"><IconPrinter size="1.1rem" /></ThemeIcon>;
   }
   if (type.includes('vmware') || type.includes('virtual')) {
-    return <ThemeIcon variant="light" color="grape"><IconServer size="1.1rem" /></ThemeIcon>;
+    return <ThemeIcon variant="light" color="grape" radius="md"><IconServer size="1.1rem" /></ThemeIcon>;
   }
   if (type.includes('desktop') || type.includes('mini pc')) {
-    return <ThemeIcon variant="light" color="teal"><IconDeviceDesktop size="1.1rem" /></ThemeIcon>;
+    return <ThemeIcon variant="light" color="teal" radius="md"><IconDeviceDesktop size="1.1rem" /></ThemeIcon>;
   }
-  return <ThemeIcon variant="light" color="dark"><IconDeviceFloppy size="1.1rem" /></ThemeIcon>;
+  return <ThemeIcon variant="light" color="dark" radius="md"><IconDeviceFloppy size="1.1rem" /></ThemeIcon>;
 }
 
 // --- FUNÇÃO-ASSISTENTE 2: Badges de Status ---
@@ -57,23 +56,23 @@ function getStatusBadge(nextDateStr) {
   now.setHours(0, 0, 0, 0); 
 
   if (!nextDateStr) {
-    return <Badge color="gray" variant="outline" size="sm">N/D</Badge>;
+    return <Badge color="gray" variant="outline" size="sm" radius="sm">N/D</Badge>;
   }
 
   const nextDate = new Date(nextDateStr);
   nextDate.setHours(0, 0, 0, 0);
 
   if (nextDate < now) {
-    return <Badge color="red" variant="filled" size="sm">Atrasado</Badge>;
+    return <Badge color="red" variant="light" size="sm" radius="sm">Atrasado</Badge>;
   }
 
   const upcomingLimit = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // 30 dias
 
   if (nextDate <= upcomingLimit) {
-    return <Badge color="yellow" variant="light" c="orange.9" size="sm">Atenção</Badge>;
+    return <Badge color="yellow" variant="light" size="sm" radius="sm">Atenção</Badge>;
   }
 
-  return <Badge color="green" variant="light" size="sm">Em Dia</Badge>;
+  return <Badge color="green" variant="light" size="sm" radius="sm">Em Dia</Badge>;
 }
 
 
@@ -114,7 +113,7 @@ function DeviceListPage() {
     fetchDevices();
   }, []); 
 
-  // --- Lógica de Filtragem ---
+  // --- Lógica de Filtragem (Intacta) ---
   const filteredDevices = useMemo(() => {
     let tempDevices = devices;
     const now = new Date();
@@ -212,22 +211,25 @@ function DeviceListPage() {
     <Table.Tr key={device.id}>
       {/* Nome com Ícone - Negrito para destaque */}
       <Table.Td>
-        <Group gap="xs" wrap="nowrap">
+        <Group gap="sm" wrap="nowrap">
           {getDeviceIcon(device.deviceType)}
-          <Anchor component={Link} to={`/devices/${device.id}`} size="sm" fw={600} c="dark">
-            {device.name}
-          </Anchor>
+          <Stack gap={0}>
+            <Anchor component={Link} to={`/devices/${device.id}`} size="sm" fw={600} c="dark" underline="never">
+                {device.name}
+            </Anchor>
+            {/* Pequena melhoria: mostrar o serial abaixo do nome se quiser, ou manter separado */}
+          </Stack>
         </Group>
       </Table.Td>
       
-      {/* Setor - Texto simples */}
-      <Table.Td style={{ fontSize: '0.9rem' }}>
-        {device.setor || 'N/D'}
+      {/* Setor */}
+      <Table.Td>
+        <Text size="sm" c="dimmed">{device.setor || 'N/D'}</Text>
       </Table.Td>
       
-      {/* Usuário - Texto simples (opcional: extrair apenas nome) */}
-      <Table.Td style={{ fontSize: '0.9rem' }}>
-        {device.contact ? device.contact.split('@')[0] : 'N/D'}
+      {/* Usuário - Limpo */}
+      <Table.Td>
+        <Text size="sm" c="dimmed">{device.contact ? device.contact.split('@')[0] : 'N/D'}</Text>
       </Table.Td>
 
       {/* Status - Centralizado */}
@@ -241,8 +243,9 @@ function DeviceListPage() {
           component={Link} 
           to={`/devices/${device.id}`} 
           variant="subtle" 
+          color="blue"
           size="xs" 
-          compact
+          radius="md"
           leftSection={<IconEye size={14} />}
         >
           Detalhes
@@ -253,75 +256,82 @@ function DeviceListPage() {
   
   return (
     <Stack gap="lg">
-      {/* --- CABEÇALHO DA PÁGINA E FILTROS (Mantidos como você pediu) --- */}
-      <Group justify="space-between" align="start">
-        <div>
-          <Title order={2}>Inventário ({filteredDevices.length})</Title>
-          {subGroupCounts && <Text c="dimmed" size="sm" mt={5}>{subGroupCounts}</Text>}
-        </div>
-      </Group>
-        
-      {/* Grade de Filtros */}
-      <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing="sm">
-        <TextInput
-          placeholder="Buscar por nome..."
-          leftSection={<IconSearch size={16} />}
-          value={searchQuery}
-          onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
-        />
-        {/* Menu Status */}
-        <Menu shadow="md" width={200} withinPortal>
-          <Menu.Target>
-            <Button 
-              fullWidth leftSection={<IconFilter size={16} />} variant="light"
-              color={statusFilter === 'overdue' ? 'red' : (statusFilter === 'upcoming' ? 'yellow' : 'blue')}
-            >
-              Status: {statusFilter === 'all' ? 'Todos' : (statusFilter === 'overdue' ? 'Atrasados' : 'Próximos')}
+      {/* --- CABEÇALHO UNIFICADO --- */}
+      <Paper withBorder p="md" radius="md" shadow="sm">
+        <Group justify="space-between" align="center" mb="lg">
+            <Group gap="xs">
+                <Title order={3}>Inventário de Dispositivos</Title>
+                <Badge size="lg" variant="light" color="blue" circle>
+                    {filteredDevices.length}
+                </Badge>
+            </Group>
+            {subGroupCounts && <Text c="dimmed" size="sm">{subGroupCounts}</Text>}
+            
+            <Button variant="light" size="xs" onClick={fetchDevices} loading={isLoading} leftSection={<IconRefresh size={14}/>}>
+              Atualizar Lista
             </Button>
-          </Menu.Target>
-          <Menu.Dropdown>
-            <Menu.Label>Filtrar por Status</Menu.Label>
-            <Menu.Item leftSection={<IconList size={14} />} onClick={() => setStatusFilter('all')}>Todos</Menu.Item>
-            <Menu.Item color="red" leftSection={<IconAlertTriangle size={14} />} onClick={() => setStatusFilter('overdue')}>Atrasados</Menu.Item>
-            <Menu.Item color="yellow" leftSection={<IconClock size={14} />} onClick={() => setStatusFilter('upcoming')}>Próximos</Menu.Item>
-          </Menu.Dropdown>
-        </Menu>
-        
-        {/* Menu Tipo */}
-        <Menu shadow="md" width={200} withinPortal>
-          <Menu.Target>
-            <Button fullWidth leftSection={<IconFilter size={16} />} variant="light">
-              Tipo: {filterLabels[filterType]}
-            </Button>
-          </Menu.Target>
-          <Menu.Dropdown>
-            <Menu.Label>Filtrar por tipo</Menu.Label>
-            <Menu.Item leftSection={<IconList size={14} />} onClick={() => setFilterType('all')}>Todos</Menu.Item>
-            <Menu.Item leftSection={<IconDeviceDesktop size={14} />} onClick={() => setFilterType('computer')}>Computadores</Menu.Item>
-            <Menu.Item leftSection={<IconPrinter size={14} />} onClick={() => setFilterType('printer')}>Impressoras</Menu.Item>
-          </Menu.Dropdown>
-        </Menu>
+        </Group>
 
-        {/* Menu Nomenclatura */}
-        <Menu shadow="md" width={200} withinPortal>
-          <Menu.Target>
-            <Button 
-              fullWidth leftSection={<IconFilter size={16} />} variant="light"
-              color={nomenclatureFilter === 'all' ? 'blue' : 'gray'}
-            >
-              Nomenclatura: {nomenclatureFilter === 'all' ? 'Todas' : (nomenclatureFilter === 'owned' ? 'Comprados' : 'Alugados')}
-            </Button>
-          </Menu.Target>
-          <Menu.Dropdown>
-            <Menu.Label>Filtrar por Nomenclatura</Menu.Label>
-            <Menu.Item leftSection={<IconList size={14} />} onClick={() => setNomenclatureFilter('all')}>Todas</Menu.Item>
-            <Menu.Item leftSection={<IconBuildingStore size={14} />} onClick={() => setNomenclatureFilter('owned')}>Comprados</Menu.Item>
-            <Menu.Item leftSection={<IconBuildingFactory size={14} />} onClick={() => setNomenclatureFilter('rented')}>Alugados</Menu.Item>
-          </Menu.Dropdown>
-        </Menu>
-      </SimpleGrid>
+        {/* Grade de Filtros (Mantida igual, só dentro do Paper agora) */}
+        <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing="sm">
+            <TextInput
+            placeholder="Buscar por nome, serial..."
+            leftSection={<IconSearch size={16} />}
+            value={searchQuery}
+            onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
+            />
+            
+            <Menu shadow="md" width={200} withinPortal>
+            <Menu.Target>
+                <Button 
+                fullWidth leftSection={<IconFilter size={16} />} variant="default"
+                c={statusFilter !== 'all' ? (statusFilter === 'overdue' ? 'red' : 'yellow.8') : 'dimmed'}
+                >
+                Status: {statusFilter === 'all' ? 'Todos' : (statusFilter === 'overdue' ? 'Atrasados' : 'Próximos')}
+                </Button>
+            </Menu.Target>
+            <Menu.Dropdown>
+                <Menu.Label>Filtrar por Status</Menu.Label>
+                <Menu.Item leftSection={<IconList size={14} />} onClick={() => setStatusFilter('all')}>Todos</Menu.Item>
+                <Menu.Item color="red" leftSection={<IconAlertTriangle size={14} />} onClick={() => setStatusFilter('overdue')}>Atrasados</Menu.Item>
+                <Menu.Item color="yellow" leftSection={<IconClock size={14} />} onClick={() => setStatusFilter('upcoming')}>Próximos</Menu.Item>
+            </Menu.Dropdown>
+            </Menu>
+            
+            <Menu shadow="md" width={200} withinPortal>
+            <Menu.Target>
+                <Button fullWidth leftSection={<IconFilter size={16} />} variant="default" c={filterType !== 'all' ? 'blue' : 'dimmed'}>
+                Tipo: {filterLabels[filterType]}
+                </Button>
+            </Menu.Target>
+            <Menu.Dropdown>
+                <Menu.Label>Filtrar por tipo</Menu.Label>
+                <Menu.Item leftSection={<IconList size={14} />} onClick={() => setFilterType('all')}>Todos</Menu.Item>
+                <Menu.Item leftSection={<IconDeviceDesktop size={14} />} onClick={() => setFilterType('computer')}>Computadores</Menu.Item>
+                <Menu.Item leftSection={<IconPrinter size={14} />} onClick={() => setFilterType('printer')}>Impressoras</Menu.Item>
+            </Menu.Dropdown>
+            </Menu>
 
-      {/* --- TABELA COM DESIGN REFINADO E RESPONSIVO --- */}
+            <Menu shadow="md" width={200} withinPortal>
+            <Menu.Target>
+                <Button 
+                fullWidth leftSection={<IconFilter size={16} />} variant="default"
+                c={nomenclatureFilter !== 'all' ? 'blue' : 'dimmed'}
+                >
+                Nomenclatura: {nomenclatureFilter === 'all' ? 'Todas' : (nomenclatureFilter === 'owned' ? 'Comprados' : 'Alugados')}
+                </Button>
+            </Menu.Target>
+            <Menu.Dropdown>
+                <Menu.Label>Filtrar por Nomenclatura</Menu.Label>
+                <Menu.Item leftSection={<IconList size={14} />} onClick={() => setNomenclatureFilter('all')}>Todas</Menu.Item>
+                <Menu.Item leftSection={<IconBuildingStore size={14} />} onClick={() => setNomenclatureFilter('owned')}>Comprados</Menu.Item>
+                <Menu.Item leftSection={<IconBuildingFactory size={14} />} onClick={() => setNomenclatureFilter('rented')}>Alugados</Menu.Item>
+            </Menu.Dropdown>
+            </Menu>
+        </SimpleGrid>
+      </Paper>
+
+      {/* --- TABELA (Design Unificado) --- */}
       <Paper withBorder p="0" radius="md" shadow="sm" style={{ overflow: 'hidden' }}>
         <div style={{ position: 'relative', minHeight: 200 }}>
           <LoadingOverlay visible={isLoading} />
@@ -330,9 +340,9 @@ function DeviceListPage() {
             <Table 
               striped 
               highlightOnHover 
-              verticalSpacing="sm" 
+              verticalSpacing="md"  // Mais espaçamento vertical (como na pag detalhes)
               horizontalSpacing="md"
-              minWidth={800} // Garante que não esmaga no notebook
+              minWidth={800} 
             >
               <Table.Thead style={{ backgroundColor: '#f8f9fa' }}>
                 <Table.Tr>

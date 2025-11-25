@@ -191,8 +191,6 @@ function DeviceDetailPage() {
                 <InfoItem icon={<IconId size="1.2rem" />} label="Modelo">{device.model}</InfoItem>
                 <InfoItem icon={<IconUserCircle size="1.2rem" />} label="Usuário">{device.contact}</InfoItem>
                 <InfoItem icon={<IconBrandWindows size="1.2rem" />} label="Sistema Operacional">{device.operatingSystem}</InfoItem>
-                <InfoItem icon={<IconWorldWww size="1.2rem" />} label="Endereço IP">{device.ipAddress}</InfoItem>
-                <InfoItem icon={<IconTag size="1.2rem" />} label="Tag de Inventário">{device.inventoryTag}</InfoItem>
               </SimpleGrid>
 
               <Stack mt="xl" gap="md">
