@@ -100,7 +100,7 @@ export const deletePreventive = async (preventiveId) => {
 
 export const updateDeviceSetor = async (deviceId, setor, interval) => {
   try {
-    const response = await apiClient.put(`/api/devices/${deviceId}/setor`, { setor, interval });
+    const response = await apiClient.patch(`/api/devices/${deviceId}/setor`, { setor, interval });
     return response.data;
   } catch (error) {
     throw error.response?.data || new Error('Erro de rede ao atualizar setor.');

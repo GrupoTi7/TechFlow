@@ -48,10 +48,29 @@ async function bulkUpdateSetors(req, res) {
     res.status(500).json({ success: false, message: 'Erro ao atualizar setores em massa.', error: error.message });
   }
 }
+async function updateDeviceSetor(req, res) {
+  try {
+    const { id } = req.params;
+    const { setor, interval } = req.body;
+    
+    const updatedDevice = await prisma.device.update({
+      where: { id },
+      data: { 
+        setor, 
+        maintenanceIntervalDays: interval 
+      }
+    });
+    
+    res.json({ success: true, device: updatedDevice });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+}
 
 module.exports = { 
   getAllDevices,
   getDeviceById,
  cleanupDefaultValues,
- bulkUpdateSetors
+ bulkUpdateSetors,
+ updateDeviceSetor
  };

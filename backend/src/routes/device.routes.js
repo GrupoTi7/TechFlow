@@ -27,4 +27,6 @@ router.patch(
   deviceController.bulkUpdateSetors
 );
 
+router.patch('/devices/:id/setor', authenticateToken, deviceController.updateDeviceSetor);
+
 module.exports = router;
