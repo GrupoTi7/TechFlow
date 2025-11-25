@@ -1,9 +1,7 @@
-// src/pages/DeviceListPage.jsx
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { getDevices } from '../services/api.js';
 
-// Importações do Mantine
 import { 
   Table, Title, Group, Button, Anchor, Text, Menu, TextInput,
   Badge,
@@ -16,7 +14,6 @@ import {
   Pagination
 } from '@mantine/core';
 
-// Importações de Ícones
 import { 
   IconFilter, IconDeviceDesktop, IconPrinter, IconList, IconSearch,
   IconAlertTriangle, IconClock, IconBuildingStore, IconBuildingFactory,
@@ -33,12 +30,11 @@ const filterLabels = {
   printer: 'Impressoras'
 };
 
-// --- FUNÇÕES AUXILIARES (Cores mais vivas nos ícones) ---
+// --- Ícones (Cores mais vivas) ---
 function getDeviceIcon(deviceType) {
   const type = (deviceType || '').toLowerCase();
-  // Usando tons .6 ou .7 para cores mais saturadas no variant="light"
   if (type.includes('notebook')) return <ThemeIcon variant="light" color="blue.6" size="lg" radius="md"><IconDeviceLaptop size="1.2rem" /></ThemeIcon>;
-  if (type.includes('printer')) return <ThemeIcon variant="light" color="orange.7" size="lg" radius="md"><IconPrinter size="1.2rem" /></ThemeIcon>; // Laranja para impressora
+  if (type.includes('printer')) return <ThemeIcon variant="light" color="orange.7" size="lg" radius="md"><IconPrinter size="1.2rem" /></ThemeIcon>;
   if (type.includes('server') || type.includes('vm')) return <ThemeIcon variant="light" color="grape.7" size="lg" radius="md"><IconServer size="1.2rem" /></ThemeIcon>;
   if (type.includes('desktop')) return <ThemeIcon variant="light" color="teal.7" size="lg" radius="md"><IconDeviceDesktop size="1.2rem" /></ThemeIcon>;
   return <ThemeIcon variant="light" color="gray.6" size="lg" radius="md"><IconDeviceFloppy size="1.2rem" /></ThemeIcon>;
@@ -47,7 +43,6 @@ function getDeviceIcon(deviceType) {
 function getStatusBadge(nextDateStr) {
   const now = new Date();
   now.setHours(0, 0, 0, 0); 
-  // Badge com fonte mais forte
   const badgeProps = { radius: "xl", size: "sm", tt: "capitalize", fw: 700 };
 
   if (!nextDateStr) return <Badge color="gray" variant="outline" {...badgeProps} style={{ borderColor: '#ced4da', color: '#495057' }}>N/D</Badge>;
@@ -68,7 +63,6 @@ function DeviceListPage() {
   const [error, setError] = useState(null);
   const location = useLocation();
   
-  // Filtros
   const [filterType, setFilterType] = useState('all');
   const [statusFilter, setStatusFilter] = useState(location.state?.initialStatusFilter || 'all'); 
   const [nomenclatureFilter, setNomenclatureFilter] = useState(location.state?.initialNomenclatureFilter || 'all');
@@ -91,7 +85,6 @@ function DeviceListPage() {
 
   useEffect(() => { fetchDevices(); }, []);
 
-  // Lógica de Filtros (Intacta)
   const filteredDevices = useMemo(() => {
     let temp = devices;
     const now = new Date(); now.setHours(0,0,0,0);
@@ -136,10 +129,10 @@ function DeviceListPage() {
 
   if (error) return <div style={{ color: 'red' }}>Erro: {error}</div>;
 
-  // --- LINHAS DA TABELA (ALTO CONTRASTE) ---
+  // --- LINHAS DA TABELA ---
   const rows = paginatedData.map((device) => (
     <Table.Tr key={device.id} style={{ height: '65px' }}>
-      {/* NOME (Azul Forte e Negrito) */}
+      {/* NOME (Azul Forte e Vibrante) */}
       <Table.Td>
         <Group gap="md" wrap="nowrap">
           {getDeviceIcon(device.deviceType)}
@@ -148,31 +141,30 @@ function DeviceListPage() {
               component={Link} 
               to={`/devices/${device.id}`} 
               size="sm" 
-              fw={700} // Negrito forte
-              c="blue.8" // Azul vibrante
-              style={{ textDecoration: 'none' }}
+              fw={700} 
+              // CORREÇÃO: Usamos um estilo direto para garantir o azul forte (#0041C2)
+              style={{ textDecoration: 'none', color: '#0041C2' }}
             >
               {device.name}
             </Anchor>
-            {/* Serial em cinza escuro, não apagado */}
             <Text size="xs" c="dark.3" fw={500} mt={2}>S/N: {device.serial || '-'}</Text>
           </div>
         </Group>
       </Table.Td>
       
-      {/* SETOR (Texto Escuro) */}
+      {/* SETOR */}
       <Table.Td>
         <Text size="sm" c="dark.9" fw={500}>{device.setor || 'N/D'}</Text>
       </Table.Td>
       
-      {/* USUÁRIO (Texto Escuro) */}
+      {/* USUÁRIO */}
       <Table.Td>
          <Text size="sm" c="dark.9" fw={500} style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
            {device.contact ? device.contact.split('@')[0] : 'N/D'}
          </Text>
       </Table.Td>
 
-      {/* STATUS (Centralizado) */}
+      {/* STATUS */}
       <Table.Td style={{ textAlign: 'center' }}>
         {getStatusBadge(device.nextPreventiveDate)}
       </Table.Td>
@@ -185,7 +177,6 @@ function DeviceListPage() {
       <Paper p="md" radius="md" withBorder={false} bg="transparent">
         <Group justify="space-between" align="center" mb="md">
            <div>
-             {/* Título Preto Forte */}
              <Title order={2} style={{ fontWeight: 800, color: '#1A1B1E', letterSpacing: -0.5 }}>
                 Inventário de Dispositivos
              </Title>
@@ -196,7 +187,7 @@ function DeviceListPage() {
            </Button>
         </Group>
         
-        {/* Filtros com bordas e texto mais definidos */}
+        {/* Filtros */}
         <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing="md">
           <TextInput
             placeholder="Buscar..."
@@ -240,14 +231,14 @@ function DeviceListPage() {
             </Menu.Target>
             <Menu.Dropdown>
               <Menu.Item leftSection={<IconList size={14} />} onClick={() => setNomenclatureFilter('all')}>Todas</Menu.Item>
-              <Menu.Item leftSection={<IconBuildingStore size={14} />} onClick={() => setNomenclatureFilter('owned')}>Comprados</Menu.Item>
+            <Menu.Item leftSection={<IconBuildingStore size={14} />} onClick={() => setNomenclatureFilter('owned')}>Comprados</Menu.Item>
               <Menu.Item leftSection={<IconBuildingFactory size={14} />} onClick={() => setNomenclatureFilter('rented')}>Alugados</Menu.Item>
             </Menu.Dropdown>
           </Menu>
         </SimpleGrid>
       </Paper>
 
-      {/* --- TABELA COM ALTO CONTRASTE --- */}
+      {/* --- TABELA --- */}
       <Paper withBorder radius="lg" shadow="sm" style={{ overflow: 'hidden', borderColor: '#e9ecef' }}>
         <div style={{ position: 'relative', minHeight: 200 }}>
           <LoadingOverlay visible={isLoading} />
@@ -258,7 +249,7 @@ function DeviceListPage() {
               verticalSpacing="md" 
               horizontalSpacing="md"
             >
-              {/* Cabeçalho: Preto e Negrito */}
+              {/* Cabeçalho */}
               <Table.Thead style={{ backgroundColor: '#f8f9fa', borderBottom: '2px solid #dee2e6' }}>
                 <Table.Tr>
                   <Table.Th style={{ color: '#1A1B1E', fontWeight: 700, fontSize: '0.9rem', paddingLeft: 20 }}>DISPOSITIVO</Table.Th>
