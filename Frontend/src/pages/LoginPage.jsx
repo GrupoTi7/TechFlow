@@ -1,6 +1,5 @@
-// src/pages/LoginPage.jsx
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom'; // Importe o Link
+import { useNavigate, Link } from 'react-router-dom';
 import { login } from '../services/api.js';
 
 import { 
@@ -11,8 +10,8 @@ import {
   Button, 
   Alert,
   Container,
-  Anchor, // Importe o Anchor
-  Stack // Importe o Stack para espaçamento vertical fácil
+  Anchor, 
+  Stack 
 } from '@mantine/core';
 import { IconAlertCircle } from '@tabler/icons-react';
 
@@ -52,10 +51,10 @@ function LoginPage() {
 
   return (
     <Container 
-      fluid // Garante que ocupa a largura total
+      fluid 
       h="100vh" 
       style={{ 
-        backgroundColor: '#0041C2', // Azul TechFlow vibrante (ou theme.colors.techFlowBlue[7])
+        backgroundColor: '#0003d9', // <-- AZUL TECHFLOW EXATO
         display: 'flex', 
         alignItems: 'center', 
         justifyContent: 'center',
@@ -70,7 +69,7 @@ function LoginPage() {
         radius="md" 
         style={{ 
           width: '100%', 
-          maxWidth: '400px', // Largura fixa para o cartão
+          maxWidth: '400px', 
           backgroundColor: 'white'
         }}
       >
@@ -98,7 +97,6 @@ function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 size="md"
               />
-              {/* LINK DE RECUPERAÇÃO */}
               <Anchor 
                 component={Link} 
                 to="/forgot-password" 
@@ -117,7 +115,13 @@ function LoginPage() {
               </Alert>
             )}
 
-            <Button type="submit" fullWidth loading={isLoading} size="lg" color="blue" mt="sm">
+            <Button 
+              type="submit" 
+              fullWidth 
+              loading={isLoading} 
+              size="lg" 
+              style={{ backgroundColor: '#0003d9' }} // Botão na cor da marca
+            >
               Entrar
             </Button>
           </Stack>

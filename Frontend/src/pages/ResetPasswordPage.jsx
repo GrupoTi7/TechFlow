@@ -2,13 +2,13 @@ import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { resetPassword } from '../services/api.js';
 import { Paper, Title, PasswordInput, Button, Stack, Alert, Container, Text } from '@mantine/core';
-import { IconAlertCircle, IconCheck } from '@tabler/icons-react';
+import { IconAlertCircle } from '@tabler/icons-react';
 
 function ResetPasswordPage() {
   const { token } = useParams();
   const navigate = useNavigate();
   const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState(''); // Adicionado confirmação
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [status, setStatus] = useState({ loading: false, error: null });
 
   const handleSubmit = async (e) => {
@@ -34,7 +34,7 @@ function ResetPasswordPage() {
       fluid 
       h="100vh" 
       style={{ 
-        backgroundColor: '#0041C2', // Azul TechFlow
+        backgroundColor: '#0003d9', // <-- AZUL TECHFLOW EXATO
         display: 'flex', 
         alignItems: 'center', 
         justifyContent: 'center',
@@ -83,7 +83,13 @@ function ResetPasswordPage() {
               </Alert>
             )}
             
-            <Button type="submit" fullWidth loading={status.loading} size="lg" color="blue">
+            <Button 
+              type="submit" 
+              fullWidth 
+              loading={status.loading} 
+              size="lg" 
+              style={{ backgroundColor: '#0003d9' }} // Botão na cor da marca
+            >
               Salvar Nova Senha
             </Button>
           </Stack>

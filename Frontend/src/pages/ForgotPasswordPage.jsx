@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { requestPasswordReset } from '../services/api.js';
 import { 
-  Paper, Title, TextInput, Button, Text, Stack, Alert, Center, Anchor, Group, Container // <-- Group ADICIONADO AQUI
+  Paper, Title, TextInput, Button, Text, Stack, Alert, Center, Anchor, Group, Container 
 } from '@mantine/core';
 import { IconMail, IconArrowLeft, IconAlertCircle, IconCheck } from '@tabler/icons-react';
 
@@ -26,7 +26,7 @@ function ForgotPasswordPage() {
       fluid 
       h="100vh" 
       style={{ 
-        backgroundColor: '#0041C2', // Azul TechFlow
+        backgroundColor: '#0003d9', // <-- AZUL TECHFLOW EXATO
         display: 'flex', 
         alignItems: 'center', 
         justifyContent: 'center',
@@ -76,7 +76,13 @@ function ForgotPasswordPage() {
               </Alert>
             )}
             
-            <Button type="submit" fullWidth loading={status.loading} size="lg" color="blue">
+            <Button 
+              type="submit" 
+              fullWidth 
+              loading={status.loading} 
+              size="lg" 
+              style={{ backgroundColor: '#0003d9' }} // Botão na cor da marca
+            >
               Enviar Link de Recuperação
             </Button>
             
