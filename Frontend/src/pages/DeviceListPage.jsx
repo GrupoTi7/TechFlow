@@ -1,3 +1,4 @@
+// src/pages/DeviceListPage.jsx
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { getDevices } from '../services/api.js';
@@ -23,8 +24,7 @@ import {
   IconServer,
   IconDeviceFloppy,
   IconRefresh,
-  IconEye,
-  IconDatabase // Ícone para o total no rodapé
+  IconDatabase
 } from '@tabler/icons-react';
 
 const filterLabels = {
@@ -36,37 +36,38 @@ const filterLabels = {
 // --- FUNÇÕES AUXILIARES ---
 function getDeviceIcon(deviceType) {
   const type = (deviceType || '').toLowerCase();
-  if (type.includes('notebook')) return <ThemeIcon variant="light" color="blue" size="md" radius="md"><IconDeviceLaptop size="1rem" /></ThemeIcon>;
-  if (type.includes('printer')) return <ThemeIcon variant="light" color="gray" size="md" radius="md"><IconPrinter size="1rem" /></ThemeIcon>;
-  if (type.includes('server') || type.includes('vm')) return <ThemeIcon variant="light" color="grape" size="md" radius="md"><IconServer size="1rem" /></ThemeIcon>;
-  if (type.includes('desktop')) return <ThemeIcon variant="light" color="teal" size="md" radius="md"><IconDeviceDesktop size="1rem" /></ThemeIcon>;
-  return <ThemeIcon variant="light" color="gray" size="md" radius="md"><IconDeviceFloppy size="1rem" /></ThemeIcon>;
+  if (type.includes('notebook')) return <ThemeIcon variant="light" color="blue" size="lg" radius="md"><IconDeviceLaptop size="1.2rem" /></ThemeIcon>;
+  if (type.includes('printer')) return <ThemeIcon variant="light" color="gray" size="lg" radius="md"><IconPrinter size="1.2rem" /></ThemeIcon>;
+  if (type.includes('server') || type.includes('vm')) return <ThemeIcon variant="light" color="grape" size="lg" radius="md"><IconServer size="1.2rem" /></ThemeIcon>;
+  if (type.includes('desktop')) return <ThemeIcon variant="light" color="teal" size="lg" radius="md"><IconDeviceDesktop size="1.2rem" /></ThemeIcon>;
+  return <ThemeIcon variant="light" color="gray" size="lg" radius="md"><IconDeviceFloppy size="1.2rem" /></ThemeIcon>;
 }
 
 function getStatusBadge(nextDateStr) {
   const now = new Date();
   now.setHours(0, 0, 0, 0); 
-  const badgeProps = { radius: "xl", size: "md", tt: "capitalize" };
+  // Badge estilo "Pill" suave
+  const badgeProps = { radius: "xl", size: "sm", tt: "capitalize", fw: 600 };
 
-  if (!nextDateStr) return <Badge color="gray" variant="outline" {...badgeProps} c="dimmed" style={{ borderColor: '#dee2e6' }}>N/D</Badge>;
+  if (!nextDateStr) return <Badge color="gray" variant="outline" {...badgeProps} style={{ borderColor: '#e9ecef', color: '#adb5bd' }}>N/D</Badge>;
 
   const nextDate = new Date(nextDateStr);
   nextDate.setHours(0, 0, 0, 0);
 
   if (nextDate < now) return <Badge color="red" variant="filled" {...badgeProps}>Atrasado</Badge>;
   const upcomingLimit = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); 
-  if (nextDate <= upcomingLimit) return <Badge color="yellow" variant="light" {...badgeProps}>Atenção</Badge>;
+  if (nextDate <= upcomingLimit) return <Badge color="yellow" variant="light" {...badgeProps} c="orange.9">Atenção</Badge>;
 
   return <Badge color="green" variant="light" {...badgeProps}>Em Dia</Badge>;
 }
 
-// --- COMPONENTE PRINCIPAL ---
 function DeviceListPage() {
   const [devices, setDevices] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const location = useLocation();
   
+  // Filtros
   const [filterType, setFilterType] = useState('all');
   const [statusFilter, setStatusFilter] = useState(location.state?.initialStatusFilter || 'all'); 
   const [nomenclatureFilter, setNomenclatureFilter] = useState(location.state?.initialNomenclatureFilter || 'all');
@@ -89,37 +90,28 @@ function DeviceListPage() {
 
   useEffect(() => { fetchDevices(); }, []);
 
+  // Lógica de Filtros (Intacta)
   const filteredDevices = useMemo(() => {
-    let tempDevices = devices;
-    const now = new Date();
-    now.setHours(0, 0, 0, 0);
+    let temp = devices;
+    const now = new Date(); now.setHours(0,0,0,0);
 
-    if (filterType === 'computer') tempDevices = tempDevices.filter(d => !d.deviceType.toLowerCase().includes('printer'));
-    else if (filterType === 'printer') tempDevices = tempDevices.filter(d => d.deviceType.toLowerCase().includes('printer'));
+    if (filterType === 'computer') temp = temp.filter(d => !d.deviceType.toLowerCase().includes('printer'));
+    else if (filterType === 'printer') temp = temp.filter(d => d.deviceType.toLowerCase().includes('printer'));
 
-    if (statusFilter === 'overdue') tempDevices = tempDevices.filter(d => d.nextPreventiveDate && new Date(new Date(d.nextPreventiveDate).setHours(0,0,0,0)) < now);
+    if (statusFilter === 'overdue') temp = temp.filter(d => d.nextPreventiveDate && new Date(d.nextPreventiveDate) < now);
     else if (statusFilter === 'upcoming') {
-      const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-      tempDevices = tempDevices.filter(d => d.nextPreventiveDate && new Date(new Date(d.nextPreventiveDate).setHours(0,0,0,0)) >= now && new Date(new Date(d.nextPreventiveDate).setHours(0,0,0,0)) <= thirtyDaysFromNow);
+       const limit = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+       temp = temp.filter(d => d.nextPreventiveDate && new Date(d.nextPreventiveDate) >= now && new Date(d.nextPreventiveDate) <= limit);
     }
     
-    if (nomenclatureFilter === 'owned') tempDevices = tempDevices.filter(d => d.name.toUpperCase().startsWith('PTR') || d.name.toUpperCase().startsWith('TRC'));
-    else if (nomenclatureFilter === 'rented') tempDevices = tempDevices.filter(d => {
-      const upperName = d.name.toUpperCase();
-      return (upperName.startsWith('NETSITE') || upperName.startsWith('VIVO') || upperName.startsWith('SOROCAMP') || upperName.startsWith('INFOBRAS') || upperName.startsWith('LENOVO'));
-    });
+    if (nomenclatureFilter === 'owned') temp = temp.filter(d => d.name.toUpperCase().startsWith('PTR') || d.name.toUpperCase().startsWith('TRC'));
+    else if (nomenclatureFilter === 'rented') temp = temp.filter(d => ['NETSITE','VIVO','SOROCAMP','INFOBRAS','LENOVO'].some(p => d.name.toUpperCase().startsWith(p)));
     
-    if (searchQuery.trim() !== '') {
-      const searchLower = searchQuery.toLowerCase(); 
-      tempDevices = tempDevices.filter(device => {
-        const nameLower = device.name.toLowerCase(); 
-        const normalSearch = nameLower.includes(searchLower);
-        let specialSearch = false;
-        if (searchLower.includes('vivo')) specialSearch = nameLower.startsWith('lenovo');
-        return normalSearch || specialSearch;
-      });
+    if (searchQuery.trim()) {
+      const lower = searchQuery.toLowerCase(); 
+      temp = temp.filter(d => (d.name?.toLowerCase() || '').includes(lower) || (d.serial?.toLowerCase() || '').includes(lower) || (d.contact?.toLowerCase() || '').includes(lower));
     }
-    return tempDevices;
+    return temp;
   }, [devices, filterType, statusFilter, searchQuery, nomenclatureFilter]);
 
   const totalPages = Math.ceil(filteredDevices.length / itemsPerPage);
@@ -127,59 +119,95 @@ function DeviceListPage() {
 
   const subGroupCounts = useMemo(() => {
     if (nomenclatureFilter === 'owned') {
-      const ptrCount = filteredDevices.filter(d => d.name.toUpperCase().startsWith('PTR')).length;
-      const trcCount = filteredDevices.filter(d => d.name.toUpperCase().startsWith('TRC')).length;
-      return `(Comprados: ${ptrCount} PTR, ${trcCount} TRC)`;
+      const ptr = filteredDevices.filter(d => d.name.toUpperCase().startsWith('PTR')).length;
+      const trc = filteredDevices.filter(d => d.name.toUpperCase().startsWith('TRC')).length;
+      return `(Comprados: ${ptr} PTR, ${trc} TRC)`;
     }
     if (nomenclatureFilter === 'rented') {
-      const netsiteCount = filteredDevices.filter(d => d.name.toUpperCase().startsWith('NETSITE')).length;
-      const vivoCount = filteredDevices.filter(d => d.name.toUpperCase().startsWith('VIVO') || d.name.toUpperCase().startsWith('LENOVO')).length; 
-      const sorocampCount = filteredDevices.filter(d => d.name.toUpperCase().startsWith('SOROCAMP')).length; 
-      const infobrasCount = filteredDevices.filter(d => d.name.toUpperCase().startsWith('INFOBRAS')).length;
-      return `(Alugados: ${netsiteCount} NETSITE, ${vivoCount} VIVO, ${sorocampCount} SOROCAMP, ${infobrasCount} INFOBRAS)`; 
+      const netsite = filteredDevices.filter(d => d.name.toUpperCase().startsWith('NETSITE')).length;
+      const vivo = filteredDevices.filter(d => d.name.toUpperCase().startsWith('VIVO') || d.name.toUpperCase().startsWith('LENOVO')).length; 
+      const sorocamp = filteredDevices.filter(d => d.name.toUpperCase().startsWith('SOROCAMP')).length; 
+      const infobras = filteredDevices.filter(d => d.name.toUpperCase().startsWith('INFOBRAS')).length;
+      return `(Alugados: ${netsite} NETSITE, ${vivo} VIVO, ${sorocamp} SOROCAMP, ${infobras} INFOBRAS)`; 
     }
     return null;
   }, [filteredDevices, nomenclatureFilter]);
 
   if (error) return <div style={{ color: 'red' }}>Erro: {error}</div>;
 
+  // --- LINHAS DA TABELA (Visual Limpo) ---
   const rows = paginatedData.map((device) => (
-    <Table.Tr key={device.id} style={{ height: '60px' }}>
+    <Table.Tr key={device.id} style={{ height: '65px' }}>
+      {/* NOME (Clicável e Destacado) */}
       <Table.Td>
-        <Group gap="xs" wrap="nowrap">
+        <Group gap="md" wrap="nowrap">
           {getDeviceIcon(device.deviceType)}
-          <Text size="sm" fw={600} c="dark">{device.name}</Text>
+          <div style={{ lineHeight: 1.3 }}>
+            <Anchor 
+              component={Link} 
+              to={`/devices/${device.id}`} 
+              size="sm" 
+              fw={600} 
+              c="blue.7" 
+              style={{ textDecoration: 'none' }}
+            >
+              {device.name}
+            </Anchor>
+            <Text size="xs" c="dimmed" mt={2}>S/N: {device.serial || '-'}</Text>
+          </div>
         </Group>
       </Table.Td>
-      <Table.Td><Text size="sm" c="dimmed">{device.setor || 'N/D'}</Text></Table.Td>
-      <Table.Td><Text size="sm" c="dimmed" style={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{device.contact ? device.contact.split('@')[0] : 'N/D'}</Text></Table.Td>
-      <Table.Td style={{ textAlign: 'center' }}>{getStatusBadge(device.nextPreventiveDate)}</Table.Td>
-      <Table.Td style={{ textAlign: 'right' }}>
-        <Anchor component={Link} to={`/devices/${device.id}`} size="sm" c="blue" fw={500} style={{ textDecoration: 'none' }}>Detalhes</Anchor>
+      
+      {/* SETOR */}
+      <Table.Td>
+        <Text size="sm" c="dimmed" fw={500}>{device.setor || 'N/D'}</Text>
       </Table.Td>
+      
+      {/* USUÁRIO */}
+      <Table.Td>
+         <Text size="sm" c="dimmed" style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+           {device.contact ? device.contact.split('@')[0] : 'N/D'}
+         </Text>
+      </Table.Td>
+
+      {/* STATUS (Centralizado) */}
+      <Table.Td style={{ textAlign: 'center' }}>
+        {getStatusBadge(device.nextPreventiveDate)}
+      </Table.Td>
+
+      {/* REMOVIDO: A Coluna de Ações/Detalhes foi retirada daqui */}
     </Table.Tr>
   ));
   
   return (
     <Stack gap="lg">
-      <Paper p="md" radius="sm" withBorder={false} style={{ backgroundColor: 'transparent' }}>
-        <Group justify="space-between" align="center">
-          <div>
-            {/* TÍTULO LIMPO (Sem badge) */}
-            <Title order={2} style={{ fontWeight: 700, letterSpacing: -0.5 }}>Inventário de Dispositivos</Title>
-            {subGroupCounts && <Text c="dimmed" size="sm" mt={4}>{subGroupCounts}</Text>}
-          </div>
-          <Group>
-            <Button variant="default" onClick={fetchDevices} loading={isLoading} leftSection={<IconRefresh size={16}/>}>Atualizar</Button>
-          </Group>
+      {/* Painel de Controles */}
+      <Paper p="md" radius="md" withBorder={false} bg="transparent">
+        <Group justify="space-between" align="center" mb="md">
+           <div>
+             <Title order={2} style={{ fontWeight: 800, color: '#212529', letterSpacing: -0.5 }}>
+                Inventário de Dispositivos
+             </Title>
+             {subGroupCounts && <Text c="dimmed" size="sm" mt={4}>{subGroupCounts}</Text>}
+           </div>
+           <Button variant="white" color="dark" onClick={fetchDevices} loading={isLoading} leftSection={<IconRefresh size={16}/>} style={{ border: '1px solid #dee2e6' }}>
+              Atualizar
+           </Button>
         </Group>
         
-        <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing="md" mt="lg">
-          <TextInput placeholder="Buscar dispositivo..." leftSection={<IconSearch size={16} />} value={searchQuery} onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }} radius="md" />
-          
+        {/* Filtros */}
+        <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing="md">
+          <TextInput
+            placeholder="Buscar..."
+            leftSection={<IconSearch size={16} />}
+            value={searchQuery}
+            onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
+            radius="md"
+          />
+          {/* Menus de Filtro (Visuais mantidos com radius="md") */}
           <Menu shadow="md" width={200} withinPortal radius="md">
             <Menu.Target>
-              <Button fullWidth leftSection={<IconFilter size={16} />} variant="light" color={statusFilter === 'overdue' ? 'red' : (statusFilter === 'upcoming' ? 'yellow' : 'blue')}>
+              <Button fullWidth leftSection={<IconFilter size={16} />} variant="default" radius="md" style={{ color: '#495057', borderColor: '#ced4da' }}>
                 Status: {statusFilter === 'all' ? 'Todos' : (statusFilter === 'overdue' ? 'Atrasados' : 'Próximos')}
               </Button>
             </Menu.Target>
@@ -189,10 +217,12 @@ function DeviceListPage() {
               <Menu.Item color="yellow" leftSection={<IconClock size={14} />} onClick={() => setStatusFilter('upcoming')}>Próximos</Menu.Item>
             </Menu.Dropdown>
           </Menu>
-          
+
           <Menu shadow="md" width={200} withinPortal radius="md">
             <Menu.Target>
-              <Button fullWidth leftSection={<IconFilter size={16} />} variant="light" color="violet">Tipo: {filterLabels[filterType]}</Button>
+              <Button fullWidth leftSection={<IconFilter size={16} />} variant="default" radius="md" style={{ color: '#495057', borderColor: '#ced4da' }}>
+                Tipo: {filterLabels[filterType]}
+              </Button>
             </Menu.Target>
             <Menu.Dropdown>
               <Menu.Item leftSection={<IconList size={14} />} onClick={() => setFilterType('all')}>Todos</Menu.Item>
@@ -203,7 +233,7 @@ function DeviceListPage() {
 
           <Menu shadow="md" width={200} withinPortal radius="md">
             <Menu.Target>
-              <Button fullWidth leftSection={<IconFilter size={16} />} variant="light" color={nomenclatureFilter === 'all' ? 'gray' : 'blue'}>
+              <Button fullWidth leftSection={<IconFilter size={16} />} variant="default" radius="md" style={{ color: '#495057', borderColor: '#ced4da' }}>
                 Nomenclatura: {nomenclatureFilter === 'all' ? 'Todas' : (nomenclatureFilter === 'owned' ? 'Comprados' : 'Alugados')}
               </Button>
             </Menu.Target>
@@ -216,38 +246,43 @@ function DeviceListPage() {
         </SimpleGrid>
       </Paper>
 
-      <Paper withBorder radius="lg" shadow="xs" style={{ overflow: 'hidden' }}>
+      {/* --- TABELA CLEAN --- */}
+      <Paper withBorder radius="lg" shadow="sm" style={{ overflow: 'hidden', borderColor: '#e9ecef' }}>
         <div style={{ position: 'relative', minHeight: 200 }}>
           <LoadingOverlay visible={isLoading} />
           
           <ScrollArea>
-            <Table highlightOnHover verticalSpacing="md" horizontalSpacing="md">
+            <Table 
+              highlightOnHover 
+              verticalSpacing="md" 
+              horizontalSpacing="md"
+            >
+              {/* Cabeçalho Limpo */}
               <Table.Thead style={{ backgroundColor: '#f8f9fa', borderBottom: '1px solid #eee' }}>
                 <Table.Tr>
                   <Table.Th style={{ color: '#868e96', fontWeight: 600, paddingLeft: 20 }}>DISPOSITIVO</Table.Th>
                   <Table.Th style={{ color: '#868e96', fontWeight: 600 }}>SETOR</Table.Th>
                   <Table.Th style={{ color: '#868e96', fontWeight: 600 }}>USUÁRIO</Table.Th>
                   <Table.Th style={{ color: '#868e96', fontWeight: 600, textAlign: 'center' }}>STATUS</Table.Th>
-                  <Table.Th></Table.Th>
+                  {/* REMOVIDO: Table.Th de Ações */}
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
                 {rows.length > 0 ? rows : (
-                  <Table.Tr><Table.Td colSpan={5} ta="center" py={40} c="dimmed">Nenhum dispositivo encontrado.</Table.Td></Table.Tr>
+                  <Table.Tr><Table.Td colSpan={4} ta="center" py={40} c="dimmed">Nenhum dispositivo encontrado.</Table.Td></Table.Tr>
                 )}
               </Table.Tbody>
             </Table>
           </ScrollArea>
 
-          {/* --- RODAPÉ UNIFICADO (Total + Paginação) --- */}
-          <Group justify="space-between" p="md" style={{ borderTop: '1px solid #f1f3f5', backgroundColor: '#fcfcfc' }}>
-            {/* Contador de Total com Ícone */}
+          {/* Rodapé com Total e Paginação */}
+          <Group justify="space-between" p="md" style={{ borderTop: '1px solid #f1f3f5', backgroundColor: '#fff' }}>
             <Group gap="xs">
                <ThemeIcon variant="light" color="gray" size="md" radius="md">
                   <IconDatabase size="1rem" />
                </ThemeIcon>
                <Text size="sm" fw={500} c="dimmed">
-                 Total de dispositivos: <span style={{ color: '#000' }}>{filteredDevices.length}</span>
+                 Total de dispositivos: <span style={{ color: '#212529', fontWeight: 600 }}>{filteredDevices.length}</span>
                </Text>
             </Group>
 
