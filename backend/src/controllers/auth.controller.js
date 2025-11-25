@@ -14,6 +14,40 @@ const transporter = nodemailer.createTransport({
   tls: { rejectUnauthorized: false }
 });
 
+const register = async (req, res) => {
+  const { username, password, email } = req.body;
+
+  if (!username || !password) {
+    return res.status(400).json({ success: false, message: 'Usuário e senha são obrigatórios.' });
+  }
+
+  try {
+    // 1. Verifica se já existe
+    const existingUser = await prisma.user.findUnique({ where: { username } });
+    if (existingUser) {
+      return res.status(400).json({ success: false, message: 'Nome de usuário já existe.' });
+    }
+
+    // 2. Criptografa a senha (MUITO IMPORTANTE)
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // 3. Cria no banco
+    const newUser = await prisma.user.create({
+      data: {
+        username,
+        password: hashedPassword,
+        email: email || null // Opcional, mas bom para recuperar senha depois
+      }
+    });
+
+    res.status(201).json({ success: true, message: 'Usuário criado com sucesso!', userId: newUser.id });
+
+  } catch (error) {
+    console.error("Erro no registro:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
 // --- LOGIN (MANTIDO) ---
 const login = async (req, res) => {
   // ... (mantenha a sua função de login atual aqui) ...

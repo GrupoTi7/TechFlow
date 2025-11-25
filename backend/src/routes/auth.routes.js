@@ -5,11 +5,13 @@ const router = express.Router();
 const { 
   login, 
   requestPasswordReset, 
-  resetPassword 
+  resetPassword,
+  register
 } = require('../controllers/auth.controller');
 
 // Rotas
 router.post('/login', login);
+router.post('/register', register);
 router.post('/request-reset', requestPasswordReset);
 router.post('/reset-password', resetPassword);
 
