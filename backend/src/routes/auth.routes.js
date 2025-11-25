@@ -1,11 +1,19 @@
-// src/routes/auth.routes.js
-const { Router } = require('express');
-const { register, login } = require('../controllers/auth.controller');
-const router = Router();
+const express = require('express');
+const router = express.Router();
 
-router.post('/register', register);
-router.post('/login', authController.login);
-router.post('/request-reset', authController.requestPasswordReset); 
-router.post('/reset-password', authController.resetPassword);
+// Importa as funções diretamente (Destructuring)
+const { 
+  login, 
+  requestPasswordReset, 
+  resetPassword 
+} = require('../controllers/auth.controller');
+
+// Rotas
+router.post('/login', login);
+router.post('/request-reset', requestPasswordReset);
+router.post('/reset-password', resetPassword);
+
+// Se você tinha uma rota de registro antes e quer mantê-la (embora não esteja no código que me mandou):
+// router.post('/register', register); 
 
 module.exports = router;
