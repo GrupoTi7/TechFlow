@@ -33,23 +33,24 @@ const filterLabels = {
   printer: 'Impressoras'
 };
 
-// --- FUNÇÕES AUXILIARES ---
+// --- FUNÇÕES AUXILIARES (Cores mais vivas nos ícones) ---
 function getDeviceIcon(deviceType) {
   const type = (deviceType || '').toLowerCase();
-  if (type.includes('notebook')) return <ThemeIcon variant="light" color="blue" size="lg" radius="md"><IconDeviceLaptop size="1.2rem" /></ThemeIcon>;
-  if (type.includes('printer')) return <ThemeIcon variant="light" color="gray" size="lg" radius="md"><IconPrinter size="1.2rem" /></ThemeIcon>;
-  if (type.includes('server') || type.includes('vm')) return <ThemeIcon variant="light" color="grape" size="lg" radius="md"><IconServer size="1.2rem" /></ThemeIcon>;
-  if (type.includes('desktop')) return <ThemeIcon variant="light" color="teal" size="lg" radius="md"><IconDeviceDesktop size="1.2rem" /></ThemeIcon>;
-  return <ThemeIcon variant="light" color="gray" size="lg" radius="md"><IconDeviceFloppy size="1.2rem" /></ThemeIcon>;
+  // Usando tons .6 ou .7 para cores mais saturadas no variant="light"
+  if (type.includes('notebook')) return <ThemeIcon variant="light" color="blue.6" size="lg" radius="md"><IconDeviceLaptop size="1.2rem" /></ThemeIcon>;
+  if (type.includes('printer')) return <ThemeIcon variant="light" color="orange.7" size="lg" radius="md"><IconPrinter size="1.2rem" /></ThemeIcon>; // Laranja para impressora
+  if (type.includes('server') || type.includes('vm')) return <ThemeIcon variant="light" color="grape.7" size="lg" radius="md"><IconServer size="1.2rem" /></ThemeIcon>;
+  if (type.includes('desktop')) return <ThemeIcon variant="light" color="teal.7" size="lg" radius="md"><IconDeviceDesktop size="1.2rem" /></ThemeIcon>;
+  return <ThemeIcon variant="light" color="gray.6" size="lg" radius="md"><IconDeviceFloppy size="1.2rem" /></ThemeIcon>;
 }
 
 function getStatusBadge(nextDateStr) {
   const now = new Date();
   now.setHours(0, 0, 0, 0); 
-  // Badge estilo "Pill" suave
-  const badgeProps = { radius: "xl", size: "sm", tt: "capitalize", fw: 600 };
+  // Badge com fonte mais forte
+  const badgeProps = { radius: "xl", size: "sm", tt: "capitalize", fw: 700 };
 
-  if (!nextDateStr) return <Badge color="gray" variant="outline" {...badgeProps} style={{ borderColor: '#e9ecef', color: '#adb5bd' }}>N/D</Badge>;
+  if (!nextDateStr) return <Badge color="gray" variant="outline" {...badgeProps} style={{ borderColor: '#ced4da', color: '#495057' }}>N/D</Badge>;
 
   const nextDate = new Date(nextDateStr);
   nextDate.setHours(0, 0, 0, 0);
@@ -135,10 +136,10 @@ function DeviceListPage() {
 
   if (error) return <div style={{ color: 'red' }}>Erro: {error}</div>;
 
-  // --- LINHAS DA TABELA (Visual Limpo) ---
+  // --- LINHAS DA TABELA (ALTO CONTRASTE) ---
   const rows = paginatedData.map((device) => (
     <Table.Tr key={device.id} style={{ height: '65px' }}>
-      {/* NOME (Clicável e Destacado) */}
+      {/* NOME (Azul Forte e Negrito) */}
       <Table.Td>
         <Group gap="md" wrap="nowrap">
           {getDeviceIcon(device.deviceType)}
@@ -147,25 +148,26 @@ function DeviceListPage() {
               component={Link} 
               to={`/devices/${device.id}`} 
               size="sm" 
-              fw={600} 
-              c="blue.7" 
+              fw={700} // Negrito forte
+              c="blue.8" // Azul vibrante
               style={{ textDecoration: 'none' }}
             >
               {device.name}
             </Anchor>
-            <Text size="xs" c="dimmed" mt={2}>S/N: {device.serial || '-'}</Text>
+            {/* Serial em cinza escuro, não apagado */}
+            <Text size="xs" c="dark.3" fw={500} mt={2}>S/N: {device.serial || '-'}</Text>
           </div>
         </Group>
       </Table.Td>
       
-      {/* SETOR */}
+      {/* SETOR (Texto Escuro) */}
       <Table.Td>
-        <Text size="sm" c="dimmed" fw={500}>{device.setor || 'N/D'}</Text>
+        <Text size="sm" c="dark.9" fw={500}>{device.setor || 'N/D'}</Text>
       </Table.Td>
       
-      {/* USUÁRIO */}
+      {/* USUÁRIO (Texto Escuro) */}
       <Table.Td>
-         <Text size="sm" c="dimmed" style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+         <Text size="sm" c="dark.9" fw={500} style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
            {device.contact ? device.contact.split('@')[0] : 'N/D'}
          </Text>
       </Table.Td>
@@ -174,8 +176,6 @@ function DeviceListPage() {
       <Table.Td style={{ textAlign: 'center' }}>
         {getStatusBadge(device.nextPreventiveDate)}
       </Table.Td>
-
-      {/* REMOVIDO: A Coluna de Ações/Detalhes foi retirada daqui */}
     </Table.Tr>
   ));
   
@@ -185,17 +185,18 @@ function DeviceListPage() {
       <Paper p="md" radius="md" withBorder={false} bg="transparent">
         <Group justify="space-between" align="center" mb="md">
            <div>
-             <Title order={2} style={{ fontWeight: 800, color: '#212529', letterSpacing: -0.5 }}>
+             {/* Título Preto Forte */}
+             <Title order={2} style={{ fontWeight: 800, color: '#1A1B1E', letterSpacing: -0.5 }}>
                 Inventário de Dispositivos
              </Title>
-             {subGroupCounts && <Text c="dimmed" size="sm" mt={4}>{subGroupCounts}</Text>}
+             {subGroupCounts && <Text c="dark.4" size="sm" mt={4} fw={500}>{subGroupCounts}</Text>}
            </div>
-           <Button variant="white" color="dark" onClick={fetchDevices} loading={isLoading} leftSection={<IconRefresh size={16}/>} style={{ border: '1px solid #dee2e6' }}>
+           <Button variant="white" color="dark" onClick={fetchDevices} loading={isLoading} leftSection={<IconRefresh size={16}/>} style={{ border: '1px solid #ced4da', color: '#1A1B1E', fontWeight: 600 }}>
               Atualizar
            </Button>
         </Group>
         
-        {/* Filtros */}
+        {/* Filtros com bordas e texto mais definidos */}
         <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing="md">
           <TextInput
             placeholder="Buscar..."
@@ -203,11 +204,11 @@ function DeviceListPage() {
             value={searchQuery}
             onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
             radius="md"
+            styles={{ input: { borderColor: '#ced4da', color: '#1A1B1E' } }}
           />
-          {/* Menus de Filtro (Visuais mantidos com radius="md") */}
           <Menu shadow="md" width={200} withinPortal radius="md">
             <Menu.Target>
-              <Button fullWidth leftSection={<IconFilter size={16} />} variant="default" radius="md" style={{ color: '#495057', borderColor: '#ced4da' }}>
+              <Button fullWidth leftSection={<IconFilter size={16} />} variant="default" radius="md" style={{ color: '#1A1B1E', borderColor: '#ced4da', fontWeight: 500 }}>
                 Status: {statusFilter === 'all' ? 'Todos' : (statusFilter === 'overdue' ? 'Atrasados' : 'Próximos')}
               </Button>
             </Menu.Target>
@@ -220,7 +221,7 @@ function DeviceListPage() {
 
           <Menu shadow="md" width={200} withinPortal radius="md">
             <Menu.Target>
-              <Button fullWidth leftSection={<IconFilter size={16} />} variant="default" radius="md" style={{ color: '#495057', borderColor: '#ced4da' }}>
+              <Button fullWidth leftSection={<IconFilter size={16} />} variant="default" radius="md" style={{ color: '#1A1B1E', borderColor: '#ced4da', fontWeight: 500 }}>
                 Tipo: {filterLabels[filterType]}
               </Button>
             </Menu.Target>
@@ -233,7 +234,7 @@ function DeviceListPage() {
 
           <Menu shadow="md" width={200} withinPortal radius="md">
             <Menu.Target>
-              <Button fullWidth leftSection={<IconFilter size={16} />} variant="default" radius="md" style={{ color: '#495057', borderColor: '#ced4da' }}>
+              <Button fullWidth leftSection={<IconFilter size={16} />} variant="default" radius="md" style={{ color: '#1A1B1E', borderColor: '#ced4da', fontWeight: 500 }}>
                 Nomenclatura: {nomenclatureFilter === 'all' ? 'Todas' : (nomenclatureFilter === 'owned' ? 'Comprados' : 'Alugados')}
               </Button>
             </Menu.Target>
@@ -246,7 +247,7 @@ function DeviceListPage() {
         </SimpleGrid>
       </Paper>
 
-      {/* --- TABELA CLEAN --- */}
+      {/* --- TABELA COM ALTO CONTRASTE --- */}
       <Paper withBorder radius="lg" shadow="sm" style={{ overflow: 'hidden', borderColor: '#e9ecef' }}>
         <div style={{ position: 'relative', minHeight: 200 }}>
           <LoadingOverlay visible={isLoading} />
@@ -257,32 +258,31 @@ function DeviceListPage() {
               verticalSpacing="md" 
               horizontalSpacing="md"
             >
-              {/* Cabeçalho Limpo */}
-              <Table.Thead style={{ backgroundColor: '#f8f9fa', borderBottom: '1px solid #eee' }}>
+              {/* Cabeçalho: Preto e Negrito */}
+              <Table.Thead style={{ backgroundColor: '#f8f9fa', borderBottom: '2px solid #dee2e6' }}>
                 <Table.Tr>
-                  <Table.Th style={{ color: '#868e96', fontWeight: 600, paddingLeft: 20 }}>DISPOSITIVO</Table.Th>
-                  <Table.Th style={{ color: '#868e96', fontWeight: 600 }}>SETOR</Table.Th>
-                  <Table.Th style={{ color: '#868e96', fontWeight: 600 }}>USUÁRIO</Table.Th>
-                  <Table.Th style={{ color: '#868e96', fontWeight: 600, textAlign: 'center' }}>STATUS</Table.Th>
-                  {/* REMOVIDO: Table.Th de Ações */}
+                  <Table.Th style={{ color: '#1A1B1E', fontWeight: 700, fontSize: '0.9rem', paddingLeft: 20 }}>DISPOSITIVO</Table.Th>
+                  <Table.Th style={{ color: '#1A1B1E', fontWeight: 700, fontSize: '0.9rem' }}>SETOR</Table.Th>
+                  <Table.Th style={{ color: '#1A1B1E', fontWeight: 700, fontSize: '0.9rem' }}>USUÁRIO</Table.Th>
+                  <Table.Th style={{ color: '#1A1B1E', fontWeight: 700, fontSize: '0.9rem', textAlign: 'center' }}>STATUS</Table.Th>
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
                 {rows.length > 0 ? rows : (
-                  <Table.Tr><Table.Td colSpan={4} ta="center" py={40} c="dimmed">Nenhum dispositivo encontrado.</Table.Td></Table.Tr>
+                  <Table.Tr><Table.Td colSpan={4} ta="center" py={40} c="dark.4" fw={500}>Nenhum dispositivo encontrado.</Table.Td></Table.Tr>
                 )}
               </Table.Tbody>
             </Table>
           </ScrollArea>
 
-          {/* Rodapé com Total e Paginação */}
+          {/* Rodapé */}
           <Group justify="space-between" p="md" style={{ borderTop: '1px solid #f1f3f5', backgroundColor: '#fff' }}>
             <Group gap="xs">
-               <ThemeIcon variant="light" color="gray" size="md" radius="md">
+               <ThemeIcon variant="light" color="gray.6" size="md" radius="md">
                   <IconDatabase size="1rem" />
                </ThemeIcon>
-               <Text size="sm" fw={500} c="dimmed">
-                 Total de dispositivos: <span style={{ color: '#212529', fontWeight: 600 }}>{filteredDevices.length}</span>
+               <Text size="sm" fw={600} c="dark.5">
+                 Total de dispositivos: <span style={{ color: '#1A1B1E', fontWeight: 700, fontSize: '1rem' }}>{filteredDevices.length}</span>
                </Text>
             </Group>
 
