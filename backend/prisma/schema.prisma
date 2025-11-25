@@ -57,6 +57,8 @@ model User {
   email       String?   @unique
   password    String
   name        String
+  resetToken       String?   @db.VarChar(255)
+  resetTokenExpiry DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 

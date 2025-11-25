@@ -1,122 +1,130 @@
 // src/pages/LoginPage.jsx
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { login } from '../services/api.js'; // (Usando a sua função de login correta)
+import { useNavigate, Link } from 'react-router-dom'; // Importe o Link
+import { login } from '../services/api.js';
 
-// 1. Importações do Mantine (Limpas)
 import { 
-  Paper, 
-  Title,
-  TextInput, 
-  PasswordInput, 
-  Button, 
-  Text, 
-  Alert,
-  Center,
-  Container,
-  useMantineTheme
+  Paper, 
+  Title,
+  TextInput, 
+  PasswordInput, 
+  Button, 
+  Alert,
+  Container,
+  Anchor, // Importe o Anchor
+  Stack // Importe o Stack para espaçamento vertical fácil
 } from '@mantine/core';
 import { IconAlertCircle } from '@tabler/icons-react';
 
 function LoginPage() {
-  // (Usando os seus useState originais, que funcionam)
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const navigate = useNavigate();
-  const theme = useMantineTheme(); 
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const navigate = useNavigate();
 
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-    setError(null);
-    setIsLoading(true);
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setError(null);
+    setIsLoading(true);
 
-    if (!username || !password) {
-      setError('Nome de usuário e senha são obrigatórios.');
-      setIsLoading(false);
-      return;
-    }
+    if (!username || !password) {
+      setError('Nome de usuário e senha são obrigatórios.');
+      setIsLoading(false);
+      return;
+    }
 
-    try {
-      const data = await login(username, password); 
-      if (data.success && data.token) {
-        localStorage.setItem('authToken', data.token);
-        navigate('/'); 
-        window.location.reload(); // Força a atualização do contexto de autenticação
-      } else {
-        setError(data.message || 'Falha na autenticação.');
-      }
-    } catch (err) {
-      setError(err.message || 'Falha na autenticação.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    try {
+      const data = await login(username, password); 
+      if (data.success && data.token) {
+        localStorage.setItem('authToken', data.token);
+        navigate('/'); 
+        window.location.reload(); 
+      } else {
+        setError(data.message || 'Falha na autenticação.');
+      }
+    } catch (err) {
+      setError(err.message || 'Falha na autenticação.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-  return (
-    <Container 
-      size="100vw" 
-      h="100vh" 
-      style={{ 
-        background: theme.colors.techFlowBlue[7], 
-        display: 'flex', 
-        alignItems: 'center', 
-        justifyContent: 'center' 
-      }}
-    >
-      <Paper 
-        withBorder 
-        shadow="md" 
-        p="xl" 
-        radius="lg" 
-        style={{ 
-          width: 'min(90%, 450px)', 
-          padding: '2.5rem'
-        }}
-      >
-        
-        {/* --- TÍTULO REVERTIDO AO ORIGINAL --- */}
-        <Title order={1} ta="center" mb="xl" style={{ fontSize: '2.5rem' }}> 
-          TechFlow
-        </Title>
-        {/* ---------------------------------- */}
-        
-        <form onSubmit={handleSubmit}>
-          <TextInput
-            label="Usuário"
-            placeholder="Seu nome de usuário"
-            required
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-// (Removido o '_' que estava a causar erros)
-            mb="lg"
-            size="md" 
-          />
-          
-          <PasswordInput
-            label="Senha"
-            placeholder="Sua senha"
-            required
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            mb="xl"
-            size="md"
-          />
+  return (
+    <Container 
+      fluid // Garante que ocupa a largura total
+      h="100vh" 
+      style={{ 
+        backgroundColor: '#0041C2', // Azul TechFlow vibrante (ou theme.colors.techFlowBlue[7])
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center',
+        margin: 0,
+        padding: 0
+      }}
+    >
+      <Paper 
+        withBorder 
+        shadow="xl" 
+        p="2.5rem" 
+        radius="md" 
+        style={{ 
+          width: '100%', 
+          maxWidth: '400px', // Largura fixa para o cartão
+          backgroundColor: 'white'
+        }}
+      >
+        <Title order={1} ta="center" mb="xl" style={{ color: '#000', fontWeight: 800 }}> 
+          TechFlow
+        </Title>
+        
+        <form onSubmit={handleSubmit}>
+          <Stack gap="md">
+            <TextInput
+              label="Usuário"
+              placeholder="Seu nome de usuário"
+              required
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              size="md" 
+            />
+            
+            <div>
+              <PasswordInput
+                label="Senha"
+                placeholder="Sua senha"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                size="md"
+              />
+              {/* LINK DE RECUPERAÇÃO */}
+              <Anchor 
+                component={Link} 
+                to="/forgot-password" 
+                size="sm" 
+                c="dimmed" 
+                mt={5} 
+                style={{ display: 'block', textAlign: 'right' }}
+              >
+                Esqueceu a senha?
+              </Anchor>
+            </div>
 
-          {error && (
-            <Alert color="red" title="Erro no Login" icon={<IconAlertCircle />} mb="lg" size="md">
-              {error}
-            </Alert>
-          )}
+            {error && (
+              <Alert color="red" title="Erro" icon={<IconAlertCircle />} variant="light">
+                {error}
+              </Alert>
+            )}
 
-          <Button type="submit" fullWidth loading={isLoading} size="lg">
-            Entrar
-          </Button>
-        </form>
-      </Paper>
-    </Container>
-  );
+            <Button type="submit" fullWidth loading={isLoading} size="lg" color="blue" mt="sm">
+              Entrar
+            </Button>
+          </Stack>
+        </form>
+      </Paper>
+    </Container>
+  );
 }
 
 export default LoginPage;

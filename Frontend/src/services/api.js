@@ -115,3 +115,16 @@ export const bulkUpdateSetors = async (updates) => {
     throw error.response?.data || new Error('Erro de rede ao atualizar setores em massa.');
   }
 };
+export const requestPasswordReset = async (email) => {
+  try {
+    const response = await apiClient.post('/api/auth/request-reset', { email });
+    return response.data;
+  } catch (error) { throw error.response?.data || new Error('Erro ao solicitar.'); }
+};
+
+export const resetPassword = async (token, newPassword) => {
+  try {
+    const response = await apiClient.post('/api/auth/reset-password', { token, newPassword });
+    return response.data;
+  } catch (error) { throw error.response?.data || new Error('Erro ao redefinir.'); }
+};
