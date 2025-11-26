@@ -36,7 +36,8 @@ const register = async (req, res) => {
       data: {
         username,
         password: hashedPassword,
-        email: email || null // Opcional, mas bom para recuperar senha depois
+        email: email || null, // Opcional, mas bom para recuperar senha depois
+        name: username,
       }
     });
 
