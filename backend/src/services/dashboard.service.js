@@ -1,83 +1,98 @@
 // src/services/dashboard.service.js
 const { prisma } = require('../config/prismaClient');
-const { addDays, subDays } = require('date-fns'); 
+const { startOfDay, addDays, subDays, format } = require('date-fns');
 
 async function getDashboardStats() {
-  const now = new Date();
-  
-  // --- A LÓGICA DE FILTRO ATUALIZADA ---
-  // Adicionámos 'isActive: true' a todas as contagens de dispositivos
-  // para que os seus números do dashboard correspondam à sua lista de dispositivos.
+  const today = startOfDay(new Date());
+  const thirtyDaysFromNow = addDays(today, 30);
 
-  const [
-    totalDevices,
-    overdueCount,
-    upcomingCount,
-    ownedCount,
-    rentedCount,
-    preventivesLast7Days,
-    preventivesLast30Days,
-    preventivesLast90Days
-  ] = await Promise.all([
-    // Filtra apenas ativos
-    prisma.device.count({ where: { isActive: true } }), 
-    // Filtra apenas ativos + atrasados
-    prisma.device.count({ where: { isActive: true, nextPreventiveDate: { lte: now } } }),
-    // Filtra apenas ativos + próximos
-    prisma.device.count({ where: { isActive: true, nextPreventiveDate: { gte: now, lte: addDays(now, 30) } } }),
-    // Filtra apenas ativos + comprados
-    prisma.device.count({ 
-      where: { 
-        isActive: true, 
-        OR: [ 
-          { name: { startsWith: 'PTR' } }, 
-          { name: { startsWith: 'TRC' } } 
-        ] 
-      } 
-    }),
-    
-    // --- ALTERAÇÃO PRINCIPAL AQUI ---
-    // Filtra apenas ativos + alugados (com os novos prefixos)
-    prisma.device.count({ 
-      where: { 
-        isActive: true, 
-        OR: [ 
-          { name: { startsWith: 'NETSITE' } }, 
-          { name: { startsWith: 'VIVO' } },
-          { name: { startsWith: 'SOROCAMP' } }, 
-          { name: { startsWith: 'INFOBRAS' } },  
-          { name: { startsWith: 'LENOVO' } }
-        ] 
-      } 
-    }),
-    // ---------------------------------
+  // 1. Total de Ativos
+  const totalDevices = await prisma.device.count({
+    where: { isActive: true }
+  });
 
-    prisma.preventive.count({ where: { date: { gte: subDays(now, 7) } } }),
-    prisma.preventive.count({ where: { date: { gte: subDays(now, 30) } } }),
-    prisma.preventive.count({ where: { date: { gte: subDays(now, 90) } } })
-  ]);
+  // 2. Alerta Crítico (Vencidos)
+  const overdueCount = await prisma.device.count({
+    where: {
+      isActive: true,
+      nextPreventiveDate: {
+        lt: today,     // Menor que hoje
+        not: null      // Tem que ter data definida
+      }
+    }
+  });
 
-  // O 'ownershipChartData' já estava correto
-  const ownershipChartData = [
-    { name: "Comprados (PTR, TRC)", value: ownedCount || 0, color: 'blue.6' },
-    { name: "Alugados (NETSITE, VIVO, SOROCAMP, INFOBRAS)", value: rentedCount || 0, color: 'gray.6' },
-  ];
+  // 3. Atenção (Próximos 30 dias)
+  const upcomingCount = await prisma.device.count({
+    where: {
+      isActive: true,
+      nextPreventiveDate: {
+        gte: today,            // Maior ou igual a hoje
+        lte: thirtyDaysFromNow, // Menor que 30 dias
+        not: null
+      }
+    }
+  });
 
-  const preventiveChartData = [
-    { name: "Últ. 7 dias", value: preventivesLast7Days || 0 },
-    { name: "Últ. 30 dias", value: preventivesLast30Days || 0 },
-    { name: "Últ. 90 dias", value: preventivesLast90Days || 0 },
-  ];
+  // 4. EM CONFORMIDADE (A Lógica Nova)
+  // Conta APENAS os que têm data agendada para daqui a mais de 30 dias.
+  const compliantCount = await prisma.device.count({
+    where: {
+      isActive: true,
+      nextPreventiveDate: {
+        gt: thirtyDaysFromNow // Maior que 30 dias
+      }
+    }
+  });
 
-  return {
-    totalDevices: totalDevices || 0,
-    overdueCount: overdueCount || 0,
-    upcomingCount: upcomingCount || 0,
-    ownedCount: ownedCount || 0,
-    rentedCount: rentedCount || 0,
-    ownershipChartData,
-    preventiveChartData,
-  };
+  // 5. Dados do Gráfico (Agrupado por Mês para o Chart.js)
+  const ninetyDaysAgo = subDays(today, 90);
+  const preventives = await prisma.preventive.findMany({
+    where: { date: { gte: ninetyDaysAgo } },
+    orderBy: { date: 'asc' }
+  });
+
+  const preventiveChartData = preventives.reduce((acc, curr) => {
+    const month = format(new Date(curr.date), 'MM/yyyy');
+    const existing = acc.find(i => i.name === month);
+    if (existing) existing.value += 1;
+    else acc.push({ name: month, value: 1 });
+    return acc;
+  }, []);
+
+  // 6. Contagens de Nomenclatura (Com os seus filtros específicos)
+  const ownedCount = await prisma.device.count({
+    where: {
+      isActive: true,
+      OR: [
+        { name: { startsWith: 'PTR' } },
+        { name: { startsWith: 'TRC' } }
+      ]
+    }
+  });
+
+  const rentedCount = await prisma.device.count({
+    where: {
+      isActive: true,
+      OR: [
+        { name: { startsWith: 'NETSITE' } },
+        { name: { startsWith: 'VIVO' } },
+        { name: { startsWith: 'SOROCAMP' } },
+        { name: { startsWith: 'INFOBRAS' } },
+        { name: { startsWith: 'LENOVO' } }
+      ]
+    }
+  });
+
+  return {
+    totalDevices,
+    overdueCount,
+    upcomingCount,
+    compliantCount, // <-- O valor correto agora
+    ownedCount,
+    rentedCount,
+    preventiveChartData // <-- Formato correto para o gráfico
+  };
 }
 
 module.exports = { getDashboardStats };
