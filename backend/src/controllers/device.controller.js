@@ -1,4 +1,5 @@
 const deviceService = require('../services/device.service');
+const { prisma } = require('../config/prismaClient');
 
 async function getAllDevices(req, res) {
   try {
