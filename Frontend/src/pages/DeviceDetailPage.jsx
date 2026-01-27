@@ -18,15 +18,26 @@ import { useDisclosure } from '@mantine/hooks';
 import { 
   IconAlertCircle, IconDeviceDesktop, IconBuildingCommunity, 
   IconBuildingFactory, IconId, IconUserCircle, IconBrandWindows, 
-  IconCalendarDue, IconPencilPlus, IconHistory, IconSearchOff, 
-  IconCalendarTime, IconDeviceAnalytics, IconCalendarCheck,
-  IconWorldWww, IconTag, IconEdit 
+  IconCalendarDue, IconPencilPlus, IconHistory, IconCalendarTime, 
+  IconDeviceAnalytics, IconCalendarCheck, IconEdit 
 } from '@tabler/icons-react';
 
-// Importa as listas centralizadas
 import { allSetorOptions, getIntervalFromSetor } from '../utils/sectors';
 
-// --- Componente Auxiliar InfoItem ---
+// --- FUNÇÃO AUXILIAR À PROVA DE BALAS ---
+// Pega "2026-01-27T00:00:00.000Z" e transforma em "27/01/2026" na marra.
+const formatDateNoTimezone = (dateString) => {
+  if (!dateString) return 'N/D';
+  try {
+    // Pega só a parte antes do T (2026-01-27)
+    const isoDate = dateString.split('T')[0];
+    // Divide por traço, inverte e junta com barra
+    return isoDate.split('-').reverse().join('/');
+  } catch (e) {
+    return dateString; // Retorna original se falhar
+  }
+};
+
 function InfoItem({ icon, label, children, onEdit }) {
   const isValueEmpty = !children || children === 'N/D' || children === 'Não categorizado';
 
@@ -64,12 +75,10 @@ function DeviceDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   
-  // Estado do Formulário de Preventiva
   const [newPreventiveDate, setNewPreventiveDate] = useState(new Date().toISOString().split('T')[0]);
   const [newNotes, setNewNotes] = useState('');
   const [formError, setFormError] = useState(null);
 
-  // Estado do Modal de Edição de Setor
   const [openedModal, { open, close }] = useDisclosure(false);
   const [selectedSetor, setSelectedSetor] = useState('');
   const [savingSetor, setSavingSetor] = useState(false);
@@ -95,14 +104,12 @@ function DeviceDetailPage() {
 
   useEffect(() => { if (id) loadData(); }, [id]);
 
-  // --- FUNÇÃO PARA SALVAR O NOVO SETOR ---
   const handleSaveSetor = async () => {
     if (!selectedSetor) return;
     setSavingSetor(true);
     try {
       const interval = getIntervalFromSetor(selectedSetor);
       await updateDeviceSetor(id, selectedSetor, interval);
-      
       setDevice(prev => ({ ...prev, setor: selectedSetor, maintenanceIntervalDays: interval }));
       close(); 
     } catch (err) {
@@ -144,7 +151,6 @@ function DeviceDetailPage() {
       <Anchor component={Link} to="/devices">&larr; Voltar para a Lista</Anchor>
       <Title order={2}>Detalhes: {device.name}</Title>
 
-      {/* --- MODAL DE EDIÇÃO DE SETOR --- */}
       <Modal opened={openedModal} onClose={close} title="Alterar Setor do Dispositivo" centered>
         <Stack>
           <Select
@@ -174,15 +180,7 @@ function DeviceDetailPage() {
 
               <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="lg">
                 <InfoItem icon={<IconDeviceDesktop size="1.2rem" />} label="Tipo">{device.deviceType}</InfoItem>
-                
-                <InfoItem 
-                  icon={<IconBuildingCommunity size="1.2rem" />} 
-                  label="Setor"
-                  onEdit={open} 
-                >
-                  {device.setor}
-                </InfoItem>
-
+                <InfoItem icon={<IconBuildingCommunity size="1.2rem" />} label="Setor" onEdit={open}>{device.setor}</InfoItem>
                 <InfoItem icon={<IconBuildingFactory size="1.2rem" />} label="Fabricante">{device.manufacturer}</InfoItem>
                 <InfoItem icon={<IconId size="1.2rem" />} label="Modelo">{device.model}</InfoItem>
                 <InfoItem icon={<IconUserCircle size="1.2rem" />} label="Usuário">{device.contact}</InfoItem>
@@ -193,18 +191,14 @@ function DeviceDetailPage() {
                 <Title order={5} ta="center">Manutenção</Title>
                 <InfoItem icon={<IconCalendarTime size="1.2rem" />} label="Intervalo (Dias)">{device.maintenanceIntervalDays} dias</InfoItem>
                 
-                {/* CORREÇÃO DE DATA: ÚLTIMA PREVENTIVA */}
+                {/* USA A NOVA FUNÇÃO AQUI */}
                 <InfoItem icon={<IconCalendarCheck size="1.2rem" />} label="Última Preventiva">
-                  {device.lastPreventiveDate 
-                    ? new Date(device.lastPreventiveDate).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) 
-                    : 'N/D'}
+                  {formatDateNoTimezone(device.lastPreventiveDate)}
                 </InfoItem>
                 
-                {/* CORREÇÃO DE DATA: PRÓXIMA PREVENTIVA */}
+                {/* E AQUI */}
                 <InfoItem icon={<IconCalendarDue size="1.2rem" />} label="Próxima Preventiva">
-                  {device.nextPreventiveDate 
-                    ? new Date(device.nextPreventiveDate).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) 
-                    : 'N/D'}
+                  {formatDateNoTimezone(device.nextPreventiveDate)}
                 </InfoItem>
               </Stack>
             </Paper>
@@ -232,10 +226,8 @@ function DeviceDetailPage() {
                  <Table.Tbody>
                    {preventives.map((prev) => (
                      <Table.Tr key={prev.id}>
-                       {/* CORREÇÃO DE DATA: TABELA DE HISTÓRICO */}
-                       <Table.Td>
-                         {new Date(prev.date).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}
-                       </Table.Td>
+                       {/* E FINALMENTE AQUI NA TABELA */}
+                       <Table.Td>{formatDateNoTimezone(prev.date)}</Table.Td>
                        <Table.Td>{prev.technician}</Table.Td>
                        <Table.Td>{prev.notes}</Table.Td>
                        <Table.Td><Button color="red" variant="outline" size="xs" onClick={() => handleDeletePreventive(prev.id)}>Apagar</Button></Table.Td>
