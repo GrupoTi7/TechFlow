@@ -41,7 +41,7 @@ model Preventive {
   id         String   @id @default(cuid())
   date       DateTime
   technician String
-  notes      String?
+  notes      String?  @db.LongText
   device     Device   @relation(fields: [deviceId], references: [id])
   deviceId   String
   createdAt  DateTime @default(now())
