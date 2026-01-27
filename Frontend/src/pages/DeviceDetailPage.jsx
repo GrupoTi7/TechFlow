@@ -5,13 +5,13 @@ import {
   getPreventivesForDevice, 
   createPreventive, 
   deletePreventive,
-  updateDeviceSetor // <-- NOVA IMPORTAÇÃO
+  updateDeviceSetor 
 } from '../services/api';
 
 import { 
   Title, Text, Paper, Grid, Stack, Anchor, TextInput, Textarea, 
   Button, Alert, Table, ThemeIcon, Group, SimpleGrid, Center, 
-  Modal, Select, ActionIcon // <-- NOVAS IMPORTAÇÕES
+  Modal, Select, ActionIcon 
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 
@@ -20,13 +20,13 @@ import {
   IconBuildingFactory, IconId, IconUserCircle, IconBrandWindows, 
   IconCalendarDue, IconPencilPlus, IconHistory, IconSearchOff, 
   IconCalendarTime, IconDeviceAnalytics, IconCalendarCheck,
-  IconWorldWww, IconTag, IconEdit // <-- NOVO ÍCONE
+  IconWorldWww, IconTag, IconEdit 
 } from '@tabler/icons-react';
 
 // Importa as listas centralizadas
 import { allSetorOptions, getIntervalFromSetor } from '../utils/sectors';
 
-// --- Componente Auxiliar InfoItem (Atualizado com botão de edição opcional) ---
+// --- Componente Auxiliar InfoItem ---
 function InfoItem({ icon, label, children, onEdit }) {
   const isValueEmpty = !children || children === 'N/D' || children === 'Não categorizado';
 
@@ -83,7 +83,7 @@ function DeviceDetailPage() {
       ]);
       if (deviceRes.success) {
         setDevice(deviceRes.device);
-        setSelectedSetor(deviceRes.device.setor || ''); // Inicializa o select
+        setSelectedSetor(deviceRes.device.setor || ''); 
       }
       if (preventivesRes.success) setPreventives(preventivesRes.preventives);
     } catch (err) {
@@ -103,9 +103,8 @@ function DeviceDetailPage() {
       const interval = getIntervalFromSetor(selectedSetor);
       await updateDeviceSetor(id, selectedSetor, interval);
       
-      // Atualiza o estado localmente para refletir a mudança imediata
       setDevice(prev => ({ ...prev, setor: selectedSetor, maintenanceIntervalDays: interval }));
-      close(); // Fecha o modal
+      close(); 
     } catch (err) {
       alert('Erro ao atualizar setor: ' + err.message);
     } finally {
@@ -163,7 +162,6 @@ function DeviceDetailPage() {
           <Button onClick={handleSaveSetor} loading={savingSetor}>Salvar Alteração</Button>
         </Stack>
       </Modal>
-      {/* ------------------------------- */}
 
       <Grid>
         <Grid.Col span={{ base: 12, md: 5 }}>
@@ -177,15 +175,13 @@ function DeviceDetailPage() {
               <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="lg">
                 <InfoItem icon={<IconDeviceDesktop size="1.2rem" />} label="Tipo">{device.deviceType}</InfoItem>
                 
-                {/* --- AQUI ESTÁ O BOTÃO DE EDITAR --- */}
                 <InfoItem 
                   icon={<IconBuildingCommunity size="1.2rem" />} 
                   label="Setor"
-                  onEdit={open} // Abre o modal ao clicar no lápis
+                  onEdit={open} 
                 >
                   {device.setor}
                 </InfoItem>
-                {/* ---------------------------------- */}
 
                 <InfoItem icon={<IconBuildingFactory size="1.2rem" />} label="Fabricante">{device.manufacturer}</InfoItem>
                 <InfoItem icon={<IconId size="1.2rem" />} label="Modelo">{device.model}</InfoItem>
@@ -196,12 +192,23 @@ function DeviceDetailPage() {
               <Stack mt="xl" gap="md">
                 <Title order={5} ta="center">Manutenção</Title>
                 <InfoItem icon={<IconCalendarTime size="1.2rem" />} label="Intervalo (Dias)">{device.maintenanceIntervalDays} dias</InfoItem>
-                <InfoItem icon={<IconCalendarCheck size="1.2rem" />} label="Última Preventiva">{device.lastPreventiveDate ? new Date(device.lastPreventiveDate).toLocaleDateString() : 'N/D'}</InfoItem>
-                <InfoItem icon={<IconCalendarDue size="1.2rem" />} label="Próxima Preventiva">{device.nextPreventiveDate ? new Date(device.nextPreventiveDate).toLocaleDateString() : 'N/D'}</InfoItem>
+                
+                {/* CORREÇÃO DE DATA: ÚLTIMA PREVENTIVA */}
+                <InfoItem icon={<IconCalendarCheck size="1.2rem" />} label="Última Preventiva">
+                  {device.lastPreventiveDate 
+                    ? new Date(device.lastPreventiveDate).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) 
+                    : 'N/D'}
+                </InfoItem>
+                
+                {/* CORREÇÃO DE DATA: PRÓXIMA PREVENTIVA */}
+                <InfoItem icon={<IconCalendarDue size="1.2rem" />} label="Próxima Preventiva">
+                  {device.nextPreventiveDate 
+                    ? new Date(device.nextPreventiveDate).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) 
+                    : 'N/D'}
+                </InfoItem>
               </Stack>
             </Paper>
 
-            {/* Formulário de Registo (Mantido igual) */}
             <Paper withBorder shadow="sm" p="lg" radius="md">
               <Title order={4} mb="md">Registar Nova Preventiva</Title>
               <form onSubmit={handlePreventiveSubmit}>
@@ -216,7 +223,6 @@ function DeviceDetailPage() {
           </Stack>
         </Grid.Col>
 
-        {/* Coluna Direita: Histórico (Mantido igual) */}
         <Grid.Col span={{ base: 12, md: 7 }}>
            <Paper withBorder shadow="sm" p="lg" radius="md">
              <Title order={4} mb="md">Histórico de Preventivas</Title>
@@ -226,7 +232,10 @@ function DeviceDetailPage() {
                  <Table.Tbody>
                    {preventives.map((prev) => (
                      <Table.Tr key={prev.id}>
-                       <Table.Td>{new Date(prev.date).toLocaleDateString()}</Table.Td>
+                       {/* CORREÇÃO DE DATA: TABELA DE HISTÓRICO */}
+                       <Table.Td>
+                         {new Date(prev.date).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}
+                       </Table.Td>
                        <Table.Td>{prev.technician}</Table.Td>
                        <Table.Td>{prev.notes}</Table.Td>
                        <Table.Td><Button color="red" variant="outline" size="xs" onClick={() => handleDeletePreventive(prev.id)}>Apagar</Button></Table.Td>
