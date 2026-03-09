@@ -4,25 +4,19 @@ import { getDevices } from '../services/api.js';
 
 import { 
   Table, Title, Group, Button, Anchor, Text, Menu, TextInput,
-  Badge,
-  ThemeIcon,
-  SimpleGrid,
-  Stack,
-  Paper,
-  ScrollArea,
-  LoadingOverlay,
-  Pagination
+  Badge, ThemeIcon, SimpleGrid, Stack, Paper, ScrollArea,
+  LoadingOverlay, Pagination, Avatar
 } from '@mantine/core';
 
 import { 
   IconFilter, IconDeviceDesktop, IconPrinter, IconList, IconSearch,
   IconAlertTriangle, IconClock, IconBuildingStore, IconBuildingFactory,
-  IconDeviceLaptop,
-  IconServer,
-  IconDeviceFloppy,
-  IconRefresh,
-  IconDatabase
+  IconDeviceLaptop, IconServer, IconDeviceFloppy, IconRefresh,
+  IconDatabase, IconArrowRight
 } from '@tabler/icons-react';
+
+// --- COR DA MARCA ---
+const BRAND_BLUE = '#0003d9';
 
 const filterLabels = {
   all: 'Todos',
@@ -30,31 +24,45 @@ const filterLabels = {
   printer: 'Impressoras'
 };
 
-// --- Ícones (Cores mais vivas) ---
+// --- ÍCONES VIBRANTES ---
 function getDeviceIcon(deviceType) {
   const type = (deviceType || '').toLowerCase();
-  if (type.includes('notebook')) return <ThemeIcon variant="light" color="blue.6" size="lg" radius="md"><IconDeviceLaptop size="1.2rem" /></ThemeIcon>;
-  if (type.includes('printer')) return <ThemeIcon variant="light" color="orange.7" size="lg" radius="md"><IconPrinter size="1.2rem" /></ThemeIcon>;
-  if (type.includes('server') || type.includes('vm')) return <ThemeIcon variant="light" color="grape.7" size="lg" radius="md"><IconServer size="1.2rem" /></ThemeIcon>;
-  if (type.includes('desktop')) return <ThemeIcon variant="light" color="teal.7" size="lg" radius="md"><IconDeviceDesktop size="1.2rem" /></ThemeIcon>;
-  return <ThemeIcon variant="light" color="gray.6" size="lg" radius="md"><IconDeviceFloppy size="1.2rem" /></ThemeIcon>;
+  
+  if (type.includes('notebook')) 
+    return <ThemeIcon variant="light" color="#0003d9" size="lg" radius="md"><IconDeviceLaptop size="1.2rem" /></ThemeIcon>;
+  
+  if (type.includes('printer')) 
+    return <ThemeIcon variant="light" color="orange" size="lg" radius="md"><IconPrinter size="1.2rem" /></ThemeIcon>;
+  
+  if (type.includes('server') || type.includes('vm')) 
+    return <ThemeIcon variant="light" color="grape" size="lg" radius="md"><IconServer size="1.2rem" /></ThemeIcon>;
+  
+  if (type.includes('desktop')) 
+    return <ThemeIcon variant="light" color="teal" size="lg" radius="md"><IconDeviceDesktop size="1.2rem" /></ThemeIcon>;
+  
+  return <ThemeIcon variant="light" color="gray" size="lg" radius="md"><IconDeviceFloppy size="1.2rem" /></ThemeIcon>;
 }
 
+// --- BADGE DE STATUS ---
 function getStatusBadge(nextDateStr) {
   const now = new Date();
   now.setHours(0, 0, 0, 0); 
-  const badgeProps = { radius: "xl", size: "sm", tt: "capitalize", fw: 700 };
+  const badgeProps = { radius: "sm", size: "md", fw: 700, variant: "light" };
 
-  if (!nextDateStr) return <Badge color="gray" variant="outline" {...badgeProps} style={{ borderColor: '#ced4da', color: '#495057' }}>N/D</Badge>;
+  if (!nextDateStr) 
+    return <Badge color="gray" {...badgeProps}>Sem Agendamento</Badge>;
 
   const nextDate = new Date(nextDateStr);
   nextDate.setHours(0, 0, 0, 0);
 
-  if (nextDate < now) return <Badge color="red" variant="filled" {...badgeProps}>Atrasado</Badge>;
+  if (nextDate < now) 
+    return <Badge color="red" variant="filled" {...badgeProps}>Atrasado</Badge>;
+  
   const upcomingLimit = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); 
-  if (nextDate <= upcomingLimit) return <Badge color="yellow" variant="light" {...badgeProps} c="orange.9">Atenção</Badge>;
+  if (nextDate <= upcomingLimit) 
+    return <Badge color="yellow" c="orange.9" {...badgeProps}>Atenção</Badge>;
 
-  return <Badge color="green" variant="light" {...badgeProps}>Em Dia</Badge>;
+  return <Badge color="green" {...badgeProps}>Em Dia</Badge>;
 }
 
 function DeviceListPage() {
@@ -115,14 +123,14 @@ function DeviceListPage() {
     if (nomenclatureFilter === 'owned') {
       const ptr = filteredDevices.filter(d => d.name.toUpperCase().startsWith('PTR')).length;
       const trc = filteredDevices.filter(d => d.name.toUpperCase().startsWith('TRC')).length;
-      return `(Comprados: ${ptr} PTR, ${trc} TRC)`;
+      return `Comprados: ${ptr} PTR, ${trc} TRC`;
     }
     if (nomenclatureFilter === 'rented') {
       const netsite = filteredDevices.filter(d => d.name.toUpperCase().startsWith('NETSITE')).length;
       const vivo = filteredDevices.filter(d => d.name.toUpperCase().startsWith('VIVO') || d.name.toUpperCase().startsWith('LENOVO')).length; 
       const sorocamp = filteredDevices.filter(d => d.name.toUpperCase().startsWith('SOROCAMP')).length; 
       const infobras = filteredDevices.filter(d => d.name.toUpperCase().startsWith('INFOBRAS')).length;
-      return `(Alugados: ${netsite} NETSITE, ${vivo} VIVO, ${sorocamp} SOROCAMP, ${infobras} INFOBRAS)`; 
+      return `Alugados: ${netsite} NETSITE, ${vivo} VIVO, ${sorocamp} SOROCAMP, ${infobras} INFOBRAS`; 
     }
     return null;
   }, [filteredDevices, nomenclatureFilter]);
@@ -131,76 +139,113 @@ function DeviceListPage() {
 
   // --- LINHAS DA TABELA ---
   const rows = paginatedData.map((device) => (
-    <Table.Tr key={device.id} style={{ height: '65px' }}>
-      {/* NOME (Azul Forte e Vibrante) */}
+    <Table.Tr key={device.id}>
+      {/* NOME */}
       <Table.Td>
-        <Group gap="md" wrap="nowrap">
+        <Group gap="sm" wrap="nowrap">
           {getDeviceIcon(device.deviceType)}
-          <div style={{ lineHeight: 1.3 }}>
+          <div style={{ lineHeight: 1.2 }}>
             <Anchor 
               component={Link} 
               to={`/devices/${device.id}`} 
               size="sm" 
               fw={700} 
-              // CORREÇÃO: Usamos um estilo direto para garantir o azul forte (#0041C2)
-              style={{ textDecoration: 'none', color: '#0041C2' }}
+              c="dark.9"
+              style={{ textDecoration: 'none' }}
+              onMouseEnter={(e) => e.target.style.color = BRAND_BLUE}
+              onMouseLeave={(e) => e.target.style.color = '#212529'}
             >
               {device.name}
             </Anchor>
-            <Text size="xs" c="dark.3" fw={500} mt={2}>S/N: {device.serial || '-'}</Text>
+            <Text size="xs" c="dimmed" fw={500}>{device.serial || 'S/N Não registrado'}</Text>
           </div>
         </Group>
       </Table.Td>
       
       {/* SETOR */}
       <Table.Td>
-        <Text size="sm" c="dark.9" fw={500}>{device.setor || 'N/D'}</Text>
+        <Badge variant="outline" color="gray" size="sm" radius="sm" tt="none" style={{ color: '#495057', borderColor: '#dee2e6' }}>
+            {device.setor || 'N/D'}
+        </Badge>
       </Table.Td>
       
       {/* USUÁRIO */}
       <Table.Td>
-         <Text size="sm" c="dark.9" fw={500} style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-           {device.contact ? device.contact.split('@')[0] : 'N/D'}
-         </Text>
+          <Group gap="xs">
+             <Avatar size="sm" radius="xl" color="#0003d9">{device.contact?.charAt(0).toUpperCase()}</Avatar>
+             <Text size="sm" c="dimmed" fw={500} style={{ maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {device.contact ? device.contact.split('@')[0] : 'N/D'}
+             </Text>
+          </Group>
       </Table.Td>
 
       {/* STATUS */}
-      <Table.Td style={{ textAlign: 'center' }}>
+      <Table.Td>
         {getStatusBadge(device.nextPreventiveDate)}
+      </Table.Td>
+
+      {/* AÇÃO (BOTÃO IGUAL AO DA HOME) */}
+      <Table.Td style={{ textAlign: 'right' }}>
+          <Button 
+              component={Link} 
+              to={`/devices/${device.id}`} 
+              variant="light" 
+              color={BRAND_BLUE}
+              size="xs" 
+              radius="md"
+              rightSection={<IconArrowRight size={14} />}
+          >
+              Detalhes
+          </Button>
       </Table.Td>
     </Table.Tr>
   ));
   
   return (
     <Stack gap="lg">
-      {/* Painel de Controles */}
-      <Paper p="md" radius="md" withBorder={false} bg="transparent">
-        <Group justify="space-between" align="center" mb="md">
-           <div>
-             <Title order={2} style={{ fontWeight: 800, color: '#1A1B1E', letterSpacing: -0.5 }}>
-                Inventário de Dispositivos
-             </Title>
-             {subGroupCounts && <Text c="dark.4" size="sm" mt={4} fw={500}>{subGroupCounts}</Text>}
-           </div>
-           <Button variant="white" color="dark" onClick={fetchDevices} loading={isLoading} leftSection={<IconRefresh size={16}/>} style={{ border: '1px solid #ced4da', color: '#1A1B1E', fontWeight: 600 }}>
-              Atualizar
-           </Button>
+      
+      {/* --- CABEÇALHO --- */}
+      <Paper p="xl" radius="md" withBorder style={{ borderLeft: `6px solid ${BRAND_BLUE}` }}>
+        <Group justify="space-between" align="center">
+            <div>
+                <Title order={2} fw={800} c="dark.5">Inventário de Ativos</Title>
+                <Text c="dimmed" size="sm" mt={4}>
+                    Dispositivos da empresa em um só lugar.
+                </Text>
+                {subGroupCounts && (
+                    <Badge mt="xs" variant="light" color="#0003d9" size="lg" radius="md">
+                        {subGroupCounts}
+                    </Badge>
+                )}
+            </div>
+            <Button 
+                variant="light" 
+                color={BRAND_BLUE} 
+                onClick={fetchDevices} 
+                loading={isLoading} 
+                leftSection={<IconRefresh size={18}/>}
+                size="md"
+            >
+                Atualizar Lista
+            </Button>
         </Group>
-        
-        {/* Filtros */}
+      </Paper>
+
+      {/* --- FILTROS E BUSCA --- */}
+      <Paper p="md" radius="md" withBorder>
         <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing="md">
           <TextInput
-            placeholder="Buscar..."
+            placeholder="Buscar por nome, serial ou usuário..."
             leftSection={<IconSearch size={16} />}
             value={searchQuery}
             onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
             radius="md"
-            styles={{ input: { borderColor: '#ced4da', color: '#1A1B1E' } }}
           />
+          
           <Menu shadow="md" width={200} withinPortal radius="md">
             <Menu.Target>
-              <Button fullWidth leftSection={<IconFilter size={16} />} variant="default" radius="md" style={{ color: '#1A1B1E', borderColor: '#ced4da', fontWeight: 500 }}>
-                Status: {statusFilter === 'all' ? 'Todos' : (statusFilter === 'overdue' ? 'Atrasados' : 'Próximos')}
+              <Button fullWidth leftSection={<IconFilter size={16} />} variant="default" radius="md" justify="space-between" rightSection={<IconArrowRight size={14} style={{ opacity: 0.5 }} />}>
+                Status: <span style={{ fontWeight: 700, marginLeft: 4 }}>{statusFilter === 'all' ? 'Todos' : (statusFilter === 'overdue' ? 'Atrasados' : 'Próximos')}</span>
               </Button>
             </Menu.Target>
             <Menu.Dropdown>
@@ -212,8 +257,8 @@ function DeviceListPage() {
 
           <Menu shadow="md" width={200} withinPortal radius="md">
             <Menu.Target>
-              <Button fullWidth leftSection={<IconFilter size={16} />} variant="default" radius="md" style={{ color: '#1A1B1E', borderColor: '#ced4da', fontWeight: 500 }}>
-                Tipo: {filterLabels[filterType]}
+              <Button fullWidth leftSection={<IconDeviceDesktop size={16} />} variant="default" radius="md" justify="space-between" rightSection={<IconArrowRight size={14} style={{ opacity: 0.5 }} />}>
+                Tipo: <span style={{ fontWeight: 700, marginLeft: 4 }}>{filterLabels[filterType]}</span>
               </Button>
             </Menu.Target>
             <Menu.Dropdown>
@@ -225,8 +270,8 @@ function DeviceListPage() {
 
           <Menu shadow="md" width={200} withinPortal radius="md">
             <Menu.Target>
-              <Button fullWidth leftSection={<IconFilter size={16} />} variant="default" radius="md" style={{ color: '#1A1B1E', borderColor: '#ced4da', fontWeight: 500 }}>
-                Nomenclatura: {nomenclatureFilter === 'all' ? 'Todas' : (nomenclatureFilter === 'owned' ? 'Comprados' : 'Alugados')}
+              <Button fullWidth leftSection={<IconBuildingStore size={16} />} variant="default" radius="md" justify="space-between" rightSection={<IconArrowRight size={14} style={{ opacity: 0.5 }} />}>
+                Origem: <span style={{ fontWeight: 700, marginLeft: 4 }}>{nomenclatureFilter === 'all' ? 'Todas' : (nomenclatureFilter === 'owned' ? 'Comprados' : 'Alugados')}</span>
               </Button>
             </Menu.Target>
             <Menu.Dropdown>
@@ -238,47 +283,57 @@ function DeviceListPage() {
         </SimpleGrid>
       </Paper>
 
-      {/* --- TABELA --- */}
-      <Paper withBorder radius="lg" shadow="sm" style={{ overflow: 'hidden', borderColor: '#e9ecef' }}>
+      {/* --- TABELA DE DADOS --- */}
+      <Paper withBorder radius="md" shadow="sm" style={{ overflow: 'hidden' }}>
         <div style={{ position: 'relative', minHeight: 200 }}>
-          <LoadingOverlay visible={isLoading} />
+          <LoadingOverlay visible={isLoading} zIndex={1000} overlayProps={{ radius: "sm", blur: 2 }} />
           
           <ScrollArea>
             <Table 
               highlightOnHover 
               verticalSpacing="md" 
-              horizontalSpacing="md"
+              horizontalSpacing="lg"
             >
-              {/* Cabeçalho */}
-              <Table.Thead style={{ backgroundColor: '#f8f9fa', borderBottom: '2px solid #dee2e6' }}>
+              <Table.Thead style={{ backgroundColor: '#f8f9fa' }}>
                 <Table.Tr>
-                  <Table.Th style={{ color: '#1A1B1E', fontWeight: 700, fontSize: '0.9rem', paddingLeft: 20 }}>DISPOSITIVO</Table.Th>
-                  <Table.Th style={{ color: '#1A1B1E', fontWeight: 700, fontSize: '0.9rem' }}>SETOR</Table.Th>
-                  <Table.Th style={{ color: '#1A1B1E', fontWeight: 700, fontSize: '0.9rem' }}>USUÁRIO</Table.Th>
-                  <Table.Th style={{ color: '#1A1B1E', fontWeight: 700, fontSize: '0.9rem', textAlign: 'center' }}>STATUS</Table.Th>
+                  <Table.Th style={{ color: '#868e96', fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Dispositivo</Table.Th>
+                  <Table.Th style={{ color: '#868e96', fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Setor</Table.Th>
+                  <Table.Th style={{ color: '#868e96', fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Usuário</Table.Th>
+                  <Table.Th style={{ color: '#868e96', fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Status da Manutenção</Table.Th>
+                  <Table.Th style={{ width: 60 }}></Table.Th>
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
                 {rows.length > 0 ? rows : (
-                  <Table.Tr><Table.Td colSpan={4} ta="center" py={40} c="dark.4" fw={500}>Nenhum dispositivo encontrado.</Table.Td></Table.Tr>
+                  <Table.Tr>
+                    <Table.Td colSpan={5} align="center" py={50}>
+                        <Stack align="center" gap="xs">
+                            <IconDatabase size={40} color="#dee2e6" />
+                            <Text c="dimmed" fw={500}>Nenhum dispositivo encontrado.</Text>
+                            <Button variant="subtle" size="xs" onClick={() => {setSearchQuery(''); setStatusFilter('all'); setFilterType('all');}}>Limpar Filtros</Button>
+                        </Stack>
+                    </Table.Td>
+                  </Table.Tr>
                 )}
               </Table.Tbody>
             </Table>
           </ScrollArea>
 
-          {/* Rodapé */}
+          {/* RODAPÉ E PAGINAÇÃO */}
           <Group justify="space-between" p="md" style={{ borderTop: '1px solid #f1f3f5', backgroundColor: '#fff' }}>
-            <Group gap="xs">
-               <ThemeIcon variant="light" color="gray.6" size="md" radius="md">
-                  <IconDatabase size="1rem" />
-               </ThemeIcon>
-               <Text size="sm" fw={600} c="dark.5">
-                 Total de dispositivos: <span style={{ color: '#1A1B1E', fontWeight: 700, fontSize: '1rem' }}>{filteredDevices.length}</span>
-               </Text>
-            </Group>
+            <Text size="sm" c="dimmed">
+               Exibindo <b>{paginatedData.length}</b> de <b>{filteredDevices.length}</b> registros
+            </Text>
 
             {totalPages > 1 && (
-              <Pagination total={totalPages} value={currentPage} onChange={setCurrentPage} color="dark" radius="md" size="sm" />
+              <Pagination 
+                total={totalPages} 
+                value={currentPage} 
+                onChange={setCurrentPage} 
+                color="blue" 
+                radius="md" 
+                size="sm" 
+              />
             )}
           </Group>
         </div>

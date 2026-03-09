@@ -212,7 +212,7 @@ async function syncGlpiDevices() {
       create: {
         glpiId: glpiDevice.id,
         ...deviceData,
-        setor: null,
+        //setor: null,
         maintenanceIntervalDays: null
       }
     });

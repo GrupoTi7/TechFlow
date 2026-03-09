@@ -3,10 +3,8 @@ import { createBrowserRouter } from 'react-router-dom';
 import App from './App.jsx';
 import HomePage from './pages/HomePage.jsx';
 import LoginPage from './pages/LoginPage.jsx';
-// --- NOVAS PÁGINAS (Crie estes arquivos se ainda não existirem) ---
 import ForgotPasswordPage from './pages/ForgotPasswordPage.jsx';
 import ResetPasswordPage from './pages/ResetPasswordPage.jsx';
-// ------------------------------------------------------------------
 import ProtectedRoute from './components/ProtectedRoute.jsx';
 import DeviceListPage from './pages/DeviceListPage.jsx';
 import DeviceDetailPage from './pages/DeviceDetailPage.jsx';
@@ -14,18 +12,19 @@ import ReportsPage from './pages/ReportsPage.jsx';
 import AdminSetorPage from './pages/AdminSetorPage.jsx';
 import AdminRoutes from './components/AdminRoutes.jsx';
 
+// --- IMPORTAÇÃO NOVA ---
+import ServicesPage from './pages/ServicesPage.jsx'; 
+
 export const router = createBrowserRouter([
-  // --- ROTAS PÚBLICAS (Acessíveis sem login) ---
+  // --- ROTAS PÚBLICAS ---
   {
     path: "/login",
     element: <LoginPage />,
   },
-  // --- NOVA ROTA: Esqueci a Senha ---
   {
     path: "/forgot-password",
     element: <ForgotPasswordPage />,
   },
-  // --- NOVA ROTA: Redefinir Senha (com Token) ---
   {
     path: "/reset-password/:token",
     element: <ResetPasswordPage />,
@@ -38,7 +37,7 @@ export const router = createBrowserRouter([
     children: [
       {
         path: "/",
-        element: <App />, 
+        element: <App />, // Layout Principal (Menu Lateral + Header)
         children: [
           {
             index: true, 
@@ -53,18 +52,30 @@ export const router = createBrowserRouter([
             element: <DeviceDetailPage />,
           },
           {
+            path: "history", 
+            element: <ReportsPage />, 
+          },
+          
+          // --- NOVA ROTA DE SERVIÇOS ---
+          // Substitui a antiga gestão individual de setores
+          {
+            path: "services",
+            // Se quiser proteger estritamente para admins, envolva com <AdminRoutes>
+            // Ex: element: <AdminRoutes><ServicesPage /></AdminRoutes>
+            element: <ServicesPage />, 
+          },
+
+          // --- ROTA LEGADA (ADMIN) ---
+          // Mantida por segurança, mas o menu agora aponta para /services
+          {
             path: 'admin',
-            element: <AdminRoutes />, // Protege (Verifica se é ADMIN)
+            element: <AdminRoutes />, 
             children: [
               {
                 path: 'setores',
                 element: <AdminSetorPage />
               }
             ]
-          },
-          {
-            path: "history", 
-            element: <ReportsPage />, 
           },
         ]
       }

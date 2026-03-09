@@ -1,10 +1,12 @@
-// src/pages/HomePage.jsx
 import React, { useState, useEffect } from 'react';
 import { getDashboardStats } from '../services/api.js';
 import { useNavigate } from 'react-router-dom';
 import { Grid, Card, Text, Group, ThemeIcon, useMantineTheme, Stack } from '@mantine/core';
 
-// 1. Importe APENAS o BarChart do 'chart.js'
+// IMPORTA O NOVO WIDGET DE PLANO DE AÇÃO
+import ActionPlanWidget from '../components/ActionPlanWidget'; 
+
+// Importa APENAS o BarChart do 'chart.js'
 import { Bar } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -26,7 +28,7 @@ import {
   IconBuildingFactory
 } from '@tabler/icons-react';
 
-// 2. Registe os componentes do Chart.js
+// Regista os componentes do Chart.js
 ChartJS.register(
   CategoryScale,
   LinearScale,
@@ -35,6 +37,14 @@ ChartJS.register(
   Tooltip,
   Legend
 );
+
+// --- CORES VIBRANTES E PERSONALIZADAS ---
+const BRAND_BLUE = '#0003d9';    // Seu azul oficial
+const VIVID_GREEN = '#05a828';   // Verde Esmeralda Vivo
+// Usei laranja em vez de amarelo para melhor contraste e "vida" no fundo branco
+const VIVID_ORANGE = '#f76707';  // Laranja Intenso (Atenção)
+const VIVID_RED = '#d90429';     // Vermelho Carmim Vibrante (Alerta)
+const VIVID_GRAY = '#495057';    // Cinza Chumbo Moderno
 
 function HomePage() {
   const [stats, setStats] = useState(null);
@@ -64,7 +74,6 @@ function HomePage() {
     navigate('/devices', { state: { initialStatusFilter: statusFilter } });
   };
   
-  // Função para os novos cartões clicáveis
   const handleNomenclatureClick = (nomenclatureFilter) => {
     navigate('/devices', { state: { initialNomenclatureFilter: nomenclatureFilter } });
   };
@@ -73,29 +82,26 @@ function HomePage() {
   if (error) return <div style={{ color: 'red' }}>Erro ao carregar dashboard: {error}</div>;
   if (!stats) return <p>Aguardando dados das estatísticas...</p>;
 
-  // --- A CORREÇÃO ESTÁ AQUI ---
-  // Usamos o valor 'compliantCount' que vem direto da API
-  // (que já conta apenas os dispositivos com data > 30 dias)
+  // Correção para conformidade
   const inComplianceCount = stats.compliantCount || 0;
-  // ----------------------------
 
-  // 3. Transforme os dados para o formato do Chart.js
+  // Transforme os dados para o formato do Chart.js
   const barChartData = {
     labels: stats.preventiveChartData.map(d => d.name),
     datasets: [
       {
         label: 'Preventivas Realizadas',
         data: stats.preventiveChartData.map(d => d.value),
-        backgroundColor: 'rgba(0, 4, 240, 0.6)', 
-        borderColor: 'rgba(0, 4, 240, 1)',
+        backgroundColor: 'rgba(0, 3, 217, 0.7)', // Azul da marca com transparência
+        borderColor: BRAND_BLUE,
         borderWidth: 1,
       },
     ],
   };
 
-  // 4. Opções para o gráfico (incluindo o tooltip branco que corrige o bug)
+  // Opções para o gráfico
   const chartOptions = {
-    maintainAspectRatio: false, // Permite que o gráfico preencha o 'div'
+    maintainAspectRatio: false, 
     plugins: {
       tooltip: {
         backgroundColor: '#fff',
@@ -122,10 +128,10 @@ function HomePage() {
   };
 
   return (
-    <div>
-      <Text size="xl" fw={700} mb="lg">Dashboard de Preventivas</Text>
+    <div style={{ paddingBottom: '40px' }}>
+      <Text size="xl" fw={700} mb="lg" c="dark.4">Dashboard de Preventivas</Text>
       
-      {/* --- 5. GRELHA DOS 4 CARTÕES ORIGINAIS (RESTAURADA) --- */}
+      {/* --- 1. GRELHA DOS 4 CARTÕES DE STATUS --- */}
       <Grid>
         <Grid.Col span={{ base: 12, md: 6, lg: 3 }}>
           <StatCard 
@@ -133,56 +139,63 @@ function HomePage() {
             value={stats.totalDevices} 
             description="Total de equipamentos sincronizados."
             icon={<IconDeviceDesktop />} 
-            color="blue"
+            color={BRAND_BLUE} 
           />
         </Grid.Col>
         <Grid.Col span={{ base: 12, md: 6, lg: 3 }}>
+          {/* CARD VERDE VIVO */}
           <StatCard 
             title="Em Conformidade" 
             value={inComplianceCount}
             description="Ativos com a preventiva planejada."
             icon={<IconCircleCheck />} 
-            color="green" 
+            color={VIVID_GREEN} // <-- Mudança
           />
         </Grid.Col>
         <Grid.Col span={{ base: 12, md: 6, lg: 3 }}>
+           {/* CARD LARANJA VIVO (Atenção) */}
           <StatCard 
             title="Atenção (30 dias)" 
             value={stats.upcomingCount} 
             description="Vencendo nos próximos 30 dias."
             icon={<IconClock />} 
-            color="yellow"
+            color={VIVID_ORANGE} // <-- Mudança
             onClick={() => handleCardClick('upcoming')}
           />
         </Grid.Col>
         <Grid.Col span={{ base: 12, md: 6, lg: 3 }}>
+           {/* CARD VERMELHO VIVO (Alerta) */}
           <StatCard 
             title="Alerta Crítico" 
             value={stats.overdueCount} 
             description="Manutenção preventiva vencida."
             icon={<IconAlertTriangle />} 
-            color="red" 
+            color={VIVID_RED} // <-- Mudança
             onClick={() => handleCardClick('overdue')}
           />
         </Grid.Col>
       </Grid>
       
+      {/* --- 2. NOVO WIDGET: PLANO DE AÇÃO --- */}
+      <ActionPlanWidget />
+      {/* ------------------------------------- */}
+
+      {/* --- 3. GRÁFICOS E INFO ADICIONAL --- */}
       <Grid mt="xl">
         {/* Gráfico de Barras */}
         <Grid.Col span={{ base: 12, lg: 7 }}>
           <Card withBorder radius="md" p="lg" shadow="sm" h="100%" style={{ minHeight: 400 }}>
             <Group>
-              <ThemeIcon variant="light" size="xl" radius="md"><IconHistory /></ThemeIcon>
+              <ThemeIcon variant="light" size="xl" radius="md" color="blue"><IconHistory /></ThemeIcon>
               <Text size="lg" fw={700}>Preventivas Realizadas (Últimos 90 dias)</Text>
             </Group>
-            {/* 6. Use o BarChart do Chart.js */}
             <div style={{ height: '300px', marginTop: '20px' }}>
               <Bar data={barChartData} options={chartOptions} />
             </div>
           </Card>
         </Grid.Col>
         
-        {/* --- 7. NOVOS CARTÕES CLICÁVEIS (COMO PEDIDO) --- */}
+        {/* Cartões Clicáveis (Internos / Alugados) */}
         <Grid.Col span={{ base: 12, lg: 5 }}>
            <Stack gap="xl">
              <StatCard 
@@ -190,18 +203,20 @@ function HomePage() {
                value={stats.ownedCount} 
                description="Prefixos PTR e TRC."
                icon={<IconBuildingStore />} 
-               color="blue"
+               color={BRAND_BLUE} 
                onClick={() => handleNomenclatureClick('owned')}
-               valueSize="2.5rem" // Tamanho menor para caber
+               valueSize="2.5rem" 
              />
+             
+             {/* CARD CINZA MAIS VIVO */}
              <StatCard 
                title="Dispositivos Alugados" 
                value={stats.rentedCount} 
                description="Prefixos NETSITE, VIVO, SOROCAMP e INFOBRAS."
                icon={<IconBuildingFactory />} 
-               color="gray"
+               color={VIVID_GRAY} // <-- Mudança
                onClick={() => handleNomenclatureClick('rented')}
-               valueSize="2.5rem" // Tamanho menor para caber
+               valueSize="2.5rem" 
              />
            </Stack>
         </Grid.Col>
@@ -210,10 +225,15 @@ function HomePage() {
   );
 }
 
-// O componente StatCard (com tamanho de fonte ajustado)
+// Componente StatCard Auxiliar (Já estava pronto para aceitar HEX)
 function StatCard({ title, value, description, icon, color, onClick, valueSize = "4rem" }) {
   const theme = useMantineTheme();
   const isDark = theme.colorScheme === 'dark';
+
+  // Lógica: Se a cor começar com '#', usa ela direto. Se não, busca no tema.
+  const textColor = color.startsWith('#') 
+    ? color 
+    : (isDark ? theme.colors[color][5] : theme.colors[color][7]);
 
   return (
     <Card 
@@ -224,26 +244,33 @@ function StatCard({ title, value, description, icon, color, onClick, valueSize =
       onClick={onClick}
       style={{ 
         cursor: onClick ? 'pointer' : 'default', 
-        transition: 'all 0.2s ease' 
+        transition: 'all 0.2s ease',
+        // Adiciona uma borda superior colorida sutil para mais destaque
+        borderTop: `3px solid ${textColor}` 
       }}
       onMouseEnter={(e) => {
-        if(onClick) e.currentTarget.style.transform = 'translateY(-3px)';
-        if(onClick) e.currentTarget.style.boxShadow = theme.shadows.md;
+        if(onClick) {
+            e.currentTarget.style.transform = 'translateY(-3px)';
+            e.currentTarget.style.boxShadow = theme.shadows.md;
+        }
       }}
       onMouseLeave={(e) => {
-        if(onClick) e.currentTarget.style.transform = 'translateY(0)';
-        if(onClick) e.currentTarget.style.boxShadow = theme.shadows.sm;
+        if(onClick) {
+            e.currentTarget.style.transform = 'translateY(0)';
+            e.currentTarget.style.boxShadow = theme.shadows.sm;
+        }
       }}
     >
       <Group justify="space-between">
         <Text size="sm" c="dimmed" fw={700} tt="uppercase">
           {title}
         </Text>
-        <ThemeIcon color={color} variant={isDark ? 'light' : 'filled'} size="lg" radius="md">
+        {/* O ThemeIcon variant="filled" usa a cor HEX como background, ficando bem vivo */}
+        <ThemeIcon color={color} variant="filled" size="lg" radius="md">
           {icon}
         </ThemeIcon>
       </Group>
-      <Text size={valueSize} fw={900} c={isDark ? theme.colors[color][5] : theme.colors[color][7]}>
+      <Text size={valueSize} fw={900} c={textColor}>
         {value}
       </Text>
       <Text size="sm" c="dimmed" mt="xs">

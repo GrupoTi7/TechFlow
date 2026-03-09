@@ -3,9 +3,9 @@ const { prisma } = require('../config/prismaClient');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto'); // Nativo do Node.js
-const nodemailer = require('nodemailer'); // Vamos configurar o envio aqui para ser direto
+const nodemailer = require('nodemailer'); 
 
-// Configuração rápida de e-mail (Reusando suas variáveis)
+// Configuração de e-mail
 const transporter = nodemailer.createTransport({
   host: process.env.EMAIL_HOST,
   port: parseInt(process.env.EMAIL_PORT || '587'),
@@ -14,6 +14,7 @@ const transporter = nodemailer.createTransport({
   tls: { rejectUnauthorized: false }
 });
 
+// --- REGISTRO DE USUÁRIO ---
 const register = async (req, res) => {
   const { username, password, email } = req.body;
 
@@ -28,7 +29,7 @@ const register = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Nome de usuário já existe.' });
     }
 
-    // 2. Criptografa a senha (MUITO IMPORTANTE)
+    // 2. Criptografa a senha
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // 3. Cria no banco
@@ -36,8 +37,9 @@ const register = async (req, res) => {
       data: {
         username,
         password: hashedPassword,
-        email: email || null, // Opcional, mas bom para recuperar senha depois
+        email: email || null,
         name: username,
+        role: 'TECNICO' // Define um padrão seguro, ou receba do body se for admin criando
       }
     });
 
@@ -49,20 +51,41 @@ const register = async (req, res) => {
   }
 };
 
-// --- LOGIN (MANTIDO) ---
+// --- LOGIN (CORRIGIDO) ---
 const login = async (req, res) => {
-  // ... (mantenha a sua função de login atual aqui) ...
-  // Se não tiver o código fácil, avise que eu mando completo. 
-  // Mas basicamente é a mesma lógica que você já tem.
   try {
     const { username, password } = req.body;
+    
+    // Busca usuário
     const user = await prisma.user.findUnique({ where: { username } });
     if (!user) return res.status(401).json({ success: false, message: 'Usuário não encontrado' });
+
+    // Verifica senha
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(401).json({ success: false, message: 'Senha incorreta' });
-    const token = jwt.sign({ userId: user.id, username: user.username }, process.env.JWT_SECRET, { expiresIn: '8h' });
-    res.json({ success: true, token });
+
+    // Gera Token
+    const token = jwt.sign(
+        { userId: user.id, username: user.username, role: user.role }, 
+        process.env.JWT_SECRET, 
+        { expiresIn: '8h' }
+    );
+
+    // RETORNO CORRIGIDO: Envia Token + Dados do Usuário
+    // Isso resolve o erro "Usuário Desconhecido" no frontend
+    return res.json({
+      success: true,
+      token,
+      user: {
+        id: user.id,
+        name: user.name,
+        role: user.role,
+        email: user.email
+      }
+    });
+
   } catch (error) {
+    console.error("Erro no login:", error);
     res.status(500).json({ success: false, error: error.message });
   }
 };
@@ -73,14 +96,14 @@ const requestPasswordReset = async (req, res) => {
 
   try {
     const user = await prisma.user.findFirst({ where: { email } });
+    
     if (!user) {
-      // Por segurança, não dizemos se o email existe ou não, apenas dizemos "Se existir, enviamos".
       return res.json({ success: true, message: "Se o e-mail estiver cadastrado, você receberá um link." });
     }
 
-    // Gera um token aleatório
+    // Gera token e validade
     const token = crypto.randomBytes(32).toString('hex');
-    const expiry = new Date(Date.now() + 3600000); // 1 hora de validade
+    const expiry = new Date(Date.now() + 3600000); // 1 hora
 
     // Salva no banco
     await prisma.user.update({
@@ -88,7 +111,8 @@ const requestPasswordReset = async (req, res) => {
       data: { resetToken: token, resetTokenExpiry: expiry }
     });
 
-    // Link para o Frontend (Ajuste o IP se mudar)
+    // Link para o Frontend (Atenção ao IP no Deploy)
+    // No futuro, considere usar process.env.FRONTEND_URL
     const resetLink = `http://10.20.2.75:8080/reset-password/${token}`;
 
     // Envia E-mail
@@ -119,11 +143,10 @@ const resetPassword = async (req, res) => {
   const { token, newPassword } = req.body;
 
   try {
-    // Busca usuário com token válido e não expirado
     const user = await prisma.user.findFirst({
       where: {
         resetToken: token,
-        resetTokenExpiry: { gt: new Date() } // Expiry > Agora
+        resetTokenExpiry: { gt: new Date() }
       }
     });
 
@@ -131,10 +154,8 @@ const resetPassword = async (req, res) => {
       return res.status(400).json({ success: false, message: "Token inválido ou expirado." });
     }
 
-    // Hash da nova senha
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
-    // Atualiza e limpa o token
     await prisma.user.update({
       where: { id: user.id },
       data: {
