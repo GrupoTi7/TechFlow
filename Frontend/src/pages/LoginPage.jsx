@@ -35,8 +35,18 @@ function LoginPage() {
 
     try {
       const data = await login(username, password); 
+
       if (data.success && data.token) {
+        // 1. Salva o Token
         localStorage.setItem('authToken', data.token);
+
+        // 2. CORREÇÃO: Salva o objeto User também!
+        // Sem isso, o widget de Plano de Ação não sabe quem é você.
+        if (data.user) {
+          localStorage.setItem('user', JSON.stringify(data.user));
+        }
+
+        // 3. Redireciona e recarrega
         navigate('/'); 
         window.location.reload(); 
       } else {
@@ -54,7 +64,7 @@ function LoginPage() {
       fluid 
       h="100vh" 
       style={{ 
-        backgroundColor: '#0003d9', // <-- AZUL TECHFLOW EXATO
+        backgroundColor: '#0003d9', 
         display: 'flex', 
         alignItems: 'center', 
         justifyContent: 'center',
@@ -120,7 +130,7 @@ function LoginPage() {
               fullWidth 
               loading={isLoading} 
               size="lg" 
-              style={{ backgroundColor: '#0003d9' }} // Botão na cor da marca
+              style={{ backgroundColor: '#0003d9' }} 
             >
               Entrar
             </Button>

@@ -4,4 +4,8 @@ import react from '@vitejs/plugin-react'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  server: {
+    host: '0.0.0.0', // ISSO AQUI OBRIGA ELE A ACEITAR O SEU IP!
+    port: 5173,
+  }
 })
