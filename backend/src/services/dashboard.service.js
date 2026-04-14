@@ -10,53 +10,47 @@ async function getDashboardStats() {
     totalDevices,
     overdueCount,
     upcomingCount,
-    // --- A CONTAGEM QUE VOCÊ QUER ---
     compliantCount, 
-    // --------------------------------
     ownedCount,
     rentedCount,
     preventivesLast7Days,
     preventivesLast30Days,
-    preventivesLast90Days
+    preventivesLast90Days,
+    // 🟢 1. BUSCAMOS EXCLUSIVAMENTE A INFRAESTRUTURA
+    infraCount 
   ] = await Promise.all([
-    // 1. Total
     prisma.device.count({ where: { isActive: true } }),
-
-    // 2. Vencidos (Data < Hoje)
-    prisma.device.count({ 
-      where: { isActive: true, nextPreventiveDate: { lt: today, not: null } } 
-    }),
-
-    // 3. Atenção (Hoje até 30 dias)
-    prisma.device.count({ 
-      where: { isActive: true, nextPreventiveDate: { gte: today, lte: thirtyDaysFromNow } } 
-    }),
-    
-    // 4. EM CONFORMIDADE (Corrigido)
-    // Conta TODOS os dispositivos que têm uma data válida de hoje em diante.
-    // Ou seja: Não estão vencidos e têm preventiva cadastrada.
-    prisma.device.count({ 
-      where: { 
-        isActive: true, 
-        nextPreventiveDate: { gte: today } // Maior ou igual a hoje
-      } 
-    }),
-
-    // ... (Filtros de Nomenclatura - Mantidos)
+    prisma.device.count({ where: { isActive: true, nextPreventiveDate: { lt: today, not: null } } }),
+    prisma.device.count({ where: { isActive: true, nextPreventiveDate: { gte: today, lte: thirtyDaysFromNow } } }),
+    prisma.device.count({ where: { isActive: true, nextPreventiveDate: { gte: today } } }),
     prisma.device.count({ where: { isActive: true, OR: [{ name: { startsWith: 'PTR' } }, { name: { startsWith: 'TRC' } }] } }),
     prisma.device.count({ where: { isActive: true, OR: [{ name: { startsWith: 'NETSITE' } }, { name: { startsWith: 'VIVO' } }, { name: { startsWith: 'SOROCAMP' } }, { name: { startsWith: 'INFOBRAS' } }, { name: { startsWith: 'LENOVO' } }] } }),
-
-    // ... (Dados do Gráfico - Mantidos)
     prisma.preventive.count({ where: { date: { gte: subDays(today, 7) } } }),
     prisma.preventive.count({ where: { date: { gte: subDays(today, 30) } } }),
-    prisma.preventive.count({ where: { date: { gte: ninetyDaysAgo } } })
+    prisma.preventive.count({ where: { date: { gte: ninetyDaysAgo } } }),
+    
+    // 🟢 A MÁGICA: Conta apenas se for switch, ap, wifi, etc.
+    prisma.device.count({
+      where: {
+        isActive: true,
+        OR: [
+          { deviceType: { contains: 'switch' } },
+          { deviceType: { contains: 'ap' } },
+          { deviceType: { contains: 'wifi' } },
+          { deviceType: { contains: 'access point' } }
+        ]
+      }
+    })
   ]);
 
-  // Formatação do gráfico
+  // 🟢 2. A MATEMÁTICA: O resto é computador/servidor
+  const computerCount = totalDevices - infraCount;
+
   const preventivesList = await prisma.preventive.findMany({
       where: { date: { gte: ninetyDaysAgo } },
       orderBy: { date: 'asc' }
   });
+  
   const preventiveChartData = preventivesList.reduce((acc, curr) => {
       const month = format(new Date(curr.date), 'MM/yyyy');
       const existing = acc.find(i => i.name === month);
@@ -68,10 +62,12 @@ async function getDashboardStats() {
     totalDevices,
     overdueCount,
     upcomingCount,
-    compliantCount, // <-- O Backend agora envia este número
+    compliantCount, 
     ownedCount,
     rentedCount,
     preventiveChartData,
+    computerCount, // 🟢 3. Enviamos o número de PCs para a tela
+    infraCount     // 🟢 4. Enviamos o número de Infra para a tela
   };
 }
 

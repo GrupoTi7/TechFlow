@@ -3,38 +3,81 @@ generator client {
 }
 
 datasource db {
-  provider          = "mysql"
-  url               = env("DATABASE_URL")
-  shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
+  provider = "mysql"
+  url      = "mysql://techflow_user:123456db@127.0.0.1:3306/preventiva_db"
 }
 
+// --- ENUMS ---
+enum Role {
+  ADMIN
+  TECNICO
+  GESTOR
+}
+
+enum SectorType {
+  PRODUCAO // Prioridade Alta
+  ADMINISTRATIVO // Prioridade Normal
+}
+
+// --- MODELS ---
+
 model Device {
-  id                      String       @id @default(cuid())
-  glpiId                  Int          @unique
+  id                      String    @id @default(cuid())
+  glpiId                  Int       @unique
   name                    String
   serial                  String?
   otherserial             String?
   contact                 String?
-  department              String?
+  department              String?
   comment                 String?
   deviceType              String
-  lastSync                DateTime     @default(now())
+  lastSync                DateTime  @default(now())
   glpiDateMod             DateTime
-  createdAt               DateTime     @default(now())
-  updatedAt               DateTime     @updatedAt
-  maintenanceIntervalDays Int?          
-  manufacturer          String? // Fabricante
-  model                   String? // Modelo
-  operatingSystem       String? // Sistema Operacional
-  ipAddress              String? // Endereço de IP
-  inventoryTag          String?
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+  maintenanceIntervalDays Int?
+  manufacturer            String?
+  model                   String?
+  operatingSystem         String?
+  ipAddress               String?
+  inventoryTag            String?
   nextPreventiveDate      DateTime?
-  lastPreventiveDate      DateTime? //
-  isActive               Boolean      @default(true) // Para "soft delete"
-  preventives             Preventive[]
-  setor                   String?
+  lastPreventiveDate      DateTime?
+  isActive                Boolean   @default(true)
+  agideskTicketId         String?
+  nobreakModel            String?
+
+  preventives Preventive[]
+
+  // Compatibilidade com antigo campo 'setor'
+  setorName String? @map("setor")
+
+  // Relacionamento com Setores
+  sectorId String?
+  sector   Sector? @relation(fields: [sectorId], references: [id])
+
+  // --- CORREÇÃO AQUI: Relacionamento inverso com Planos de Ação ---
+  actionPlans ActionPlanAssignment[]
+
+  mapPositionX            Float?
+  mapPositionY            Float?
+  linksAsSource           NetworkLink[] @relation("SourceLinks")
+  linksAsTarget           NetworkLink[] @relation("TargetLinks")
 
   @@map("devices")
+}
+
+model Sector {
+  id                  String     @id @default(cuid())
+  name                String     @unique
+  type                SectorType @default(ADMINISTRATIVO)
+  maintenanceInterval Int        @default(120)
+  devices             Device[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("sectors")
 }
 
 model Preventive {
@@ -51,16 +94,94 @@ model Preventive {
 }
 
 model User {
-  id          String    @id @default(cuid())
-  username    String    @unique
+  id          String  @id @default(cuid())
+  username    String  @unique
   displayName String?
-  email       String?   @unique
+  email       String? @unique
   password    String
   name        String
+
+  role Role @default(TECNICO)
+
   resetToken       String?   @db.VarChar(255)
   resetTokenExpiry DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  // --- CORREÇÃO AQUI: Relacionamento inverso com Planos de Ação ---
+  actionPlans ActionPlanAssignment[]
 
   @@map("users")
+}
+
+model DeviceType {
+  id   String  @id @default(cuid())
+  name String
+  key  String  @unique
+  icon String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("device_types")
+}
+
+model ActionPlan {
+  id        String    @id @default(uuid())
+  name      String
+  startDate DateTime
+  deadline  DateTime?
+  status    String    @default("PENDING") // PENDING, ACTIVE, COMPLETED
+  createdAt DateTime  @default(now())
+
+  // Relacionamentos
+  assignments ActionPlanAssignment[]
+}
+
+model ActionPlanAssignment {
+  id     String     @id @default(uuid())
+  planId String
+  plan   ActionPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  technicianId String
+  technician   User   @relation(fields: [technicianId], references: [id])
+
+  deviceId String
+  device   Device @relation(fields: [deviceId], references: [id])
+
+  status      String    @default("PENDING") // PENDING, DONE
+  completedAt DateTime?
+
+  @@unique([planId, deviceId]) // Garante que um dispositivo não duplique no mesmo plano
+}
+
+// TABELA DE CABOS/CONEXÕES DA TOPOLOGIA
+model NetworkLink {
+  id       String @id @default(uuid())
+  sourceId String
+  targetId String
+  sourceHandle String?  
+  targetHandle String?  
+  mapContext   String   @default("matriz") 
+  createdAt    DateTime @default(now())
+
+  source   Device @relation("SourceLinks", fields: [sourceId], references: [id], onDelete: Cascade)
+  target   Device @relation("TargetLinks", fields: [targetId], references: [id], onDelete: Cascade)
+
+  @@unique([sourceId, targetId]) // Impede ligar dois cabos iguais entre as mesmas máquinas
+  @@map("network_links")
+}
+
+// TABELA DE ZONAS (AS CAIXAS TRACEJADAS DO MAPA)
+model MapZone {
+  id     String @id @default(uuid())
+  name   String
+  x      Float
+  y      Float
+  width  Float  @default(400)
+  height Float  @default(300)
+  mapContext String  @default("matriz") 
+  createdAt DateTime @default(now())
+
+  @@map("map_zones")
 }

@@ -1,77 +1,302 @@
 const deviceService = require('../services/device.service');
 const { prisma } = require('../config/prismaClient');
+const ping = require('ping');
 
 async function getAllDevices(req, res) {
   try {
-    // 1. Passa todos os query parameters (ex: ?deviceType=...) para o serviço
     const devices = await deviceService.findAllDevices(req.query); 
-    res.status(200).json({ success: true, count: devices.length, devices: devices });
-  } catch (error) {
-    res.status(500).json({ success: false, message: 'Erro ao buscar dispositivos.', error: error.message });
-  }
+    const translatedDevices = devices.map(device => ({ ...device, setor: device.setorName || device.setor }));
+    res.status(200).json({ success: true, count: translatedDevices.length, devices: translatedDevices });
+  } catch (error) { res.status(500).json({ success: false, message: 'Erro ao buscar dispositivos.', error: error.message }); }
 }
 
-// Adiciona a nova função de busca por ID
 async function getDeviceById(req, res) {
   try {
-    const { id } = req.params; // Pega o ID que vem do URL
+    const { id } = req.params; 
     const device = await deviceService.findDeviceById(id);
+    if (device) device.setor = device.setorName || device.setor;
     res.status(200).json({ success: true, device: device });
-  } catch (error) {
-    // Se o serviço der erro (ex: "Dispositivo não encontrado"), envia 404
-    res.status(404).json({ success: false, message: error.message });
-  }
+  } catch (error) { res.status(404).json({ success: false, message: error.message }); }
 }
 
 async function cleanupDefaultValues(req, res) {
   try {
     const count = await deviceService.cleanupDefaultValues();
-    res.status(200).json({ 
-      success: true, 
-      message: `${count} dispositivos foram limpos e redefinidos para 'null'.` 
-    });
-  } catch (error) {
-    res.status(500).json({ success: false, message: 'Erro ao limpar valores padrão.', error: error.message });
-  }
+    res.status(200).json({ success: true, message: `${count} dispositivos limpos.` });
+  } catch (error) { res.status(500).json({ success: false, message: 'Erro ao limpar', error: error.message }); }
 }
 
 async function bulkUpdateSetors(req, res) {
   try {
-    const updates = req.body.updates; // Espera um JSON: { "updates": [...] }
-
-    if (!Array.isArray(updates) || updates.length === 0) {
-      return res.status(400).json({ success: false, message: 'Nenhuma atualização fornecida.' });
-    }
-    
+    const updates = req.body.updates;
+    if (!Array.isArray(updates) || updates.length === 0) return res.status(400).json({ success: false, message: 'Nenhuma atualização fornecida.' });
     const count = await deviceService.bulkUpdateSetors(updates);
-    res.status(200).json({ success: true, message: `${count} dispositivos foram atualizados com sucesso.` });
-  } catch (error) {
-    res.status(500).json({ success: false, message: 'Erro ao atualizar setores em massa.', error: error.message });
-  }
+    res.status(200).json({ success: true, message: `${count} dispositivos atualizados.` });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 }
+
 async function updateDeviceSetor(req, res) {
   try {
     const { id } = req.params;
     const { setor, interval } = req.body;
-    
-    const updatedDevice = await prisma.device.update({
-      where: { id },
-      data: { 
-        setor, 
-        maintenanceIntervalDays: interval 
-      }
-    });
-    
+    const updatedDevice = await prisma.device.update({ where: { id }, data: { setorName: setor, maintenanceIntervalDays: interval } });
+    updatedDevice.setor = updatedDevice.setorName;
     res.json({ success: true, device: updatedDevice });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+  } catch (error) { res.status(500).json({ success: false, message: error.message }); }
+}
+
+async function updateDeviceTicket(req, res) {
+  try {
+    const { id } = req.params;
+    const { ticketId } = req.body; 
+    const updatedDevice = await prisma.device.update({ where: { id }, data: { agideskTicketId: ticketId ? String(ticketId) : null } });
+    res.json({ success: true, device: updatedDevice });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+}
+
+async function getDeviceTicket(req, res) {
+  try {
+    const { id } = req.params;
+    const device = await prisma.device.findUnique({ where: { id }, select: { agideskTicketId: true } });
+    res.json({ success: true, ticketId: device?.agideskTicketId || null });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+}
+
+async function updatePosition(req, res) {
+  try {
+    const { id } = req.params;
+    const { x, y } = req.body;
+    await prisma.device.update({ where: { id }, data: { mapPositionX: x, mapPositionY: y } });
+    res.json({ success: true });
+  } catch (error) { res.status(500).json({ error: 'Erro ao salvar posição' }); }
+}
+
+async function updateNetworkInfo(req, res) {
+  try {
+    const { id } = req.params;
+    const { name, ipAddress, nobreakModel } = req.body;
+    const updatedDevice = await prisma.device.update({ where: { id }, data: { name, ipAddress, nobreakModel } });
+    res.json({ success: true, device: updatedDevice });
+  } catch (error) { res.status(500).json({ error: 'Erro ao salvar informações de rede' }); }
+}
+
+async function getNetworkLinks(req, res) {
+  try {
+    const context = req.query.context || 'matriz';
+    const links = await prisma.networkLink.findMany({ where: { mapContext: context } });
+    res.json(links);
+  } catch (error) { res.status(500).json({ error: 'Erro ao buscar links' }); }
+}
+
+async function createNetworkLink(req, res) {
+  try {
+    const { sourceId, targetId, sourceHandle, targetHandle, context } = req.body;
+    const link = await prisma.networkLink.create({ data: { sourceId, targetId, sourceHandle, targetHandle, mapContext: context || 'matriz' } });
+    res.json(link);
+  } catch (error) { res.status(500).json({ error: 'Erro ao criar cabo' }); }
+}
+
+async function deleteNetworkLink(req, res) {
+  try {
+    await prisma.networkLink.delete({ where: { id: req.params.id } });
+    res.json({ success: true });
+  } catch (error) { res.status(500).json({ error: 'Erro ao remover cabo' }); }
+}
+
+async function getZones(req, res) {
+  try {
+    const context = req.query.context || 'matriz';
+    const zones = await prisma.mapZone.findMany({ where: { mapContext: context } });
+    res.json(zones);
+  } catch (error) { res.status(500).json({ error: 'Erro ao buscar zonas' }); }
+}
+
+async function createZone(req, res) {
+  try {
+    const { name, x, y, width, height, context } = req.body;
+    const zone = await prisma.mapZone.create({ data: { name, x, y, width, height, mapContext: context || 'matriz' } });
+    res.json(zone);
+  } catch (error) { res.status(500).json({ error: 'Erro ao criar zona' }); }
+}
+
+async function updateZone(req, res) {
+  try {
+    const { id } = req.params;
+    const { name, x, y, width, height, context } = req.body;
+    const zone = await prisma.mapZone.update({ where: { id }, data: { name, x, y, width, height, mapContext: context } });
+    res.json(zone);
+  } catch (error) { res.status(500).json({ error: 'Erro ao atualizar zona' }); }
+}
+
+async function deleteZone(req, res) {
+  try {
+    await prisma.mapZone.delete({ where: { id: req.params.id } });
+    res.json({ success: true });
+  } catch (error) { res.status(500).json({ error: 'Erro ao deletar zona' }); }
+}
+
+// 🟢 FUNÇÃO DE DELETAR A MÁQUINA BLINDADA
+async function deleteDevice(req, res) {
+  try {
+    const { id } = req.params;
+    console.log(`[BACKEND] Tentando remover máquina ${id}...`);
+
+    // 1. Apaga os cabos sem dó
+    await prisma.networkLink.deleteMany({ where: { OR: [{ sourceId: id }, { targetId: id }] } });
+
+    try {
+      // 2. Tenta apagar a máquina do banco
+      await prisma.device.delete({ where: { id } });
+      console.log(`[BACKEND] Máquina ${id} apagada com sucesso do banco!`);
+      res.json({ success: true, message: 'Equipamento apagado.' });
+    } catch (dbError) {
+      // 3. SE O BANCO BLOQUEAR (Por causa de Preventivas), ele remove do Mapa!
+      console.log(`[BACKEND] Máquina bloqueada por dependências. Removendo do mapa (Soft Delete)...`);
+      await prisma.device.update({
+        where: { id },
+        data: { mapPositionX: null, mapPositionY: null }
+      });
+      res.json({ success: true, message: 'Máquina removida do mapa com sucesso (mantida no BD por histórico).' });
+    }
+  } catch (error) { 
+    console.error(`[BACKEND] Erro crítico ao remover:`, error);
+    res.status(500).json({ error: 'Erro ao processar remoção' }); 
   }
 }
 
+// 🟢 LIMPAR CABOS COM LOGS
+async function clearAllLinks(req, res) {
+  try {
+    const context = req.query.context || 'matriz';
+    console.log(`[BACKEND] Recebido pedido para limpar cabos da aba: ${context}`);
+    const result = await prisma.networkLink.deleteMany({ where: { mapContext: context } });
+    console.log(`[BACKEND] Sucesso! ${result.count} cabos apagados.`);
+    res.json({ success: true, message: 'Ligações removidas.' });
+  } catch (error) { 
+    console.error(`[BACKEND] Erro ao limpar cabos:`, error);
+    res.status(500).json({ error: 'Erro ao limpar ligações' }); 
+  }
+}
+
+async function clearTopology(req, res) {
+  try {
+    const context = req.query.context || 'matriz';
+    await prisma.mapZone.deleteMany({ where: { mapContext: context } });
+    await prisma.networkLink.deleteMany({ where: { mapContext: context } });
+
+    if (context === 'tractor') {
+      await prisma.device.updateMany({ where: { name: { contains: 'TRC' } }, data: { mapPositionX: null, mapPositionY: null } });
+    } else if (context === 'matriz') {
+      await prisma.device.updateMany({ where: { NOT: { name: { contains: 'TRC' } } }, data: { mapPositionX: null, mapPositionY: null } });
+    } else if (context === 'aps') {
+      await prisma.device.updateMany({ where: { OR: [{ deviceType: { contains: 'ap' } }, { deviceType: { contains: 'wifi' } }] }, data: { mapPositionX: null, mapPositionY: null } });
+    }
+
+    res.json({ success: true });
+  } catch (error) { res.status(500).json({ error: 'Erro ao limpar topologia' }); }
+}
+
+async function pingDevices(req, res) {
+  try {
+    const { ips } = req.body;
+    if (!ips || !Array.isArray(ips)) return res.json({});
+    const results = {};
+    const promises = ips.map(async (ip) => {
+      if (!ip || ip.trim() === '') return;
+      try {
+        const pingRes = await ping.promise.probe(ip, { timeout: 2 });
+        results[ip] = pingRes.alive; 
+      } catch(e) { results[ip] = false; }
+    });
+    await Promise.all(promises);
+    res.json(results);
+  } catch (error) { res.status(500).json({ error: 'Erro ao pingar dispositivos' }); }
+}
+
+async function createManualDevice(req, res) {
+  try {
+    const { name, ipAddress, deviceType } = req.body;
+    const fakeGlpiId = 8000000 + Math.floor(Math.random() * 900000);
+    const device = await prisma.device.create({
+      data: { name, ipAddress, deviceType: deviceType || 'switch', isActive: true, glpiId: fakeGlpiId, glpiDateMod: new Date(), mapPositionX: 100, mapPositionY: 100 }
+    });
+    res.json({ success: true, device });
+  } catch (error) { res.status(500).json({ error: 'Erro ao criar dispositivo manual' }); }
+}
+
+async function importZabbixTopology(req, res) {
+  // Mantive a sua importação intacta!
+  try {
+    const { zabbixData, context } = req.body;
+    const targetContext = context || 'matriz';
+    const mapData = zabbixData.zabbix_export.maps[0];
+
+    if (mapData.shapes) {
+      await prisma.mapZone.deleteMany({ where: { mapContext: targetContext } }); 
+      for (const shape of mapData.shapes) {
+        try { await prisma.mapZone.create({ data: { name: shape.text || 'Novo Setor', x: Number(shape.x), y: Number(shape.y), width: Number(shape.width), height: Number(shape.height), mapContext: targetContext } }); } catch (e) { }
+      }
+    }
+
+    const zabbixIdToDbId = {};
+    if (mapData.selements) {
+      for (const sel of mapData.selements) {
+        try {
+          const hostStr = sel.elements[0].host; 
+          let searchName = hostStr;
+          let devType = 'switch';
+
+          if (targetContext === 'tractor') {
+             if (!searchName.toUpperCase().includes('TRC')) searchName = `TRC ${searchName}`;
+          } else if (targetContext === 'aps') {
+             devType = 'ap'; 
+          }
+
+          let device = await prisma.device.findFirst({ where: { OR: [ { ipAddress: { contains: hostStr } }, { name: { contains: searchName } } ] } });
+
+          if (!device) {
+            const safeGlpiId = 9000000 + Number(sel.selementid); 
+            device = await prisma.device.create({
+              data: { name: targetContext === 'aps' ? `AP ${hostStr}` : `SW ${searchName}`, ipAddress: hostStr, deviceType: devType, isActive: true, mapPositionX: Number(sel.x), mapPositionY: Number(sel.y), glpiId: safeGlpiId, glpiDateMod: new Date() }
+            });
+          } else {
+            device = await prisma.device.update({
+              where: { id: device.id }, data: { mapPositionX: Number(sel.x), mapPositionY: Number(sel.y), deviceType: targetContext === 'aps' ? 'ap' : device.deviceType }
+            });
+          }
+          zabbixIdToDbId[sel.selementid] = device.id; 
+        } catch (errInner) { console.error(errInner); }
+      }
+    }
+
+    if (mapData.links) {
+      await prisma.networkLink.deleteMany({ where: { mapContext: targetContext } }); 
+      for (const link of mapData.links) {
+        const sourceDbId = zabbixIdToDbId[link.selementid1];
+        const targetDbId = zabbixIdToDbId[link.selementid2];
+        if (sourceDbId && targetDbId && sourceDbId !== targetDbId) {
+          try { 
+            await prisma.networkLink.create({ 
+              data: { 
+                sourceId: sourceDbId, 
+                targetId: targetDbId, 
+                sourceHandle: 's-bottom', // 🟢 CORREÇÃO: Diz ao mapa onde plugar a saída
+                targetHandle: 't-top',    // 🟢 CORREÇÃO: Diz ao mapa onde plugar a entrada
+                mapContext: targetContext 
+              } 
+            }); 
+          } catch(e) {}
+        }
+      }
+    }
+
+    res.json({ success: true });
+  } catch (error) { res.status(500).json({ error: 'Erro ao processar' }); }
+}
+
 module.exports = { 
-  getAllDevices,
-  getDeviceById,
- cleanupDefaultValues,
- bulkUpdateSetors,
- updateDeviceSetor
- };
+  getAllDevices, getDeviceById, cleanupDefaultValues, bulkUpdateSetors, updateDeviceSetor,
+  updateDeviceTicket, getDeviceTicket, updatePosition, updateNetworkInfo, getNetworkLinks, 
+  createNetworkLink, deleteNetworkLink, getZones, createZone, updateZone, deleteZone, 
+  clearTopology, importZabbixTopology, deleteDevice, clearAllLinks, createManualDevice, pingDevices
+};

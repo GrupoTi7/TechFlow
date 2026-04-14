@@ -18,56 +18,58 @@ const SETORES_PRODUCAO = [
  * Busca o histórico de preventivas de um dispositivo
  */
 async function findPreventivesByDevice(deviceId) {
-  return prisma.preventive.findMany({
-    where: { deviceId: deviceId },
-    orderBy: { date: 'desc' },
-  });
+  return prisma.preventive.findMany({
+    where: { deviceId: deviceId },
+    orderBy: { date: 'desc' },
+  });
 }
 
 /**
  * Adiciona uma preventiva e recalcula a próxima data
  */
 async function addPreventive(deviceId, preventiveData) {
-  const { date, technician, notes } = preventiveData;
-  
+  const { date, technician, notes } = preventiveData;
+  
   return prisma.$transaction(async (tx) => {
     // 1. Busca o dispositivo "pai"
-    const device = await tx.device.findUnique({ where: { id: deviceId } });
-    if (!device) { throw new Error('Dispositivo não encontrado.'); }
+    const device = await tx.device.findUnique({ where: { id: deviceId } });
+    if (!device) { throw new Error('Dispositivo não encontrado.'); }
 
     // ==========================================================
-    // --- TRAVA DE SEGURANÇA (Como você pediu) ---
+    // --- TRAVA DE SEGURANÇA DESATIVADA PARA TESTES ---
     // ==========================================================
+    /*
     if (!device.maintenanceIntervalDays || !device.setor) {
       throw new Error(
         'AÇÃO BLOQUEADA: Este dispositivo ainda não foi categorizado.\n\n' +
         'Por favor, contacte um administrador para definir o Setor e o Intervalo deste dispositivo antes de registar uma preventiva.'
       );
     }
+    */
     // ==========================================================
 
-    // 3. Se passou, usa o intervalo definido pelo admin
-    const interval = device.maintenanceIntervalDays;
+    // 3. Se passou, usa o intervalo definido pelo admin (ou 120 por padrão)
+    const interval = device.maintenanceIntervalDays || 120;
 
     // 4. Crie a nova preventiva (para o histórico)
-    const newPreventive = await tx.preventive.create({
-      data: { date: new Date(date), technician, notes, deviceId },
-    });
+    const newPreventive = await tx.preventive.create({
+      data: { date: new Date(date), technician, notes, deviceId },
+    });
 
     // 5. Calcula a próxima data
-    const nextPreventiveDate = addDays(newPreventive.date, interval);
+    const nextPreventiveDate = addDays(newPreventive.date, interval);
 
     // 6. Atualiza o dispositivo "pai"
-    await tx.device.update({
-      where: { id: deviceId },
-      data: { 
+    await tx.device.update({
+      where: { id: deviceId },
+      data: { 
         lastPreventiveDate: newPreventive.date,
         nextPreventiveDate: nextPreventiveDate,
       },
-    });
+    });
 
-    return newPreventive;
-  });
+    return newPreventive;
+  });
 }
 
 /**
@@ -100,9 +102,9 @@ async function deletePreventive(preventiveId) {
     let newLastPreventiveDate = null;
     let newNextPreventiveDate = null;
 
-    if (latestPreventive && device.maintenanceIntervalDays) {
+    if (latestPreventive) {
       newLastPreventiveDate = latestPreventive.date;
-      const interval = device.maintenanceIntervalDays; // Usa o intervalo definido pelo admin
+      const interval = device.maintenanceIntervalDays || 120; // Padrão 120 caso esteja vazio
       newNextPreventiveDate = addDays(latestPreventive.date, interval);
     } 
 

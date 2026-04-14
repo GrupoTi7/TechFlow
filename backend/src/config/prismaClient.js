@@ -1,5 +1,6 @@
 // src/config/prismaClient.js
 const { PrismaClient } = require('@prisma/client');
+
 const prisma = new PrismaClient();
 
 async function connectDB() {
@@ -7,14 +8,10 @@ async function connectDB() {
     await prisma.$connect();
     console.log('Conectado com sucesso à base de dados.');
   } catch (error) {
-    console.error('Não foi possível conectar à base de dados:', error);
+    console.error('Falha na conexão com DB:', error);
     process.exit(1);
   }
 }
 
-async function disconnectDB() {
-  await prisma.$disconnect();
-}
-
-// Garanta que está a exportar o objeto 'prisma'
-module.exports = { prisma, connectDB, disconnectDB };
+// IMPORTANTE: Exporte 'prisma' (a instância) e 'connectDB'
+module.exports = { prisma, connectDB };
