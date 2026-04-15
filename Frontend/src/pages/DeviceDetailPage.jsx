@@ -463,6 +463,7 @@ function DeviceDetailPage() {
           </Stack>
         </Grid.Col>
 
+        {/* --- COLUNA DA DIREITA: HISTÓRICO (CINZA MANTIDO) --- */}
         <Grid.Col span={{ base: 12, md: 7 }}>
            <Card shadow="sm" p="xl" radius="lg" withBorder h="100%">
              <Group mb="xl" justify="space-between" align="center">

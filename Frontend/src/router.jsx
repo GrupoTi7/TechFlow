@@ -17,6 +17,9 @@ import ServicesPage from './pages/ServicesPage.jsx';
 // 🟢 IMPORTAÇÃO DA NOVA PÁGINA DE CATEGORIAS
 import DeviceCategoriesPage from './pages/DeviceCategoriesPage.jsx'; 
 
+// --- IMPORTAÇÃO NOVA ---
+import ServicesPage from './pages/ServicesPage.jsx'; 
+
 export const router = createBrowserRouter([
   // --- ROTAS PÚBLICAS ---
   {
@@ -47,7 +50,7 @@ export const router = createBrowserRouter([
       // 🔵 ROTAS NORMAIS DO SISTEMA
       {
         path: "/",
-        element: <App />, 
+        element: <App />, // Layout Principal (Menu Lateral + Header)
         children: [
           {
             index: true, 

@@ -21,7 +21,6 @@ import dayjs from 'dayjs';
 import 'dayjs/locale/pt-br';
 
 dayjs.locale('pt-br');
-
 import { allSetorOptions, setoresAdministrativos, setoresProducao } from '../utils/sectors';
 import { 
   getSectors, createSector, updateSector, deleteSector, 

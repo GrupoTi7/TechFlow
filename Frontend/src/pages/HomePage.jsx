@@ -141,6 +141,7 @@ function HomePage() {
           />
         </Grid.Col>
         <Grid.Col span={{ base: 12, md: 6, lg: 3 }}>
+          {/* CARD VERDE VIVO */}
           <StatCard 
             title="Em Conformidade" 
             value={inComplianceCount}
@@ -150,6 +151,7 @@ function HomePage() {
           />
         </Grid.Col>
         <Grid.Col span={{ base: 12, md: 6, lg: 3 }}>
+           {/* CARD LARANJA VIVO (Atenção) */}
           <StatCard 
             title="Atenção (30 dias)" 
             value={stats.upcomingCount} 
@@ -160,6 +162,7 @@ function HomePage() {
           />
         </Grid.Col>
         <Grid.Col span={{ base: 12, md: 6, lg: 3 }}>
+           {/* CARD VERMELHO VIVO (Alerta) */}
           <StatCard 
             title="Alerta Crítico" 
             value={stats.overdueCount} 

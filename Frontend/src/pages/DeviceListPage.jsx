@@ -38,6 +38,7 @@ function getDeviceIcon(deviceType) {
   return <ThemeIcon variant="light" color="gray" size="lg" radius="md"><IconDeviceFloppy size="1.2rem" /></ThemeIcon>;
 }
 
+// --- BADGE DE STATUS ---
 function getStatusBadge(nextDateStr) {
   const now = new Date();
   now.setHours(0, 0, 0, 0); 
@@ -169,6 +170,21 @@ function DeviceListPage() {
       <Table.Td>{getStatusBadge(device.nextPreventiveDate)}</Table.Td>
       <Table.Td style={{ textAlign: 'right' }}>
           <Button component={Link} to={`/devices/${device.id}`} variant="light" color={BRAND_BLUE} size="xs" radius="md" rightSection={<IconArrowRight size={14} />}>Detalhes</Button>
+      </Table.Td>
+
+      {/* AÇÃO (BOTÃO IGUAL AO DA HOME) */}
+      <Table.Td style={{ textAlign: 'right' }}>
+          <Button 
+              component={Link} 
+              to={`/devices/${device.id}`} 
+              variant="light" 
+              color={BRAND_BLUE}
+              size="xs" 
+              radius="md"
+              rightSection={<IconArrowRight size={14} />}
+          >
+              Detalhes
+          </Button>
       </Table.Td>
     </Table.Tr>
   ));
