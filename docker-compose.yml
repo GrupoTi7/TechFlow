@@ -8,9 +8,15 @@ services:
     environment:
       TZ: America/Sao_Paulo
       DATABASE_URL: ${DATABASE_URL}
+      GLPI_API_URL: ${GLPI_API_URL}
       GLPI_LOGIN: ${GLPI_LOGIN}
       GLPI_PASSWORD: ${GLPI_PASSWORD}
+      GLPI_APP_TOKEN: ${GLPI_APP_TOKEN}
+      GLPI_USER_TOKEN: ${GLPI_USER_TOKEN}
       JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN}
+      USE_MOCK_DATA: ${USE_MOCK_DATA}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS}
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD} 
       EMAIL_HOST: ${EMAIL_HOST}
@@ -19,9 +25,11 @@ services:
       EMAIL_USER: ${EMAIL_USER}
       EMAIL_FROM: ${EMAIL_FROM}
       EMAIL_TO: ${EMAIL_TO}
+      AGIDESK_TENANT: ${AGIDESK_TENANT}
+      AGIDESK_APP_KEY: ${AGIDESK_APP_KEY}
+      AGIDESK_CUSTOMER_ID: ${AGIDESK_CUSTOMER_ID}
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      ALLOWED_ORIGINS: "*"
     depends_on:
       db:
         condition: service_healthy
