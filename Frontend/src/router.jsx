@@ -17,9 +17,6 @@ import ServicesPage from './pages/ServicesPage.jsx';
 // 🟢 IMPORTAÇÃO DA NOVA PÁGINA DE CATEGORIAS
 import DeviceCategoriesPage from './pages/DeviceCategoriesPage.jsx'; 
 
-// --- IMPORTAÇÃO NOVA ---
-import ServicesPage from './pages/ServicesPage.jsx'; 
-
 export const router = createBrowserRouter([
   // --- ROTAS PÚBLICAS ---
   {

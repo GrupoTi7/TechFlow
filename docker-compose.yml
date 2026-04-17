@@ -1,9 +1,10 @@
 version: '3.8'
 
 services:
-  # O seu backend (API) - O "Gatilho"
+  # O seu backend (API)
   backend:
     build: ./backend
+    container_name: techflow_backend # <-- NOVO
     restart: unless-stopped
     environment:
       TZ: America/Sao_Paulo
@@ -28,27 +29,33 @@ services:
       AGIDESK_TENANT: ${AGIDESK_TENANT}
       AGIDESK_APP_KEY: ${AGIDESK_APP_KEY}
       AGIDESK_CUSTOMER_ID: ${AGIDESK_CUSTOMER_ID}
-      REDIS_HOST: redis
+      REDIS_HOST: techflow_redis # <-- NOVO: Alterado para combinar com o container_name
       REDIS_PORT: 6379
     depends_on:
       db:
         condition: service_healthy
-      redis: # <-- NOVO: O backend agora depende do Redis
+      redis:
         condition: service_started
+    networks: # <-- NOVO
+      - techflow_net
 
   # O seu frontend (Nginx)
   frontend:
     build: ./Frontend
+    container_name: techflow_frontend # <-- NOVO
     restart: unless-stopped
     ports:
       - "8080:80" 
-      - "443:443" #Porta HTTPS
+      - "443:443" 
     depends_on:
       - backend
+    networks: # <-- NOVO
+      - techflow_net
 
   # O seu Banco de Dados (MySQL)
   db:
     image: mysql:8.0
+    container_name: techflow_db # <-- NOVO
     command: --default-authentication-plugin=mysql_native_password
     restart: unless-stopped
     ports:
@@ -66,13 +73,23 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks: # <-- NOVO
+      - techflow_net
   
-  # --- NOVO SERVIÇO: O BROKER DA FILA ---
+  # --- O BROKER DA FILA ---
   redis:
     image: redis:7-alpine
+    container_name: techflow_redis # <-- NOVO
     restart: always
     ports:
       - "6379:6379"
+    networks: # <-- NOVO
+      - techflow_net
 
 volumes:
   mysql_data:
+
+# <-- NOVO: Definir a rede explicitamente
+networks:
+  techflow_net:
+    driver: bridge
