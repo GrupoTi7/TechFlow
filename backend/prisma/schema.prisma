@@ -4,7 +4,7 @@ generator client {
 
 datasource db {
   provider = "mysql"
-  url      = "mysql://techflow_user:123456db@127.0.0.1:3306/preventiva_db"
+  url      = env("DATABASE_URL")
 }
 
 // --- ENUMS ---
