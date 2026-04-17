@@ -1,24 +1,34 @@
-# frontend/Dockerfile (VERSÃO SIMPLIFICADA - SEM BUILD)
+# --- ESTÁGIO 1: A "Cozinha" (Construção) ---
+# Usamos o Node.js para compilar o projeto do zero
+FROM node:18-alpine as build
+WORKDIR /app
 
-# --- 1. Estágio de "Servir" (O Porteiro Nginx) ---
+# Copia os ficheiros de dependências primeiro (para otimizar cache)
+COPY package*.json ./
+RUN npm install
+
+# Copia o resto do código (incluindo o seu novo api.js com o /api)
+COPY . .
+
+# Obriga o Docker a gerar uma pasta 'dist' novinha em folha
+RUN npm run build
+
+
+# --- ESTÁGIO 2: O "Porteiro" (Nginx) ---
 FROM nginx:1.21-alpine
 
-# 2. Apagamos o HTML de boas-vindas padrão do Nginx
+# Apaga o HTML padrão do Nginx
 RUN rm -rf /usr/share/nginx/html/*
 
-# 3. Copiamos a nossa pasta 'dist' (que já foi compilada localmente)
-# para a pasta de 'html' do Nginx.
-COPY dist /usr/share/nginx/html
+# O GRANDE SEGREDO: Copia a pasta 'dist' gerada no ESTÁGIO 1, e não do seu computador!
+COPY --from=build /app/dist /usr/share/nginx/html
 
-# 4. Copia a pasta de certificados SSL
+# Copia os certificados e configurações do Nginx
 COPY certs /etc/nginx/certs/
-
-# 5. Copiamos as nossas "Regras do Porteiro" (o proxy) para o Nginx
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# 6. Expomos a porta 80
+# Expõe as portas
 EXPOSE 80
-# 7. Expomos a porta 443 para HTTPS
 EXPOSE 443
 
 CMD ["nginx", "-g", "daemon off;"]
