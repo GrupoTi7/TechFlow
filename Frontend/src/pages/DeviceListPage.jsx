@@ -172,20 +172,7 @@ function DeviceListPage() {
           <Button component={Link} to={`/devices/${device.id}`} variant="light" color={BRAND_BLUE} size="xs" radius="md" rightSection={<IconArrowRight size={14} />}>Detalhes</Button>
       </Table.Td>
 
-      {/* AÇÃO (BOTÃO IGUAL AO DA HOME) */}
-      <Table.Td style={{ textAlign: 'right' }}>
-          <Button 
-              component={Link} 
-              to={`/devices/${device.id}`} 
-              variant="light" 
-              color={BRAND_BLUE}
-              size="xs" 
-              radius="md"
-              rightSection={<IconArrowRight size={14} />}
-          >
-              Detalhes
-          </Button>
-      </Table.Td>
+      
     </Table.Tr>
   ));
   
