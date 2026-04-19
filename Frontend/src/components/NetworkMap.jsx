@@ -132,6 +132,10 @@ export default function NetworkMap({ devices, filterType = 'switch' }) {
   const [terminalConfig, setTerminalConfig] = useState(null);
   const [loginModal, setLoginModal] = useState({ opened: false, ip: '', username: '', password: '' });
 
+  // 🟢 REFS PARA OS INPUTS INVISÍVEIS (O Segredo para consertar o Bug do Menu)
+  const zabbixInputRef = useRef(null);
+  const bgInputRef = useRef(null);
+
   useEffect(() => {
     terminalEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [pingLogs]);
@@ -309,25 +313,41 @@ export default function NetworkMap({ devices, filterType = 'switch' }) {
     loadTopology();
   };
 
+  // 🟢 FUNÇÃO DE IMPORTAÇÃO ZABBIX BLINDADA E COM LOGS
   const handleUploadZabbix = async (file) => {
     if (!file) return;
+    console.log("1. Ficheiro Zabbix recebido no Frontend:", file.name);
+    
     const reader = new FileReader();
     reader.onload = async (e) => {
       try {
+        console.log("2. Ficheiro lido com sucesso. A transformar em JSON...");
         const json = JSON.parse(e.target.result);
+        
+        console.log("3. JSON pronto! A enviar para o Backend...");
         await importZabbixData(json, activeTab); 
-        alert("Importado com sucesso!"); await loadTopology(); 
-      } catch (err) { alert("Erro ao importar."); }
+        
+        alert("Importado com sucesso!"); 
+        await loadTopology(); 
+      } catch (err) { 
+        console.error("❌ Erro interno no Frontend:", err);
+        alert("Erro ao importar: " + err.message); 
+      } finally {
+        // Limpa o input para poder importar o mesmo ficheiro duas vezes se precisar
+        if (zabbixInputRef.current) zabbixInputRef.current.value = '';
+      }
     };
     reader.readAsText(file);
   };
 
+  // 🟢 FUNÇÃO DE FUNDO BLINDADA
   const handleUploadBackground = (file) => {
     if (!file) return;
     const reader = new FileReader();
     reader.onload = (e) => {
       setBgImage(e.target.result);
       localStorage.setItem(`map_bg_${activeTab}`, e.target.result);
+      if (bgInputRef.current) bgInputRef.current.value = '';
     };
     reader.readAsDataURL(file);
   };
@@ -383,24 +403,32 @@ export default function NetworkMap({ devices, filterType = 'switch' }) {
 
           <Button variant="light" color="blue" leftSection={<IconPlus size={16}/>} onClick={() => setNewDeviceModal(true)}>Novo Equipamento</Button>
           
+          {/* 🟢 OS INPUTS INVISÍVEIS (Ficam fora do Menu para não serem destruídos) */}
+          <input type="file" ref={bgInputRef} style={{ display: 'none' }} accept="image/png,image/jpeg" onChange={(e) => handleUploadBackground(e.target.files[0])} />
+          <input type="file" ref={zabbixInputRef} style={{ display: 'none' }} accept="application/json" onChange={(e) => handleUploadZabbix(e.target.files[0])} />
+          
           <Menu shadow="xl" width={220} position="bottom-end" radius="md" withArrow>
             <Menu.Target>
               <Button variant="default" leftSection={<IconSettings size={16}/>}>Ferramentas</Button>
             </Menu.Target>
 
+            {/* 🟢 O MENU CORRIGIDO */}
             <Menu.Dropdown>
               <Menu.Label>Construção do Mapa</Menu.Label>
               <Menu.Item leftSection={<IconPlus size={14}/>} onClick={handleAddManualZone}>Novo Setor</Menu.Item>
-              <FileButton onChange={handleUploadBackground} accept="image/png,image/jpeg">
-                {(props) => <Menu.Item {...props} leftSection={<IconPhoto size={14}/>}>Alterar Planta (Fundo)</Menu.Item>}
-              </FileButton>
+              
+              <Menu.Item leftSection={<IconPhoto size={14}/>} onClick={() => bgInputRef.current?.click()}>
+                Alterar Planta (Fundo)
+              </Menu.Item>
+              
               {bgImage && <Menu.Item color="red" leftSection={<IconTrash size={14}/>} onClick={handleClearBackground}>Remover Planta</Menu.Item>}
               
               <Menu.Divider />
               <Menu.Label>Integração</Menu.Label>
-              <FileButton onChange={handleUploadZabbix} accept="application/json">
-                {(props) => <Menu.Item {...props} leftSection={<IconUpload size={14}/>}>Importar Zabbix (.json)</Menu.Item>}
-              </FileButton>
+              
+              <Menu.Item leftSection={<IconUpload size={14}/>} onClick={() => zabbixInputRef.current?.click()}>
+                Importar Zabbix (.json)
+              </Menu.Item>
 
               <Menu.Divider />
               <Menu.Label color="red">Ações de Risco</Menu.Label>
