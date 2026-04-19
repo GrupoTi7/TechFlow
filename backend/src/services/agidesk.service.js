@@ -13,10 +13,8 @@ const getServiceId = (deviceType) => {
     if (type.includes('desktop')) return 182;
     if (type.includes('micro')) return 183;
     if (type.includes('notebook')) return 184;
-    
     if (type.includes('switch')) return 174;
     if (type.includes('ap') || type.includes('wifi')) return 175;
-    
     return 182; 
 };
 
@@ -27,10 +25,14 @@ exports.createPreventiveTicket = async (deviceName, deviceType, techIdentifier, 
     try {
         const isEmail = techIdentifier.includes('@');
         const searchParams = isEmail ? { email: techIdentifier } : { username: techIdentifier };
-        const agideskHeaders = { 'X-Tenant-ID': tenant };
+        
+        // 🟢 ADICIONADO O TOKEN NO HEADER PARA GARANTIR A AUTENTICAÇÃO
+        const agideskHeaders = { 
+            'X-Tenant-ID': tenant,
+            'Authorization': `Bearer ${appKey}`
+        };
 
         const isInfra = (deviceType || '').toLowerCase().match(/switch|ap|wifi/);
-
         let contactId = 1; 
         let contactName = techIdentifier;
 
@@ -42,11 +44,12 @@ exports.createPreventiveTicket = async (deviceName, deviceType, techIdentifier, 
                 contactId = contactRes.data[0].id;
                 contactName = contactRes.data[0].title || techIdentifier;
             }
-        } catch (err) {}
+        } catch (err) {
+            console.warn(`--> [AGIDESK] Aviso ao buscar contato: ${err.response?.status} -`, JSON.stringify(err.response?.data || err.message));
+        }
 
         let assetId = null;
         
-        // 🟢 BUSCA DE ATIVO COM LOGS DETALHADOS (O "RAIO-X")
         if (isInfra) {
             console.log(`--> [AGIDESK] 2. Equipamento de Rede. Bypass de ativo.`);
         } else if (deviceName.toUpperCase().includes('PC-TESTE')) {
@@ -55,7 +58,6 @@ exports.createPreventiveTicket = async (deviceName, deviceType, techIdentifier, 
         } else {
             try {
                 console.log(`--> [AGIDESK] Procurando máquina: "${deviceName}"...`);
-                // Usando 'search' em vez de 'title' pois costuma ser mais abrangente nas APIs REST
                 const assetRes = await axios.get(`${AGIDESK_API}/assets?app_key=${appKey}`, {
                     params: { search: deviceName }, headers: agideskHeaders, httpsAgent
                 });
@@ -63,17 +65,16 @@ exports.createPreventiveTicket = async (deviceName, deviceType, techIdentifier, 
                 console.log(`--> [AGIDESK] A busca retornou ${assetRes.data ? assetRes.data.length : 0} possíveis resultados.`);
                 
                 if (assetRes.data && assetRes.data.length > 0) {
-                    // Tenta achar quem tem a string no nome
                     const ativoEncontrado = assetRes.data.find(item => item.title && item.title.toUpperCase().includes(deviceName.toUpperCase()));
                     if (ativoEncontrado) {
                         assetId = ativoEncontrado.id;
                         console.log(`--> [AGIDESK] SUCESSO: Máquina encontrada! ID Agidesk = ${assetId}`);
-                    } else {
-                        console.log(`--> [AGIDESK] AVISO: A API retornou dados, mas nenhum casou exatamente com "${deviceName}". Os nomes lá estão diferentes.`);
                     }
                 }
             } catch (err) {
-                console.error(`--> [AGIDESK] Erro ao pesquisar máquina na API do Agidesk:`, err.message);
+                // 🟢 MICROFONE LIGADO: Vamos ouvir o motivo exato do 403!
+                const errorDetails = err.response?.data ? JSON.stringify(err.response.data) : err.message;
+                console.error(`--> [AGIDESK] Erro API Assets (${err.response?.status}):`, errorDetails);
             }
         }
 
@@ -82,7 +83,6 @@ exports.createPreventiveTicket = async (deviceName, deviceType, techIdentifier, 
             const tituloLimpo = `${actionType}: ${deviceName}`;
             const randomId = Math.floor(10000 + Math.random() * 90000);
             
-            // 🟢 O PLANO B: Se a máquina não foi achada, avisamos dentro do chamado em vez de travar o sistema!
             const alertaFallback = (!assetId && !isInfra) 
                 ? `<br><br><p style="color: #d93025;"><b>⚠️ ATENÇÃO:</b> A máquina <b>${deviceName}</b> não foi vinculada automaticamente a este chamado porque o nome dela no Agidesk não bateu exatamente com o nome no TechFlow.</p>` 
                 : '';
@@ -115,14 +115,9 @@ exports.createPreventiveTicket = async (deviceName, deviceType, techIdentifier, 
             params.append('contacts', contactId);
             params.append('responsible_id', contactId); 
 
-            // Se achou, vincula. Se não achou, manda sem vínculo e deixa o Agidesk processar!
-            if (assetId) {
-                params.append('assets[]', assetId); 
-            } 
+            if (assetId) params.append('assets[]', assetId); 
 
-            // 🟢 A MÁGICA DOS FORMULÁRIOS QUE VOCÊ DESCOBRIU
             if (isInfra) {
-                // Formulário 31 (Redes Lógicas)
                 params.append('forms', 31); 
                 params.append('customfields[0][form_id]', 31);
                 params.append('customfields[0][formfield_id]', 209);
@@ -137,7 +132,6 @@ exports.createPreventiveTicket = async (deviceName, deviceType, techIdentifier, 
                 params.append('customfields[2][value]', actionType);
                 params.append('customfields[2][text]', actionType);
             } else {
-                // Formulário 34 (Desktops)
                 params.append('forms', 34); 
                 params.append('customfields[0][form_id]', 34);
                 params.append('customfields[0][formfield_id]', 227);
@@ -160,15 +154,17 @@ exports.createPreventiveTicket = async (deviceName, deviceType, techIdentifier, 
                 response = await axios.post(`${AGIDESK_API}/issues?app_key=${appKey}`, params, axiosConfig);
                 if (response.data && response.data.error) throw new Error(response.data.error_message);
             } catch (err) {
-                const errMsg = err.response?.data?.error_message || err.message;
+                // 🟢 MICROFONE LIGADO: Extraindo a resposta exata do erro na criação do ticket
+                const errorPayload = err.response?.data ? JSON.stringify(err.response.data) : err.message;
+                console.error(`❌ [AGIDESK] Erro API Issues (${err.response?.status}):`, errorPayload);
                 
-                if (errMsg.includes('invalid_teams_users')) {
+                if (errorPayload.includes('invalid_teams_users')) {
                     console.warn(`⚠️ [AGIDESK] Bypass de equipe acionado...`);
                     params.delete('responsible_id'); 
                     response = await axios.post(`${AGIDESK_API}/issues?app_key=${appKey}`, params, axiosConfig);
                     if (response.data && response.data.error) throw new Error(response.data.error_message);
                 } else {
-                    throw new Error(errMsg); 
+                    throw new Error(errorPayload); 
                 }
             }
 
@@ -181,12 +177,12 @@ exports.createPreventiveTicket = async (deviceName, deviceType, techIdentifier, 
 };
 
 // ==========================================
-// FUNÇÕES DE TIMER E CHECKLIST 
+// FUNÇÕES DE TIMER E CHECKLIST (Mantidas iguais)
 // ==========================================
 exports.startTicketTimer = async (ticketId) => {
     try {
         await axios.put(`${AGIDESK_API}/tasks/${ticketId}/start?app_key=${appKey}`, null, {
-            headers: { 'X-Tenant-ID': tenant }, httpsAgent
+            headers: { 'X-Tenant-ID': tenant, 'Authorization': `Bearer ${appKey}` }, httpsAgent
         });
         console.log(`--> [AGIDESK] Play executado com sucesso no ticket ${ticketId}.`);
         return true;
@@ -219,7 +215,7 @@ const solveAllChecklists = async (ticketId, headers) => {
 
 exports.finishTicket = async (ticketId, relatorioText = "Manutenção preventiva concluída.") => {
     try {
-        const agideskHeaders = { 'X-Tenant-ID': tenant };
+        const agideskHeaders = { 'X-Tenant-ID': tenant, 'Authorization': `Bearer ${appKey}` };
         
         await solveAllChecklists(ticketId, agideskHeaders);
         await new Promise(resolve => setTimeout(resolve, 3000));
