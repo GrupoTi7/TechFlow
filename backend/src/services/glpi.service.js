@@ -10,65 +10,77 @@ const GLPI_LOGIN = process.env.GLPI_LOGIN;
 const GLPI_PASSWORD = process.env.GLPI_PASSWORD;
 // -------------------
 
-// --- FUNÇÃO DE LOGIN (Basic Auth - Correta) ---
+// --- FUNÇÃO DE LOGIN (Basic Auth) ---
 async function getGlpiSessionToken() {
-  console.log('Iniciando sessão no GLPI (com Basic Auth)...');
-  if (!GLPI_LOGIN || !GLPI_PASSWORD) {
-    throw new Error('GLPI_LOGIN ou GLPI_PASSWORD não encontrados no arquivo .env');
-  }
+  console.log('Iniciando sessão no GLPI (com Basic Auth)...');
+  if (!GLPI_LOGIN || !GLPI_PASSWORD) {
+    throw new Error('GLPI_LOGIN ou GLPI_PASSWORD não encontrados no arquivo .env');
+  }
   const credentials = Buffer.from(`${GLPI_LOGIN}:${GLPI_PASSWORD}`).toString('base64');
-  try {
-    const response = await axios.get(`${GLPI_API_URL_BASE}/initSession`, {
-      headers: {
-        'Content-Type': 'application/json',
-        'App-Token': GLPI_APP_TOKEN, 
+  try {
+    const response = await axios.get(`${GLPI_API_URL_BASE}/initSession`, {
+      headers: {
+        'Content-Type': 'application/json',
+        'App-Token': GLPI_APP_TOKEN, 
         'Authorization': `Basic ${credentials}` 
-      }
-    });
-    if (response.data && response.data.session_token) {
-      console.log('Sessão GLPI (Basic Auth) iniciada com sucesso.');
-      return response.data.session_token;
-    } else { throw new Error('Resposta do initSession não continha um session_token.'); }
-  } catch (error) {
-    console.error('Erro ao iniciar sessão no GLPI (Basic Auth):', error.message);
-    throw new Error('Falha ao autenticar no GLPI. Verifique GLPI_LOGIN e GLPI_PASSWORD no .env.');
-  }
+      }
+    });
+    if (response.data && response.data.session_token) {
+      console.log('Sessão GLPI iniciada com sucesso.');
+      return response.data.session_token;
+    } else { throw new Error('Resposta do initSession não continha um session_token.'); }
+  } catch (error) {
+    console.error('Erro ao iniciar sessão no GLPI:', error.message);
+    throw new Error('Falha ao autenticar no GLPI. Verifique credenciais no .env.');
+  }
 }
 
-// --- FUNÇÃO DE BUSCAR LISTA (Correta) ---
+// --- FUNÇÃO DE BUSCAR LISTA (Computadores + Rede) ---
 async function fetchAllDevicesFromGLPI(sessionToken) {
-  console.log('Buscando lista principal de dispositivos...');
-  try {
-  	const response = await axios.get(`${GLPI_API_URL_BASE}/Computer`, {
-    	params: { 'range': '0-9999', 'is_deleted': 0, 'expand_dropdowns': true },
-    	headers: { 'Content-Type': 'application/json', 'App-Token': GLPI_APP_TOKEN, 'Session-Token': sessionToken }
-  	});
-  	const responseData = response.data;
-  	if (Array.isArray(responseData)) return responseData;
-  	// ... (lógica para encontrar o array)
-  	if (typeof responseData === 'object' && responseData !== null) {
-    	const possibleKeys = ['data', 'records', 'Computer'];
-    	for (const key of possibleKeys) {
-      	if (Array.isArray(responseData[key])) {
-        	console.log(`Array encontrado na chave '${key}' com ${responseData[key].length} itens.`);
-        	return responseData[key];
-      	}
-    	}
-    	const dataKeys = Object.keys(responseData);
-    	const arrayKey = dataKeys.find(key => Array.isArray(responseData[key]));
-    	if (arrayKey) {
-      	console.log(`Array encontrado na chave '${arrayKey}' com ${responseData[arrayKey].length} itens.`);
-      	return responseData[arrayKey];
-    	}
-  	}
-  	throw new Error('Formato de resposta inesperado do GLPI.');
-  } catch (error) {
-  	console.error('Erro na comunicação com a API do GLPI (Etapa B):', error.message);
-  	throw new Error('Falha ao buscar dados do GLPI.');
-  }
+  console.log('Buscando dispositivos...');
+  
+  // Rota 1: Computadores (Desktops, Notebooks, etc)
+  const computadoresRes = await axios.get(`${GLPI_API_URL_BASE}/Computer`, {
+    params: { 'range': '0-9999', 'is_deleted': 0, 'expand_dropdowns': true },
+    headers: { 'Content-Type': 'application/json', 'App-Token': GLPI_APP_TOKEN, 'Session-Token': sessionToken }
+  });
+
+  // Rota 2: Equipamentos de Rede (Switches, APs)
+  const redesRes = await axios.get(`${GLPI_API_URL_BASE}/NetworkEquipment`, {
+    params: { 'range': '0-9999', 'is_deleted': 0, 'expand_dropdowns': true },
+    headers: { 'Content-Type': 'application/json', 'App-Token': GLPI_APP_TOKEN, 'Session-Token': sessionToken }
+  });
+
+  let todosDispositivos = [];
+
+  // Função auxiliar interna para extrair os arrays corretamente
+  const extractArray = (responseData, defaultType) => {
+    let extracted = [];
+    if (Array.isArray(responseData)) extracted = responseData;
+    else if (typeof responseData === 'object' && responseData !== null) {
+      const possibleKeys = ['data', 'records', 'Computer', 'NetworkEquipment'];
+      for (const key of possibleKeys) {
+        if (Array.isArray(responseData[key])) {
+          extracted = responseData[key];
+          break;
+        }
+      }
+    }
+    // Injeta o _forcedType (essencial para os equipamentos de rede)
+    return extracted.map(item => ({...item, _forcedType: defaultType}));
+  };
+
+  const listaComputadores = extractArray(computadoresRes.data, null);
+  console.log(`Encontrados ${listaComputadores.length} computadores.`);
+  
+  const listaRedes = extractArray(redesRes.data, 'Switch/AP');
+  console.log(`Encontrados ${listaRedes.length} equipamentos de rede.`);
+
+  todosDispositivos = [...listaComputadores, ...listaRedes];
+  return todosDispositivos;
 }
 
-// --- FUNÇÕES-ASSISTENTES (SO, IP, Tag - Corretas) ---
+// --- FUNÇÕES-ASSISTENTES (SO, IP, Tag) ---
 async function fetchDeviceSO(deviceId, sessionToken) {
   try {
     const itemOsRes = await axios.get(`${GLPI_API_URL_BASE}/Computer/${deviceId}/Item_OperatingSystem`, {
@@ -77,14 +89,11 @@ async function fetchDeviceSO(deviceId, sessionToken) {
     if (!Array.isArray(itemOsRes.data) || itemOsRes.data.length === 0) return null;
     const itemOs = itemOsRes.data[0];
     
-    // Precisamos apenas do nome do SO (ID 45 do seu log)
     const osNameRes = await axios.get(`${GLPI_API_URL_BASE}/OperatingSystem/${itemOs.operatingsystems_id}`, { 
       headers: { 'App-Token': GLPI_APP_TOKEN, 'Session-Token': sessionToken } 
     });
     return osNameRes.data.name || null;
-
   } catch (error) {
-    console.warn(`Aviso: Não foi possível buscar SO para device ${deviceId}.`, error.message);
     return null;
   }
 }
@@ -101,12 +110,11 @@ async function fetchDeviceIP(deviceId, sessionToken) {
          headers: { 'App-Token': GLPI_APP_TOKEN, 'Session-Token': sessionToken }
       });
       if (Array.isArray(ipRes.data) && ipRes.data.length > 0 && ipRes.data[0].name) {
-        return ipRes.data[0].name; // Encontrou o IP, retorna
+        return ipRes.data[0].name; 
       }
     }
     return null; 
   } catch (error) {
-    console.warn(`Aviso: Não foi possível buscar IP para device ${deviceId}.`, error.message);
     return null;
   }
 }
@@ -117,20 +125,17 @@ async function fetchDeviceTag(deviceId, sessionToken) {
       headers: { 'App-Token': GLPI_APP_TOKEN, 'Session-Token': sessionToken }
     });
     if (typeof res.data === 'object' && res.data !== null) {
-      // O seu JSON de inventário 'VIVOPE0A4FZY' mostrou o campo 'tag' (ID 901)
       return res.data.tag || res.data.inventory_number || null;
     }
     return null;
   } catch (error) {
-    console.warn(`Aviso: Não foi possível buscar Infocom (Tag) para device ${deviceId}.`, error.message);
     return null;
   }
 }
 
-
 /**
  * ===================================================================
- * ETAPA C: SINCRONIZAR O BANCO (Função principal CORRIGIDA)
+ * ETAPA C: SINCRONIZAR O BANCO 
  * ===================================================================
  */
 async function syncGlpiDevices() {
@@ -142,25 +147,25 @@ async function syncGlpiDevices() {
     throw new Error('Nenhum dispositivo encontrado no GLPI.');
   }
   
-  console.log(`Encontrados ${glpiDevices.length} dispositivos.`);
+  console.log(`Encontrados ${glpiDevices.length} dispositivos totais para processamento.`);
   
-  // --- CONFIGURAÇÃO DE VELOCIDADE ---
-  // Quantos dispositivos processar AO MESMO TEMPO.
-  // 20 a 30 é seguro. 50+ pode deixar o GLPI lento ou dar erro de timeout.
   const BATCH_SIZE = 45; 
-  // ----------------------------------
 
   let enhancedDevicesData = [];
   
-  // Loop para processar em blocos (Chunks)
   for (let i = 0; i < glpiDevices.length; i += BATCH_SIZE) {
     const batch = glpiDevices.slice(i, i + BATCH_SIZE);
-    console.log(`Processando lote ${Math.ceil((i + 1) / BATCH_SIZE)} de ${Math.ceil(glpiDevices.length / BATCH_SIZE)}... (Dispositivos ${i + 1} a ${Math.min(i + BATCH_SIZE, glpiDevices.length)})`);
+    console.log(`Processando lote ${Math.ceil((i + 1) / BATCH_SIZE)} de ${Math.ceil(glpiDevices.length / BATCH_SIZE)}...`);
 
-    // Aqui está a mágica: Promise.all dispara todas as requisições do lote SIMULTANEAMENTE
     const batchResults = await Promise.all(batch.map(async (device) => {
       try {
-        // Dispara as 3 buscas ao mesmo tempo para este dispositivo também
+        // Se for Switch/AP, ele não tem SO, então não precisamos sobrecarregar o GLPI com essas chamadas.
+        if (device._forcedType === 'Switch/AP') {
+            // Nota: Se quiser buscar IP de Switch no futuro, pode adaptar aqui, 
+            // mas por agora mantemos simples para não dar erro.
+            return { ...device, operatingSystem: null, ipAddress: null, inventoryTag: null };
+        }
+
         const [operatingSystem, ipAddress, inventoryTag] = await Promise.all([
             fetchDeviceSO(device.id, freshSessionToken),
             fetchDeviceIP(device.id, freshSessionToken),
@@ -175,27 +180,38 @@ async function syncGlpiDevices() {
         };
       } catch (err) {
         console.error(`Erro ao processar dispositivo ${device.id}:`, err.message);
-        // Retorna o dispositivo com dados parciais para não quebrar o lote inteiro
         return { ...device, operatingSystem: null, ipAddress: null, inventoryTag: null };
       }
     }));
 
-    // Adiciona os resultados deste lote à lista final
     enhancedDevicesData.push(...batchResults);
   }
 
   console.log('Busca avançada concluída. Atualizando banco de dados...');
 
-  // --- PREPARAÇÃO PARA O BANCO ---
   const glpiDeviceIds = enhancedDevicesData.map(device => device.id); 
   const operations = enhancedDevicesData.map(glpiDevice => {
+    
     const deviceData = {
       name: glpiDevice.name,
       serial: glpiDevice.serial || null,
       otherserial: glpiDevice.otherserial || null,
       contact: glpiDevice.contact || null,
       comment: glpiDevice.comment || null,
-      deviceType: typeof glpiDevice.computertypes_id === 'string' ? glpiDevice.computertypes_id : 'Desconhecido', // Pequena proteção de tipo
+      
+      // Lógica de Categorias Corrigida!
+      deviceType: (() => {
+        // 1. Se for um equipamento de rede, usa o tipo forçado (Switch/AP)
+        if (glpiDevice._forcedType) return glpiDevice._forcedType;
+        
+        // 2. Captura o tipo original dos computadores
+        const tipoOriginal = typeof glpiDevice.computertypes_id === 'string' ? glpiDevice.computertypes_id : 'Desconhecido';
+        
+        // 3. Limpeza: Tudo que for chassi bizarro vira "Desktop"
+        const sinônimosDeDesktop = ['Mini PC', 'DX58SO', 'Main System Chassis', 'Mini Tower', 'Tower', 'Desktop'];
+        return sinônimosDeDesktop.includes(tipoOriginal) ? 'Desktop' : tipoOriginal;
+      })(),
+      
       department: glpiDevice.locations_id || null, 
       manufacturer: glpiDevice.manufacturers_id || null, 
       model: glpiDevice.computermodels_id || null, 
@@ -212,14 +228,11 @@ async function syncGlpiDevices() {
       create: {
         glpiId: glpiDevice.id,
         ...deviceData,
-        //setor: null,
         maintenanceIntervalDays: null
       }
     });
   });
 
-  // Dica: Se tiver MUITOS dispositivos (1000+), o $transaction pode falhar.
-  // Para 400, ainda deve aguentar bem.
   await prisma.$transaction(operations);
 
   const deactivationResult = await prisma.device.updateMany({
@@ -237,5 +250,5 @@ async function syncGlpiDevices() {
 }
 
 module.exports = { 
-  syncGlpiDevices 
+  syncGlpiDevices 
 };
