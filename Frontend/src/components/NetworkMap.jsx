@@ -33,7 +33,7 @@ const DeviceNode = memo(({ data }) => {
   let Icon = IconRouter;
   const type = (data.type || '').toLowerCase();
   
-  if (type.includes('ap') || type.includes('wifi')) Icon = IconWifi;
+  if (type.includes('ap') || type.includes('wifi') || type.includes('access point')) Icon = IconWifi;
   else if (type.includes('server')) Icon = IconServer;
   else if (type.includes('desktop')) Icon = IconDeviceDesktop;
   else if (type.includes('printer')) Icon = IconPrinter;
@@ -100,7 +100,8 @@ const nodeTypes = { device: DeviceNode, zone: ZoneNode, bgImage: ImageBackground
 // =========================================================
 
 export default function NetworkMap({ devices, filterType = 'switch' }) {
-  const isAPMap = filterType.toLowerCase().includes('ap') || filterType.toLowerCase().includes('wifi');
+  // 🟢 AGORA ELE RECONHECE A PALAVRA "ACCESS POINT" CORRETAMENTE
+  const isAPMap = filterType.toLowerCase().includes('access point') || filterType.toLowerCase() === 'ap' || filterType.toLowerCase().includes('wifi');
   const [activeTab, setActiveTab] = useState(isAPMap ? 'aps' : 'matriz'); 
   
   const [nodes, setNodes] = useState([]);
@@ -120,7 +121,9 @@ export default function NetworkMap({ devices, filterType = 'switch' }) {
   const [editZoneName, setEditZoneName] = useState('');
 
   const [newDeviceModal, setNewDeviceModal] = useState(false);
-  const [newData, setNewData] = useState({ name: '', ip: '', type: isAPMap ? 'ap' : 'switch' });
+  
+  // 🟢 INICIA COM O NOME EXATO DA CATEGORIA
+  const [newData, setNewData] = useState({ name: '', ip: '', type: isAPMap ? 'Access Point' : 'Switch' });
   const [isSavingLayout, setIsSavingLayout] = useState(false);
 
   // 🟢 ESTADOS DO PING (CMD)
@@ -287,7 +290,9 @@ export default function NetworkMap({ devices, filterType = 'switch' }) {
     try {
       const newDev = await createManualDevice({ name: newData.name, ipAddress: newData.ip, deviceType: newData.type });
       setNewDeviceModal(false);
-      setNewData({ name: '', ip: '', type: isAPMap ? 'ap' : 'switch' });
+      // 🟢 CORREÇÃO: Reseta o modal usando o nome correto da categoria
+      setNewData({ name: '', ip: '', type: isAPMap ? 'Access Point' : 'Switch' });
+      
       if (newDev && newDev.id) {
          const newNode = { id: String(newDev.id), type: 'device', position: { x: 100, y: 100 }, zIndex: 10, data: { id: newDev.id, label: newData.name, ip: newData.ip, type: newData.type, isAPMap: isAPMap } };
          setNodes((nds) => [...nds, newNode]);
@@ -324,7 +329,7 @@ export default function NetworkMap({ devices, filterType = 'switch' }) {
         console.log("2. Ficheiro lido com sucesso. A transformar em JSON...");
         const json = JSON.parse(e.target.result);
         
-        console.log("3. JSON pronto! A enviar para o Backend...");
+        console.log("3. JSON pronto! A enviar para o Backend (Aba: " + activeTab + ")...");
         await importZabbixData(json, activeTab); 
         
         alert("Importado com sucesso!"); 

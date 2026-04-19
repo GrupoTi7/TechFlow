@@ -217,7 +217,6 @@ export const getSectors = async () => {
 
 export const createSector = async (name, type, maintenanceInterval) => {
   try {
-    // 🟢 CORREÇÃO: Passando 'maintenanceInterval' para a propriedade 'interval' que o backend espera
     const response = await apiClient.post('/api/sectors', { name, type, interval: maintenanceInterval });
     return response.data;
   } catch (error) { throw error; }
@@ -225,7 +224,6 @@ export const createSector = async (name, type, maintenanceInterval) => {
 
 export const updateSector = async (id, name, type, maintenanceInterval) => {
   try {
-    // 🟢 CORREÇÃO: Mesma coisa aqui na atualização
     const response = await apiClient.put(`/api/sectors/${id}`, { name, type, interval: maintenanceInterval });
     return response.data;
   } catch (error) { throw error; }
@@ -270,7 +268,6 @@ export const deleteDeviceType = async (id) => {
 // --- PLANOS DE AÇÃO ---
 // ============================================================
 
-// 1. Para o Widget da Home (Busca o plano específico do usuário logado)
 export const getActionPlanData = async () => {
   try {
     const response = await apiClient.get('/api/action-plan');
@@ -279,7 +276,7 @@ export const getActionPlanData = async () => {
     return null; 
   }
 };
-// 2. Para a Tela de Gerenciamento (Lista todos os planos)
+
 export const getActionPlans = async () => {
     try {
         const response = await apiClient.get('/api/plans');
@@ -290,14 +287,11 @@ export const getActionPlans = async () => {
     }
 };
 
-// 3. Criar novo plano
 export const createActionPlan = async (planData) => {
-    // planData deve conter: { name, startDate, deadline, technicians, filters, autoCalculate }
     const response = await apiClient.post('/api/plans', planData);
     return response.data;
 };
 
-// 4. Deletar plano
 export const deleteActionPlan = async (id) => {
     await apiClient.delete(`/api/plans/${id}`);
     return true;
@@ -305,8 +299,6 @@ export const deleteActionPlan = async (id) => {
 
 export const startAgideskTicket = async (deviceData) => {
     try {
-        // 🟢 Ajustamos a URL para bater com a que definimos no preventive.routes.js
-        // E passamos o objeto deviceData (que contém deviceName e deviceType)
         const response = await apiClient.post('/api/agidesk/start', deviceData);
         return response.data;
     } catch (error) {
@@ -379,9 +371,14 @@ export const deleteMapZone = async (id) => {
   return response.data;
 };
 
-export const importZabbixData = async (zabbixData, context = 'matriz') => {
-  const response = await apiClient.post('/api/devices/zabbix/import', { zabbixData, context });
-  return response.data;
+// 🟢 FUNÇÃO DE IMPORTAÇÃO CORRIGIDA COM O CONTEXT!
+export const importZabbixData = async (zabbixData, context) => {
+    try {
+        const res = await apiClient.post('/api/devices/zabbix/import', { zabbixData, context });
+        return res.data;
+    } catch (error) {
+        throw new Error(error.response?.data?.error || 'Erro ao importar dados do Zabbix');
+    }
 };
 
 export const updateDeviceNetworkInfo = async (id, name, ipAddress, nobreakModel) => {
@@ -409,15 +406,15 @@ export const createManualDevice = async (deviceData) => {
   return response.data;
 };
 
-// 🟢 A FUNÇÃO QUE FALTAVA PARA O RADAR DE PING FUNCIONAR!
 export const pingDevices = async (ips) => {
   const response = await apiClient.post('/api/devices/ping', { ips });
   return response.data;
 };
 
+// 🟢 CORREÇÃO DO PATCH DE CATEGORIA PARA USAR '/api/...'
 export const updateDeviceCategory = async (id, category) => {
     try {
-        const res = await apiClient.patch(`/devices/${id}/category`, { category });
+        const res = await apiClient.patch(`/api/devices/${id}/category`, { category });
         return res.data;
     } catch (error) {
         throw new Error(error.response?.data?.message || 'Erro ao atualizar categoria');
