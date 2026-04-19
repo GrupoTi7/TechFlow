@@ -21,7 +21,7 @@ router.delete('/devices/topology/clear', authenticateToken, deviceController.cle
 // 🟢 Cabos do Mapa
 router.get('/devices/links', authenticateToken, deviceController.getNetworkLinks);
 router.post('/devices/links', authenticateToken, deviceController.createNetworkLink);
-router.delete('/devices/topology/links/clear', authenticateToken, deviceController.clearAllLinks); // Nome corrigido!
+router.delete('/devices/topology/links/clear', authenticateToken, deviceController.clearAllLinks);
 
 // 🟢 Ping e Dispositivos Manuais
 router.post('/devices/ping', authenticateToken, deviceController.pingDevices);
@@ -41,6 +41,7 @@ router.delete('/devices/links/:id', authenticateToken, deviceController.deleteNe
 router.put('/devices/:id/position', authenticateToken, deviceController.updatePosition);
 router.patch('/devices/:id/network', authenticateToken, deviceController.updateNetworkInfo);
 router.patch('/devices/:id/setor', authenticateToken, deviceController.updateDeviceSetor);
+router.patch('/devices/:id/category', authenticateToken, deviceController.updateDeviceCategory); // 🟢 NOVA ROTA AQUI
 router.patch('/devices/:id/ticket', authenticateToken, deviceController.updateDeviceTicket);
 router.get('/devices/:id/ticket', authenticateToken, deviceController.getDeviceTicket);
 router.get('/devices/:id', authenticateToken, deviceController.getDeviceById);

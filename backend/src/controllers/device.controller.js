@@ -294,9 +294,23 @@ async function importZabbixTopology(req, res) {
   } catch (error) { res.status(500).json({ error: 'Erro ao processar' }); }
 }
 
+async function updateDeviceCategory(req, res) {
+  try {
+    const { id } = req.params;
+    const { category } = req.body;
+    const updatedDevice = await prisma.device.update({
+      where: { id },
+      data: { deviceType: category }
+    });
+    res.json({ success: true, device: updatedDevice });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+}
+
 module.exports = { 
   getAllDevices, getDeviceById, cleanupDefaultValues, bulkUpdateSetors, updateDeviceSetor,
   updateDeviceTicket, getDeviceTicket, updatePosition, updateNetworkInfo, getNetworkLinks, 
   createNetworkLink, deleteNetworkLink, getZones, createZone, updateZone, deleteZone, 
-  clearTopology, importZabbixTopology, deleteDevice, clearAllLinks, createManualDevice, pingDevices
+  clearTopology, importZabbixTopology, deleteDevice, clearAllLinks, createManualDevice, pingDevices, updateDeviceCategory
 };

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { QRCodeSVG } from 'qrcode.react'; // 🟢 NOVO IMPORT DO GERADOR DE QR CODE
+import { QRCodeSVG } from 'qrcode.react';
 import { 
   getDeviceById, 
   getPreventivesForDevice, 
@@ -11,7 +11,8 @@ import {
   startAgideskTicket, 
   playAgideskTicket,  
   updateDeviceTicketInDb,
-  getDeviceTicketFromDb
+  getDeviceTicketFromDb,
+  updateDeviceCategory // 🟢 NOVO IMPORT DA API
 } from '../services/api';
 
 import { 
@@ -27,14 +28,14 @@ import {
   IconBuildingFactory, IconId, IconUserCircle, IconBrandWindows, 
   IconCalendarDue, IconPencilPlus, IconHistory, 
   IconDeviceAnalytics, IconCalendarCheck, IconEdit, IconArrowLeft, IconTrash,
-  IconCalendarTime, IconCheck, IconServerCog, IconPlayerPlay, IconPrinter // 🟢 Ícone da Impressora
+  IconCalendarTime, IconCheck, IconServerCog, IconPlayerPlay, IconPrinter, IconCategory // 🟢 NOVO ÍCONE
 } from '@tabler/icons-react';
 
 import { allSetorOptions, getIntervalFromSetor } from '../utils/sectors';
 
 const BRAND_BLUE = '#0003d9';
 
-// --- FUNÇÃO AUXILIAR ---
+// ... (Funções auxiliares e componentes menores: formatDateNoTimezone, StatCard, InfoItem permanecem iguais)
 const formatDateNoTimezone = (dateString) => {
   if (!dateString) return 'N/D';
   try {
@@ -45,7 +46,6 @@ const formatDateNoTimezone = (dateString) => {
   }
 };
 
-// --- STAT CARD ---
 function StatCard({ title, value, subtext, icon, color }) {
     const isBrand = color === 'blue';
     return (
@@ -64,7 +64,6 @@ function StatCard({ title, value, subtext, icon, color }) {
     );
 }
 
-// --- INFO ITEM ---
 function InfoItem({ icon, label, children }) {
   const isValueEmpty = !children || children === 'N/D' || children === 'Não categorizado';
 
@@ -88,6 +87,7 @@ function InfoItem({ icon, label, children }) {
   );
 }
 
+
 function DeviceDetailPage() {
   const { id } = useParams();
   const [device, setDevice] = useState(null);
@@ -104,12 +104,16 @@ function DeviceDetailPage() {
   const [selectedSetor, setSelectedSetor] = useState('');
   const [savingSetor, setSavingSetor] = useState(false);
 
+  // 🟢 ESTADOS DA CATEGORIA
+  const [openedCategoryModal, { open: openCategory, close: closeCategory }] = useDisclosure(false);
+  const [selectedCategory, setSelectedCategory] = useState('');
+  const [savingCategory, setSavingCategory] = useState(false);
+
   // 🟢 ESTADOS DO AGIDESK
   const [isFinishingTicket, setIsFinishingTicket] = useState(false);
   const [isStartingTicket, setIsStartingTicket] = useState(false);
   const [activeTicketId, setActiveTicketId] = useState(null);
 
-  // Pegamos o usuário para registrar no Agidesk
   const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
 
   const loadData = async () => {
@@ -123,6 +127,7 @@ function DeviceDetailPage() {
       if (deviceRes.success) {
         setDevice(deviceRes.device);
         setSelectedSetor(deviceRes.device.setor || ''); 
+        setSelectedCategory(deviceRes.device.deviceType || 'Desktop'); // 🟢 PREENCHE A CATEGORIA ATUAL
       }
       if (preventivesRes.success) setPreventives(preventivesRes.preventives);
 
@@ -151,6 +156,21 @@ function DeviceDetailPage() {
     } finally {
       setSavingSetor(false);
     }
+  };
+
+  // 🟢 FUNÇÃO PARA SALVAR A CATEGORIA
+  const handleSaveCategory = async () => {
+      if (!selectedCategory) return;
+      setSavingCategory(true);
+      try {
+          await updateDeviceCategory(id, selectedCategory);
+          setDevice(prev => ({ ...prev, deviceType: selectedCategory }));
+          closeCategory();
+      } catch (err) {
+          alert('Erro ao alterar categoria: ' + err.message);
+      } finally {
+          setSavingCategory(false);
+      }
   };
 
   const handlePreventiveSubmit = async (event) => {
@@ -230,62 +250,34 @@ function DeviceDetailPage() {
   if (error) return <Alert color="red" title="Erro" icon={<IconAlertCircle/>}>{error}</Alert>;
   if (!device) return <Alert color="orange">Dispositivo não encontrado.</Alert>;
 
-  // 🟢 URL dinâmica para o QR Code e Estilos da Impressora
   const scanUrl = `${window.location.origin}/scan/${device?.id}`;
 
   const printStyles = `
+    /* ... (Estilos de impressão inalterados) ... */
     @media screen {
       .print-only { display: none; }
     }
     @media print {
-      /* 1. Tira as margens padrão do navegador */
-      @page { 
-        margin: 0; 
-      }
-      
-      /* 2. A MÁGICA: Trava o tamanho do corpo da página e corta todo o excesso invisível */
-      body, html {
-        margin: 0;
-        padding: 0;
-        height: 100vh;
-        overflow: hidden !important; 
-      }
-      
-      /* 3. Deixa o resto do site invisível */
-      body * { 
-        visibility: hidden; 
-      }
-      
-      /* 4. Mostra apenas a etiqueta */
-      .print-only, .print-only * { 
-        visibility: visible; 
-      }
-      
-      /* 5. Prega a etiqueta no canto superior esquerdo da folha 1 */
-      .print-only { 
-        position: fixed; 
-        left: 0; 
-        top: 0; 
-        width: 100vw;
-        height: 100vh;
-        display: flex;
-        justify-content: flex-start;
-        align-items: flex-start;
-        padding: 20px;
-        background-color: white;
-      }
-      
-      /* Estilo da caixinha */
-      .etiqueta-box {
-        border: 2px solid #000;
-        padding: 15px;
-        width: 250px;
-        text-align: center;
-        border-radius: 8px;
-        font-family: sans-serif;
-      }
+      @page { margin: 0; }
+      body, html { margin: 0; padding: 0; height: 100vh; overflow: hidden !important; }
+      body * { visibility: hidden; }
+      .print-only, .print-only * { visibility: visible; }
+      .print-only { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; display: flex; justify-content: flex-start; align-items: flex-start; padding: 20px; background-color: white; }
+      .etiqueta-box { border: 2px solid #000; padding: 15px; width: 250px; text-align: center; border-radius: 8px; font-family: sans-serif; }
     }
   `;
+
+  // 🟢 OPÇÕES DE CATEGORIAS
+  const categoryOptions = [
+      { value: 'Desktop', label: 'Desktop' },
+      { value: 'Notebook', label: 'Notebook' },
+      { value: 'Switch/AP', label: 'Switch/AP' },
+      { value: 'Servidor', label: 'Servidor' },
+      { value: 'Impressora', label: 'Impressora' },
+      { value: 'Coletor', label: 'Coletor de Dados' },
+      { value: 'Tablet', label: 'Tablet' },
+      { value: 'Nobreak', label: 'Nobreak' }
+  ];
 
   return (
     <Stack gap="xl" pb="xl">
@@ -295,6 +287,7 @@ function DeviceDetailPage() {
           </Button>
       </Group>
 
+      {/* MODAL DE SETOR */}
       <Modal opened={openedModal} onClose={close} title={<Text fw={800} size="lg">Alterar Setor do Ativo</Text>} centered radius="md" overlayProps={{ blur: 3 }}>
         <Stack>
           <Select
@@ -316,6 +309,25 @@ function DeviceDetailPage() {
         </Stack>
       </Modal>
 
+      {/* 🟢 MODAL DE CATEGORIA */}
+      <Modal opened={openedCategoryModal} onClose={closeCategory} title={<Text fw={800} size="lg">Alterar Categoria do Dispositivo</Text>} centered radius="md" overlayProps={{ blur: 3 }}>
+        <Stack>
+          <Select
+            label="Selecione a Nova Categoria"
+            placeholder="Ex: Desktop, Switch/AP..."
+            data={categoryOptions}
+            value={selectedCategory}
+            onChange={setSelectedCategory}
+            searchable
+            mb="sm"
+          />
+          <Group justify="flex-end" mt="md">
+            <Button variant="default" onClick={closeCategory}>Cancelar</Button>
+            <Button onClick={handleSaveCategory} loading={savingCategory} color={BRAND_BLUE}>Confirmar Alteração</Button>
+          </Group>
+        </Stack>
+      </Modal>
+
       <Card shadow="md" p="xl" radius="lg" withBorder style={{ overflow: 'visible' }}>
          <Group justify="space-between" align="center" wrap="wrap" gap="xl">
             <Group gap="lg" wrap="nowrap">
@@ -328,14 +340,19 @@ function DeviceDetailPage() {
                     <Group gap="sm" mt={8}>
                          <Badge size="md" color={BRAND_BLUE} variant="filled">{device.setor || 'Sem Setor'}</Badge>
                          <Badge size="md" color="gray" variant="outline" style={{ textTransform: 'none' }}>NS: {device.serial || 'Não informado'}</Badge>
+                         <Badge size="md" color="teal" variant="light">{device.deviceType}</Badge> {/* 🟢 Exibição da Categoria */}
                     </Group>
                 </div>
             </Group>
             
             <Group>
-                {/* 🟢 NOVO BOTÃO DE IMPRIMIR */}
                 <Button variant="default" onClick={() => window.print()} leftSection={<IconPrinter size={16} />} radius="md" size="md">
                     Imprimir Etiqueta
+                </Button>
+
+                {/* 🟢 BOTÃO DE ALTERAR CATEGORIA */}
+                <Button variant="light" color="teal" onClick={openCategory} leftSection={<IconCategory size={16} />} radius="md" size="md">
+                    Alterar Categoria
                 </Button>
 
                 <Button variant="light" color={BRAND_BLUE} onClick={open} leftSection={<IconEdit size={16} />} radius="md" size="md">
@@ -463,7 +480,6 @@ function DeviceDetailPage() {
           </Stack>
         </Grid.Col>
 
-        {/* --- COLUNA DA DIREITA: HISTÓRICO (CINZA MANTIDO) --- */}
         <Grid.Col span={{ base: 12, md: 7 }}>
            <Card shadow="sm" p="xl" radius="lg" withBorder h="100%">
              <Group mb="xl" justify="space-between" align="center">
@@ -521,7 +537,6 @@ function DeviceDetailPage() {
         </Grid.Col>
       </Grid>
       
-      {/* 🟢 ETIQUETA INVISÍVEL (SÓ APARECE NA IMPRESSÃO) */}
       <style>{printStyles}</style>
       <div className="print-only">
           <div className="etiqueta-box">

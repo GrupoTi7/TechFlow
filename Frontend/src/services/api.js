@@ -415,4 +415,13 @@ export const pingDevices = async (ips) => {
   return response.data;
 };
 
+export const updateDeviceCategory = async (id, category) => {
+    try {
+        const res = await apiClient.patch(`/devices/${id}/category`, { category });
+        return res.data;
+    } catch (error) {
+        throw new Error(error.response?.data?.message || 'Erro ao atualizar categoria');
+    }
+};
+
 export default apiClient;
