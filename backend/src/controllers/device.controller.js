@@ -225,51 +225,107 @@ async function createManualDevice(req, res) {
 }
 
 async function importZabbixTopology(req, res) {
-  // Mantive a sua importação intacta!
+  console.log(`\n[ZABBIX] Iniciando importação de topologia para a aba: ${req.body.context || 'matriz'}`);
+  
   try {
-    const { zabbixData, context } = req.body;
+    let { zabbixData, context } = req.body;
     const targetContext = context || 'matriz';
-    const mapData = zabbixData.zabbix_export.maps[0];
 
-    if (mapData.shapes) {
-      await prisma.mapZone.deleteMany({ where: { mapContext: targetContext } }); 
-      for (const shape of mapData.shapes) {
-        try { await prisma.mapZone.create({ data: { name: shape.text || 'Novo Setor', x: Number(shape.x), y: Number(shape.y), width: Number(shape.width), height: Number(shape.height), mapContext: targetContext } }); } catch (e) { }
+    // 1. Validação do Payload
+    if (!zabbixData) {
+      console.error('[ZABBIX] Erro: Nenhum dado JSON foi recebido do frontend (zabbixData undefined).');
+      return res.status(400).json({ error: 'Nenhum dado recebido.' });
+    }
+
+    // Se o frontend enviou como string, tentamos transformar em Objeto
+    if (typeof zabbixData === 'string') {
+      try { zabbixData = JSON.parse(zabbixData); } 
+      catch (e) {
+        console.error('[ZABBIX] Erro ao tentar ler a string JSON:', e.message);
+        return res.status(400).json({ error: 'O arquivo enviado não é um JSON válido.' });
       }
     }
 
+    // 2. Navegação segura pela estrutura exportada do Zabbix
+    const exportRoot = zabbixData.zabbix_export || zabbixData;
+    if (!exportRoot.maps || !Array.isArray(exportRoot.maps) || exportRoot.maps.length === 0) {
+      console.error('[ZABBIX] Erro: Estrutura incorreta. Não encontrei "zabbix_export.maps[0]". Chaves recebidas:', Object.keys(exportRoot));
+      return res.status(400).json({ error: 'O JSON não contém um mapa válido do Zabbix.' });
+    }
+
+    const mapData = exportRoot.maps[0];
+    console.log(`[ZABBIX] Sucesso! Lendo mapa "${mapData.name}". Processando formas e elementos...`);
+
+    // 3. Processar Zonas (Shapes)
+    if (mapData.shapes && mapData.shapes.length > 0) {
+      console.log(`[ZABBIX] Recriando ${mapData.shapes.length} zonas (setores)...`);
+      await prisma.mapZone.deleteMany({ where: { mapContext: targetContext } }); 
+      for (const shape of mapData.shapes) {
+        try { 
+          await prisma.mapZone.create({ 
+            data: { name: shape.text || 'Novo Setor', x: Number(shape.x), y: Number(shape.y), width: Number(shape.width), height: Number(shape.height), mapContext: targetContext } 
+          }); 
+        } catch (e) { console.warn('[ZABBIX] Aviso: Falha ao criar uma zona:', e.message); }
+      }
+    }
+
+    // 4. Processar Dispositivos (Selements)
     const zabbixIdToDbId = {};
-    if (mapData.selements) {
+    if (mapData.selements && mapData.selements.length > 0) {
+      console.log(`[ZABBIX] Processando ${mapData.selements.length} equipamentos...`);
       for (const sel of mapData.selements) {
         try {
+          if (!sel.elements || sel.elements.length === 0 || !sel.elements[0].host) continue;
+          
           const hostStr = sel.elements[0].host; 
           let searchName = hostStr;
-          let devType = 'switch';
-
+          
+          // 🟢 NOVAS REGRAS DE CATEGORIA APLICADAS AQUI
+          let devType = 'Switch'; 
           if (targetContext === 'tractor') {
              if (!searchName.toUpperCase().includes('TRC')) searchName = `TRC ${searchName}`;
           } else if (targetContext === 'aps') {
-             devType = 'ap'; 
+             devType = 'Access Point'; 
           }
 
-          let device = await prisma.device.findFirst({ where: { OR: [ { ipAddress: { contains: hostStr } }, { name: { contains: searchName } } ] } });
+          let device = await prisma.device.findFirst({ 
+            where: { OR: [ { ipAddress: { contains: hostStr } }, { name: { contains: searchName } } ] } 
+          });
 
           if (!device) {
             const safeGlpiId = 9000000 + Number(sel.selementid); 
             device = await prisma.device.create({
-              data: { name: targetContext === 'aps' ? `AP ${hostStr}` : `SW ${searchName}`, ipAddress: hostStr, deviceType: devType, isActive: true, mapPositionX: Number(sel.x), mapPositionY: Number(sel.y), glpiId: safeGlpiId, glpiDateMod: new Date() }
+              data: { 
+                name: targetContext === 'aps' ? `AP ${hostStr}` : `SW ${searchName}`, 
+                ipAddress: hostStr, 
+                deviceType: devType, // 🟢 Categoria correta!
+                isActive: true, 
+                mapPositionX: Number(sel.x), 
+                mapPositionY: Number(sel.y), 
+                glpiId: safeGlpiId, 
+                glpiDateMod: new Date() 
+              }
             });
           } else {
             device = await prisma.device.update({
-              where: { id: device.id }, data: { mapPositionX: Number(sel.x), mapPositionY: Number(sel.y), deviceType: targetContext === 'aps' ? 'ap' : device.deviceType }
+              where: { id: device.id }, 
+              data: { 
+                mapPositionX: Number(sel.x), 
+                mapPositionY: Number(sel.y), 
+                deviceType: targetContext === 'aps' ? 'Access Point' : (device.deviceType === 'Outros' ? 'Switch' : device.deviceType) 
+              }
             });
           }
           zabbixIdToDbId[sel.selementid] = device.id; 
-        } catch (errInner) { console.error(errInner); }
+        } catch (errInner) { 
+          console.error(`[ZABBIX] Erro ao processar o elemento ${sel.selementid}:`, errInner.message); 
+        }
       }
     }
 
-    if (mapData.links) {
+    // 5. Processar Ligações (Links)
+    if (mapData.links && mapData.links.length > 0) {
+      console.log(`[ZABBIX] Recriando ${mapData.links.length} ligações (cabos)...`);
       await prisma.networkLink.deleteMany({ where: { mapContext: targetContext } }); 
       for (const link of mapData.links) {
         const sourceDbId = zabbixIdToDbId[link.selementid1];
@@ -277,21 +333,21 @@ async function importZabbixTopology(req, res) {
         if (sourceDbId && targetDbId && sourceDbId !== targetDbId) {
           try { 
             await prisma.networkLink.create({ 
-              data: { 
-                sourceId: sourceDbId, 
-                targetId: targetDbId, 
-                sourceHandle: 's-bottom', // 🟢 CORREÇÃO: Diz ao mapa onde plugar a saída
-                targetHandle: 't-top',    // 🟢 CORREÇÃO: Diz ao mapa onde plugar a entrada
-                mapContext: targetContext 
-              } 
+              data: { sourceId: sourceDbId, targetId: targetDbId, sourceHandle: 's-bottom', targetHandle: 't-top', mapContext: targetContext } 
             }); 
-          } catch(e) {}
+          } catch(e) { console.warn('[ZABBIX] Aviso: Falha ao criar link:', e.message); }
         }
       }
     }
 
+    console.log('[ZABBIX] Importação concluída com sucesso!');
     res.json({ success: true });
-  } catch (error) { res.status(500).json({ error: 'Erro ao processar' }); }
+
+  } catch (error) { 
+    // 🟢 O FIM DO SILÊNCIO: Agora ele grita no terminal se algo falhar!
+    console.error('\n❌ [ZABBIX] ERRO FATAL NA IMPORTAÇÃO:', error);
+    res.status(500).json({ error: 'Erro interno ao processar o arquivo JSON.' }); 
+  }
 }
 
 async function updateDeviceCategory(req, res) {
