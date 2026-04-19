@@ -288,7 +288,7 @@ const DeviceTypesManager = () => {
 };
 
 // ============================================================================
-// 3. GERENCIADOR DE PLANOS DE AÇÃO (Polido)
+// 3. GERENCIADOR DE PLANOS DE AÇÃO (Polido e com Filtro de Usuário Inteligente)
 // ============================================================================
 const ActionPlansManager = () => {
     const [plans, setPlans] = useState([]);
@@ -303,7 +303,7 @@ const ActionPlansManager = () => {
         startDate: new Date(), 
         deadline: null,
         targetSectors: [], 
-        targetTypes: ['Desktop', 'Notebook', 'Switch'], // Deixei Switch por padrão também!
+        targetTypes: ['Desktop', 'Notebook', 'Switch'], 
         distributeToAllTechs: true, 
         selectedTechs: []
     });
@@ -317,7 +317,31 @@ const ActionPlansManager = () => {
             setDeviceTypes(t.map(i => ({ value: i.key, label: i.name })));
             
             const userList = Array.isArray(u.users) ? u.users : (Array.isArray(u) ? u : []);
-            setTechnicians(userList.filter(user => user.role !== 'ADMIN').map(i => ({ value: String(i.id), label: i.name })));
+            
+            // 🟢 IDENTIFICA QUEM É O USUÁRIO LOGADO AGORA
+            const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+
+            // 🟢 A NOVA REGRA DE FILTRO INTELIGENTE
+            const validTechs = userList.filter(user => {
+                // 1. O seu usuário furará SEMPRE o bloqueio, para que possa receber planos.
+                if (user.id === currentUser.id || user.username === currentUser.username || user.name === currentUser.name) {
+                    return true;
+                }
+                
+                // 2. Remove administradores padrão do sistema
+                const role = String(user.role || '').toUpperCase();
+                if (role === 'ADMIN' || role === 'ADMINISTRADOR') return false;
+
+                // 3. Trava nominal para os usuários específicos que você solicitou remover
+                const nameStr = String(user.name || '').toLowerCase();
+                const userStr = String(user.username || '').toLowerCase();
+                if (nameStr.includes('juliano') || userStr.includes('juliano')) return false;
+                if (nameStr.includes('eduardo') || userStr.includes('eduardo')) return false;
+
+                return true; // Mantém os restantes
+            });
+
+            setTechnicians(validTechs.map(i => ({ value: String(i.id), label: i.name })));
         } catch (error) {} finally { setLoading(false); }
     };
 
@@ -377,7 +401,6 @@ const ActionPlansManager = () => {
                         <Button variant="subtle" color="gray" onClick={() => setIsCreating(false)}>Voltar para Lista</Button>
                     </Group>
                     
-                    {/* 🟢 DESIGN LIMPO E ORGANIZADO DO FORMULÁRIO */}
                     <Card withBorder padding="xl" radius="lg" shadow="sm">
                         <Stack gap="xl">
                             <Divider label={<Text fw={700} c={BRAND_BLUE} size="sm">1. CRONOGRAMA</Text>} labelPosition="left" variant="dashed" />
@@ -540,7 +563,7 @@ export default function ServicesPage() {
           opened={opened} 
           onClose={close} 
           title={<Text size="xl" fw={900} c={BRAND_BLUE}>{activeModal === 'sectors' ? 'Estrutura de Setores' : activeModal === 'types' ? 'Catálogo de Dispositivos' : 'Gestão de Campanhas'}</Text>} 
-          size={activeModal === 'plans' ? "65rem" : "55rem"} // Modais levemente mais largos
+          size={activeModal === 'plans' ? "65rem" : "55rem"} 
           radius="lg" 
           centered 
           padding="xl"
