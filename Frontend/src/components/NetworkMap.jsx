@@ -11,7 +11,6 @@ import {
   importZabbixData, clearTopology, deleteDevice, clearAllLinks, createManualDevice, pingDevices 
 } from '../services/api';
 
-// 🟢 IMPORTA O TERMINAL WEB (Para o SSH funcionar direto no navegador)
 import WebTerminal from './WebTerminal';
 
 const BRAND_BLUE = '#0003d9';
@@ -26,9 +25,6 @@ const ImageBackgroundNode = memo(({ data }) => {
   );
 });
 
-// =========================================================
-// 🟢 O CÉREBRO DO DESENHO 
-// =========================================================
 const DeviceNode = memo(({ data }) => {
   let Icon = IconRouter;
   const type = (data.type || '').toLowerCase();
@@ -95,22 +91,25 @@ const ZoneNode = memo(({ data, selected }) => {
 
 const nodeTypes = { device: DeviceNode, zone: ZoneNode, bgImage: ImageBackgroundNode };
 
-// =========================================================
-// WIDGET PRINCIPAL DO MAPA
-// =========================================================
-
 export default function NetworkMap({ devices, filterType = 'switch' }) {
-  // 🟢 AGORA ELE RECONHECE A PALAVRA "ACCESS POINT" CORRETAMENTE
-  const isAPMap = filterType.toLowerCase().includes('access point') || filterType.toLowerCase() === 'ap' || filterType.toLowerCase().includes('wifi');
-  const [activeTab, setActiveTab] = useState(isAPMap ? 'aps' : 'matriz'); 
+  // 🟢 A TRAVA ABSOLUTA: Reconhece o AP sem margem de erro.
+  const isAPMap = filterType && (
+    filterType.toLowerCase().includes('access point') || 
+    filterType.toLowerCase() === 'ap' || 
+    filterType.toLowerCase().includes('wifi')
+  );
+
+  const [activeTab, setActiveTab] = useState('matriz'); 
   
+  // 🟢 O CONTEXTO FORÇADO: Ignora o 'activeTab' se estivermos na página de AP.
+  // Isso garante que NENHUMA requisição vaze para os Switches.
+  const currentContext = isAPMap ? 'aps' : activeTab;
+
   const [nodes, setNodes] = useState([]);
   const [edges, setEdges] = useState([]);
   const [pingStatus, setPingStatus] = useState({}); 
-  
   const [isLocked, setIsLocked] = useState(true);
-
-  const [bgImage, setBgImage] = useState(localStorage.getItem(`map_bg_${activeTab}`) || null);
+  const [bgImage, setBgImage] = useState(localStorage.getItem(`map_bg_${currentContext}`) || null);
   
   const [selectedDevice, setSelectedDevice] = useState(null);
   const [selectedZone, setSelectedZone] = useState(null);
@@ -121,21 +120,16 @@ export default function NetworkMap({ devices, filterType = 'switch' }) {
   const [editZoneName, setEditZoneName] = useState('');
 
   const [newDeviceModal, setNewDeviceModal] = useState(false);
-  
-  // 🟢 INICIA COM O NOME EXATO DA CATEGORIA
   const [newData, setNewData] = useState({ name: '', ip: '', type: isAPMap ? 'Access Point' : 'Switch' });
   const [isSavingLayout, setIsSavingLayout] = useState(false);
 
-  // 🟢 ESTADOS DO PING (CMD)
   const [pingTerminalIp, setPingTerminalIp] = useState(null);
   const [pingLogs, setPingLogs] = useState([]);
   const terminalEndRef = useRef(null);
 
-  // 🟢 ESTADOS DO WEB TERMINAL (SSH)
   const [terminalConfig, setTerminalConfig] = useState(null);
   const [loginModal, setLoginModal] = useState({ opened: false, ip: '', username: '', password: '' });
 
-  // 🟢 REFS PARA OS INPUTS INVISÍVEIS (O Segredo para consertar o Bug do Menu)
   const zabbixInputRef = useRef(null);
   const bgInputRef = useRef(null);
 
@@ -145,44 +139,31 @@ export default function NetworkMap({ devices, filterType = 'switch' }) {
 
   useEffect(() => {
     if (!pingTerminalIp) return;
-    
     setPingLogs([`> Estabelecendo conexão com o servidor...`, `> Iniciando ping contínuo para ${pingTerminalIp}`, `======================================================`]);
-    
     const eventSource = new EventSource(`http://localhost:3000/api/ping-stream/${pingTerminalIp}`);
-    
-    eventSource.onmessage = (event) => {
-        setPingLogs(prev => [...prev, event.data]);
-    };
-
+    eventSource.onmessage = (event) => setPingLogs(prev => [...prev, event.data]);
     eventSource.onerror = () => {
         setPingLogs(prev => [...prev, `[SISTEMA] Conexão com o servidor encerrada.`]);
         eventSource.close();
     };
-
-    return () => {
-        eventSource.close(); 
-    };
+    return () => eventSource.close(); 
   }, [pingTerminalIp]);
 
   const mapDevices = (devices || []).filter(dev => {
     if (isAPMap) return true; 
     const isTractor = (dev.name || '').toUpperCase().includes('TRC') || (dev.name || '').toUpperCase().includes('TRACTOR');
-    if (activeTab === 'tractor') return isTractor;
+    if (currentContext === 'tractor') return isTractor;
     return !isTractor; 
   });
 
   useEffect(() => {
-    if (isAPMap) setActiveTab('aps');
-    else if (activeTab === 'aps') setActiveTab('matriz');
-  }, [isAPMap]);
-
-  useEffect(() => {
-    setBgImage(localStorage.getItem(`map_bg_${activeTab}`) || null);
-  }, [activeTab]);
+    setBgImage(localStorage.getItem(`map_bg_${currentContext}`) || null);
+  }, [currentContext]);
 
   const loadTopology = async () => {
     try {
-      const dbZones = await getMapZones(activeTab);
+      // 🟢 Todas as requisições usam o currentContext blindado
+      const dbZones = await getMapZones(currentContext);
       const zoneNodes = dbZones.map(z => ({
         id: `zone-${z.id}`, type: 'zone', position: { x: z.x, y: z.y }, style: { width: z.width, height: z.height },
         zIndex: -1,
@@ -196,21 +177,21 @@ export default function NetworkMap({ devices, filterType = 'switch' }) {
         data: { id: dev.id, label: dev.name, ip: dev.ipAddress || '', type: dev.deviceType || 'outros', nobreak: dev.nobreakModel || '', isAlive: pingStatus[dev.ipAddress], isAPMap: isAPMap }
       }));
 
-      const currentBg = localStorage.getItem(`map_bg_${activeTab}`);
+      const currentBg = localStorage.getItem(`map_bg_${currentContext}`);
       const bgNode = currentBg ? [{
         id: 'bg-image-node', type: 'bgImage', position: { x: 0, y: 0 }, data: { url: currentBg }, selectable: false, draggable: false, zIndex: -100       
       }] : [];
 
       setNodes([...bgNode, ...zoneNodes, ...deviceNodes]);
 
-      const links = await getNetworkLinks(activeTab);
+      const links = await getNetworkLinks(currentContext);
       setEdges(links.map(link => ({
         id: String(link.id), source: String(link.sourceId), target: String(link.targetId), sourceHandle: link.sourceHandle, targetHandle: link.targetHandle, animated: true, style: { stroke: '#40c057', strokeWidth: 2 }
       })));
     } catch (err) { console.error("Erro ao carregar topologia", err); }
   };
 
-  useEffect(() => { loadTopology(); }, [devices, activeTab]);
+  useEffect(() => { loadTopology(); }, [devices, currentContext]);
 
   useEffect(() => {
     setNodes(nds => nds.map(n => n.type === 'zone' ? { ...n, data: { ...n.data, isLocked } } : n));
@@ -247,7 +228,7 @@ export default function NetworkMap({ devices, filterType = 'switch' }) {
     runPing(); 
     const interval = setInterval(runPing, 20000); 
     return () => clearInterval(interval);
-  }, [activeTab, devices]);
+  }, [currentContext, devices]);
 
   const onNodeDragStop = async (event, node) => {
     if (node.type === 'device') await updateDevicePosition(node.data.id, node.position.x, node.position.y);
@@ -256,7 +237,7 @@ export default function NetworkMap({ devices, filterType = 'switch' }) {
 
   const onConnect = async (params) => {
     try {
-      const newLink = await createNetworkLink(params.source, params.target, params.sourceHandle, params.targetHandle, activeTab);
+      const newLink = await createNetworkLink(params.source, params.target, params.sourceHandle, params.targetHandle, currentContext);
       setEdges((eds) => addEdge({ id: String(newLink.id), source: String(newLink.sourceId), target: String(newLink.targetId), sourceHandle: newLink.sourceHandle, targetHandle: newLink.targetHandle, animated: true, style: { stroke: '#40c057', strokeWidth: 2 } }, eds));
     } catch (err) { alert("Cabo já existe!"); }
   };
@@ -276,13 +257,13 @@ export default function NetworkMap({ devices, filterType = 'switch' }) {
   };
 
   const handleClearTopology = async () => {
-    if (!window.confirm("CUIDADO: Deseja apagar todas as caixas e cabos desta aba?")) return;
-    try { await clearTopology(activeTab); await loadTopology(); } catch (error) { alert("Erro ao limpar a topologia."); }
+    if (!window.confirm("CUIDADO: Deseja apagar as caixas e cabos desta aba? (Os equipamentos não serão excluídos do banco)")) return;
+    try { await clearTopology(currentContext); await loadTopology(); } catch (error) { alert("Erro ao limpar a topologia."); }
   };
 
   const handleClearLinks = async () => {
     if (!window.confirm("Deseja apagar TODOS os cabos deste mapa e refazer as ligações do zero?")) return;
-    try { await clearAllLinks(activeTab); await loadTopology(); } catch(e) { alert("Erro ao limpar cabos."); }
+    try { await clearAllLinks(currentContext); await loadTopology(); } catch(e) { alert("Erro ao limpar cabos."); }
   };
 
   const handleAddManualDevice = async () => {
@@ -290,9 +271,7 @@ export default function NetworkMap({ devices, filterType = 'switch' }) {
     try {
       const newDev = await createManualDevice({ name: newData.name, ipAddress: newData.ip, deviceType: newData.type });
       setNewDeviceModal(false);
-      // 🟢 CORREÇÃO: Reseta o modal usando o nome correto da categoria
       setNewData({ name: '', ip: '', type: isAPMap ? 'Access Point' : 'Switch' });
-      
       if (newDev && newDev.id) {
          const newNode = { id: String(newDev.id), type: 'device', position: { x: 100, y: 100 }, zIndex: 10, data: { id: newDev.id, label: newData.name, ip: newData.ip, type: newData.type, isAPMap: isAPMap } };
          setNodes((nds) => [...nds, newNode]);
@@ -305,7 +284,7 @@ export default function NetworkMap({ devices, filterType = 'switch' }) {
     try {
       const promises = nodes.map(node => {
         if (node.type === 'device') return updateDevicePosition(node.data.id, node.position.x, node.position.y);
-        else if (node.type === 'zone') return updateMapZone(node.data.id, { x: node.position.x, y: node.position.y, width: node.style?.width || 200, height: node.style?.height || 150, context: activeTab });
+        else if (node.type === 'zone') return updateMapZone(node.data.id, { x: node.position.x, y: node.position.y, width: node.style?.width || 200, height: node.style?.height || 150, context: currentContext });
         return Promise.resolve();
       });
       await Promise.all(promises);
@@ -314,11 +293,10 @@ export default function NetworkMap({ devices, filterType = 'switch' }) {
   };
 
   const handleAddManualZone = async () => {
-    await createMapZone({ name: 'Novo Setor', x: 50, y: 50, width: 400, height: 300, context: activeTab });
+    await createMapZone({ name: 'Novo Setor', x: 50, y: 50, width: 400, height: 300, context: currentContext });
     loadTopology();
   };
 
-  // 🟢 FUNÇÃO DE IMPORTAÇÃO ZABBIX BLINDADA E COM LOGS
   const handleUploadZabbix = async (file) => {
     if (!file) return;
     console.log("1. Ficheiro Zabbix recebido no Frontend:", file.name);
@@ -326,11 +304,11 @@ export default function NetworkMap({ devices, filterType = 'switch' }) {
     const reader = new FileReader();
     reader.onload = async (e) => {
       try {
-        console.log("2. Ficheiro lido com sucesso. A transformar em JSON...");
+        console.log("2. Ficheiro lido. A transformar em JSON...");
         const json = JSON.parse(e.target.result);
         
-        console.log("3. JSON pronto! A enviar para o Backend (Aba: " + activeTab + ")...");
-        await importZabbixData(json, activeTab); 
+        console.log("3. JSON pronto! A enviar para Aba: " + currentContext);
+        await importZabbixData(json, currentContext); 
         
         alert("Importado com sucesso!"); 
         await loadTopology(); 
@@ -338,20 +316,18 @@ export default function NetworkMap({ devices, filterType = 'switch' }) {
         console.error("❌ Erro interno no Frontend:", err);
         alert("Erro ao importar: " + err.message); 
       } finally {
-        // Limpa o input para poder importar o mesmo ficheiro duas vezes se precisar
         if (zabbixInputRef.current) zabbixInputRef.current.value = '';
       }
     };
     reader.readAsText(file);
   };
 
-  // 🟢 FUNÇÃO DE FUNDO BLINDADA
   const handleUploadBackground = (file) => {
     if (!file) return;
     const reader = new FileReader();
     reader.onload = (e) => {
       setBgImage(e.target.result);
-      localStorage.setItem(`map_bg_${activeTab}`, e.target.result);
+      localStorage.setItem(`map_bg_${currentContext}`, e.target.result);
       if (bgInputRef.current) bgInputRef.current.value = '';
     };
     reader.readAsDataURL(file);
@@ -359,7 +335,7 @@ export default function NetworkMap({ devices, filterType = 'switch' }) {
 
   const handleClearBackground = () => {
     setBgImage(null);
-    localStorage.removeItem(`map_bg_${activeTab}`);
+    localStorage.removeItem(`map_bg_${currentContext}`);
   };
 
   const onNodesChange = useCallback((changes) => setNodes((nds) => applyNodeChanges(changes, nds)), []);
@@ -387,7 +363,7 @@ export default function NetworkMap({ devices, filterType = 'switch' }) {
       <Group justify="space-between" mb="sm">
         <Group>
           <Text fw={700} c="dimmed">
-            Mesa de Operações: {isAPMap ? 'MAPA DE ACESS POINTS' : (activeTab === 'matriz' ? 'PEDERTRACTOR' : 'TRACTOR')}
+            Mesa de Operações: {isAPMap ? 'MAPA DE ACESS POINTS' : (currentContext === 'matriz' ? 'PEDERTRACTOR' : 'TRACTOR')}
           </Text>
           <Badge color="green" variant="light" size="sm" ml="sm">Monitoramento Ping Ativo</Badge>
         </Group>
@@ -408,7 +384,6 @@ export default function NetworkMap({ devices, filterType = 'switch' }) {
 
           <Button variant="light" color="blue" leftSection={<IconPlus size={16}/>} onClick={() => setNewDeviceModal(true)}>Novo Equipamento</Button>
           
-          {/* 🟢 OS INPUTS INVISÍVEIS (Ficam fora do Menu para não serem destruídos) */}
           <input type="file" ref={bgInputRef} style={{ display: 'none' }} accept="image/png,image/jpeg" onChange={(e) => handleUploadBackground(e.target.files[0])} />
           <input type="file" ref={zabbixInputRef} style={{ display: 'none' }} accept="application/json" onChange={(e) => handleUploadZabbix(e.target.files[0])} />
           
@@ -417,7 +392,6 @@ export default function NetworkMap({ devices, filterType = 'switch' }) {
               <Button variant="default" leftSection={<IconSettings size={16}/>}>Ferramentas</Button>
             </Menu.Target>
 
-            {/* 🟢 O MENU CORRIGIDO */}
             <Menu.Dropdown>
               <Menu.Label>Construção do Mapa</Menu.Label>
               <Menu.Item leftSection={<IconPlus size={14}/>} onClick={handleAddManualZone}>Novo Setor</Menu.Item>
@@ -444,7 +418,6 @@ export default function NetworkMap({ devices, filterType = 'switch' }) {
         </Group>
       </Group>
 
-      {/* 🟢 MODAL DO TERMINAL VIRTUAL (PING CONTÍNUO) */}
       <Modal 
          opened={!!pingTerminalIp} 
          onClose={() => setPingTerminalIp(null)} 
@@ -468,7 +441,6 @@ export default function NetworkMap({ devices, filterType = 'switch' }) {
          </Group>
       </Modal>
 
-      {/* 🟢 MODAL DE LOGIN SSH */}
       <Modal opened={loginModal.opened} onClose={() => setLoginModal({ ...loginModal, opened: false })} title={<Text fw={900}>Autenticação SSH</Text>} centered>
         <Stack gap="md">
           <TextInput label="Usuário" value={loginModal.username} onChange={(e) => setLoginModal({...loginModal, username: e.target.value})} autoFocus />
@@ -480,7 +452,6 @@ export default function NetworkMap({ devices, filterType = 'switch' }) {
         </Stack>
       </Modal>
 
-      {/* 🟢 MODAL DO TERMINAL WEB SSH */}
       <Modal 
         opened={!!terminalConfig} 
         onClose={() => setTerminalConfig(null)} 
@@ -532,9 +503,7 @@ export default function NetworkMap({ devices, filterType = 'switch' }) {
                 {!isAPMap ? 'Acesso Web' : (editName.toLowerCase().includes('ubiquiti') ? 'Unifi Controller' : 'Painel Aruba')}
               </Button>
               
-              {/* 🟢 AQUI ESTÁ A LÓGICA CORRETA DOS BOTÕES */}
               {isAPMap ? (
-                // SE FOR AP: Mostra apenas o Ping
                 <Button 
                   onClick={() => {
                     setSelectedDevice(null);
@@ -547,7 +516,6 @@ export default function NetworkMap({ devices, filterType = 'switch' }) {
                   Inspecionar (Ping)
                 </Button>
               ) : (
-                // SE FOR SWITCH: Mostra o SSH WebTerminal e o Telnet nativo
                 <Group grow>
                   <Button 
                     onClick={() => {
@@ -592,7 +560,7 @@ export default function NetworkMap({ devices, filterType = 'switch' }) {
           <Stack gap="md">
             <TextInput label="Nome do Setor" value={editZoneName} onChange={(e) => setEditZoneName(e.target.value)} />
             <Button color={BRAND_BLUE} onClick={async () => {
-              await updateMapZone(selectedZone.data.id, { name: editZoneName, context: activeTab });
+              await updateMapZone(selectedZone.data.id, { name: editZoneName, context: currentContext });
               setNodes((nds) => nds.map((n) => n.id === selectedZone.id ? { ...n, data: { ...n.data, label: editZoneName } } : n));
               setSelectedZone(null);
             }}>Salvar Nome</Button>
