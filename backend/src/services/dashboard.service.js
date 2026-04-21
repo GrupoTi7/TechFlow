@@ -6,109 +6,72 @@ async function getDashboardStats() {
   const thirtyDaysFromNow = addDays(today, 30);
   const ninetyDaysAgo = subDays(today, 90);
 
-  const [
-    totalDevices,
-    overdueCount,
-    upcomingCount,
-    compliantCount, 
-    rawOwnedCount, // Contagem bruta (ainda inclui servidores)
-    rawRentedCount, // Contagem bruta (ainda inclui servidores)
-    preventivesLast7Days,
-    preventivesLast30Days,
-    preventivesLast90Days,
-    infraCount,
-    
-    // 🟢 1. O FILTRO DE SERVIDORES: Conta quantos servidores existem na base
-    serverCount,
-    
-    // 🟢 2. SERVIDORES COMPRADOS: Para remover da caixinha de "Comprados"
-    serverOwnedCount,
-    
-    // 🟢 3. SERVIDORES ALUGADOS: Para remover da caixinha de "Alugados"
-    serverRentedCount
-
-  ] = await Promise.all([
-    prisma.device.count({ where: { isActive: true } }),
-    prisma.device.count({ where: { isActive: true, nextPreventiveDate: { lt: today, not: null } } }),
-    prisma.device.count({ where: { isActive: true, nextPreventiveDate: { gte: today, lte: thirtyDaysFromNow } } }),
-    prisma.device.count({ where: { isActive: true, nextPreventiveDate: { gte: today } } }),
-    
-    // Contagem de Nomenclatura Padrão
-    prisma.device.count({ where: { isActive: true, OR: [{ name: { startsWith: 'PTR' } }, { name: { startsWith: 'TRC' } }] } }),
-    prisma.device.count({ where: { isActive: true, OR: [{ name: { startsWith: 'NETSITE' } }, { name: { startsWith: 'VIVO' } }, { name: { startsWith: 'SOROCAMP' } }, { name: { startsWith: 'INFOBRAS' } }, { name: { startsWith: 'LENOVO' } }] } }),
-    
-    // Preventivas
-    prisma.preventive.count({ where: { date: { gte: subDays(today, 7) } } }),
-    prisma.preventive.count({ where: { date: { gte: subDays(today, 30) } } }),
-    prisma.preventive.count({ where: { date: { gte: ninetyDaysAgo } } }),
-    
-    // Filtro Infra
-    prisma.device.count({
-      where: {
-        isActive: true,
-        OR: [
-          { deviceType: { contains: 'switch' } },
-          { deviceType: { contains: 'ap' } },
-          { deviceType: { contains: 'wifi' } },
-          { deviceType: { contains: 'access point' } }
-        ]
-      }
-    }),
-
-    // 🟢 A CAÇA AOS SERVIDORES
-    prisma.device.count({
-        where: {
-          isActive: true,
-          OR: [
-            { name: { contains: 'SRV' } },
-            { name: { contains: 'VMware' } },
-            { name: { contains: 'Servidor' } },
-            { deviceType: { contains: 'server' } }
-          ]
-        }
-    }),
-
-    prisma.device.count({
-        where: {
-          isActive: true,
-          OR: [
-            { name: { contains: 'SRV' } },
-            { name: { contains: 'VMware' } },
-            { name: { contains: 'Servidor' } }
-          ],
-          AND: {
-              OR: [{ name: { startsWith: 'PTR' } }, { name: { startsWith: 'TRC' } }]
-          }
-        }
-    }),
-
-    prisma.device.count({
-        where: {
-          isActive: true,
-          OR: [
-            { name: { contains: 'SRV' } },
-            { name: { contains: 'VMware' } },
-            { name: { contains: 'Servidor' } }
-          ],
-          AND: {
-              OR: [{ name: { startsWith: 'NETSITE' } }, { name: { startsWith: 'VIVO' } }, { name: { startsWith: 'SOROCAMP' } }, { name: { startsWith: 'INFOBRAS' } }, { name: { startsWith: 'LENOVO' } }]
-          }
-        }
+  // 1. Buscas rápidas: Trazemos todas as máquinas ativas para a memória
+  const [allActiveDevices, preventivesList] = await Promise.all([
+    prisma.device.findMany({ where: { isActive: true } }),
+    prisma.preventive.findMany({
+        where: { date: { gte: ninetyDaysAgo } },
+        orderBy: { date: 'asc' }
     })
   ]);
 
-  // 🟢 A MATEMÁTICA LIMPA: Removemos infraestrutura E servidores da contagem de utilizadores finais.
-  const computerCount = Math.max(0, totalDevices - infraCount - serverCount);
-  
-  // Limpamos os servidores das contagens de propriedade
-  const ownedCount = Math.max(0, rawOwnedCount - serverOwnedCount);
-  const rentedCount = Math.max(0, rawRentedCount - serverRentedCount);
+  // 2. Variáveis de contagem
+  let totalDevices = allActiveDevices.length;
+  let overdueCount = 0;
+  let upcomingCount = 0;
+  let compliantCount = 0;
 
-  const preventivesList = await prisma.preventive.findMany({
-      where: { date: { gte: ninetyDaysAgo } },
-      orderBy: { date: 'asc' }
-  });
-  
+  let infraCount = 0;
+  let serverCount = 0;
+  let computerCount = 0;
+
+  let ownedCount = 0;
+  let rentedCount = 0;
+
+  // 3. O Loop Mestre (Imune a maiúsculas/minúsculas e à prova de falhas)
+  for (const d of allActiveDevices) {
+      // Força tudo para maiúsculas para o filtro não falhar nunca mais
+      const name = (d.name || '').toUpperCase();
+      const type = (d.deviceType || '').toUpperCase();
+      const serial = (d.serial || '').toUpperCase();
+
+      // A. Status das Preventivas
+      if (d.nextPreventiveDate) {
+          const nextDate = new Date(d.nextPreventiveDate);
+          nextDate.setHours(0,0,0,0);
+          if (nextDate < today) overdueCount++;
+          else if (nextDate >= today && nextDate <= thirtyDaysFromNow) upcomingCount++;
+          else compliantCount++;
+      }
+
+      // B. É Infraestrutura?
+      const isInfra = ['SWITCH', 'AP', 'WIFI', 'ACCESS POINT'].some(t => type.includes(t));
+
+      // C. É Servidor? (Procura no nome, no tipo e no serial)
+      const isServer = 
+          name.includes('SRV') || name.includes('VMWARE') || name.includes('SERVIDOR') ||
+          type.includes('SERVER') || type.includes('SERVIDOR') || type.includes('VMWARE') ||
+          serial.includes('VMWARE');
+
+      // D. A TRIAGEM FINAL
+      if (isInfra) {
+          infraCount++;
+      } else if (isServer) {
+          serverCount++; // Foi apanhado na malha! Não entra nas contas de utilizadores.
+      } else {
+          // Se não é infra nem servidor, ENTÃO é Estação de Trabalho!
+          computerCount++; 
+
+          // Só contamos como "Comprado" ou "Alugado" se for Estação de Trabalho
+          if (name.startsWith('PTR') || name.startsWith('TRC')) {
+              ownedCount++;
+          } else if (['NETSITE', 'VIVO', 'SOROCAMP', 'INFOBRAS', 'LENOVO'].some(p => name.startsWith(p))) {
+              rentedCount++;
+          }
+      }
+  }
+
+  // 4. Gráfico de Preventivas
   const preventiveChartData = preventivesList.reduce((acc, curr) => {
       const month = format(new Date(curr.date), 'MM/yyyy');
       const existing = acc.find(i => i.name === month);
@@ -120,11 +83,11 @@ async function getDashboardStats() {
     totalDevices,
     overdueCount,
     upcomingCount,
-    compliantCount, 
-    ownedCount,        // 🟢 Número já filtrado sem servidores
-    rentedCount,       // 🟢 Número já filtrado sem servidores
+    compliantCount,
+    ownedCount,        // Limpo, sem servidores!
+    rentedCount,       // Limpo, sem servidores!
     preventiveChartData,
-    computerCount,     // 🟢 Número já filtrado sem servidores
+    computerCount,     // Limpo, sem servidores!
     infraCount 
   };
 }
