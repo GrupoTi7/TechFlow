@@ -27,7 +27,6 @@ exports.createPreventiveTicket = async (deviceName, deviceType, techIdentifier, 
         const isEmail = techIdentifier.includes('@');
         const searchParams = isEmail ? { email: techIdentifier } : { username: techIdentifier };
         
-        // 🟢 PADRÃO EXATO DA DOCUMENTAÇÃO 1
         const agideskHeaders = { 
             'X-Tenant-ID': tenant,
             'Content-Type': 'application/x-www-form-urlencoded'
@@ -38,7 +37,6 @@ exports.createPreventiveTicket = async (deviceName, deviceType, techIdentifier, 
         let contactName = techIdentifier;
 
         try {
-            // Busca o ID do contato usando a app_key na URL e o X-Tenant-ID no header
             const contactRes = await axios.get(`${AGIDESK_API}/contacts?app_key=${appKey}`, {
                 params: searchParams, headers: { 'X-Tenant-ID': tenant }, httpsAgent
             });
@@ -60,15 +58,27 @@ exports.createPreventiveTicket = async (deviceName, deviceType, techIdentifier, 
         } else {
             try {
                 console.log(`--> [AGIDESK] Procurando máquina: "${deviceName}"...`);
+                
+                // 🟢 CORREÇÃO CRÍTICA: Voltámos a usar 'title' em vez de 'search'
                 const assetRes = await axios.get(`${AGIDESK_API}/assets?app_key=${appKey}`, {
-                    params: { search: deviceName }, headers: { 'X-Tenant-ID': tenant }, httpsAgent
+                    params: { title: deviceName }, headers: { 'X-Tenant-ID': tenant }, httpsAgent
                 });
                 
+                console.log(`--> [AGIDESK] A busca retornou ${assetRes.data ? assetRes.data.length : 0} itens da API.`);
+                
                 if (assetRes.data && assetRes.data.length > 0) {
-                    const ativoEncontrado = assetRes.data.find(item => item.title && item.title.toUpperCase().includes(deviceName.toUpperCase()));
+                    const normalizeName = (name) => String(name).replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+                    const searchTarget = normalizeName(deviceName);
+
+                    const ativoEncontrado = assetRes.data.find(item => {
+                        return item.title && normalizeName(item.title).includes(searchTarget);
+                    });
+
                     if (ativoEncontrado) {
                         assetId = ativoEncontrado.id;
                         console.log(`--> [AGIDESK] SUCESSO: Máquina encontrada! ID Agidesk = ${assetId}`);
+                    } else {
+                        console.log(`--> [AGIDESK] Máquina NÃO encontrada na lista recebida.`);
                     }
                 }
             } catch (err) {
@@ -80,10 +90,6 @@ exports.createPreventiveTicket = async (deviceName, deviceType, techIdentifier, 
             const serviceId = getServiceId(deviceType);
             const tituloLimpo = `${actionType}: ${deviceName}`;
             const randomId = Math.floor(10000 + Math.random() * 90000);
-            
-            const alertaFallback = (!assetId && !isInfra) 
-                ? `<br><br><p style="color: #d93025;"><b>⚠️ ATENÇÃO:</b> A máquina <b>${deviceName}</b> não foi vinculada automaticamente a este chamado porque o nome dela no Agidesk não bateu exatamente com o nome no TechFlow.</p>` 
-                : '';
             
             const corpoHtml = isInfra ? `
                 <p><b>${actionType} de Rede (Via TechFlow)</b></p>
@@ -101,7 +107,6 @@ exports.createPreventiveTicket = async (deviceName, deviceType, techIdentifier, 
                     <li><b>Local:</b> ${deviceSector}</li>
                     <li><b>Técnico Registrador:</b> ${contactName}</li>
                 </ul>
-                ${alertaFallback}
                 <div style="display:none;">#${randomId}</div>
             `;
 
@@ -149,11 +154,14 @@ exports.createPreventiveTicket = async (deviceName, deviceType, techIdentifier, 
             const axiosConfig = { headers: agideskHeaders, httpsAgent };
 
             try {
-                // Post para criar o Ticket via app_key na URL
                 response = await axios.post(`${AGIDESK_API}/issues?app_key=${appKey}`, params, axiosConfig);
                 if (response.data && response.data.error) throw new Error(response.data.error_message);
             } catch (err) {
                 const errorPayload = err.response?.data ? JSON.stringify(err.response.data) : err.message;
+                
+                if (errorPayload.includes('requiredfield_asset')) {
+                    throw new Error(`O Agidesk exige que a máquina "${deviceName}" seja vinculada a este chamado, mas a API não conseguiu encontrá-la no inventário.`);
+                }
                 
                 if (errorPayload.includes('invalid_teams_users')) {
                     console.warn(`--> [AGIDESK] Bypass de responsável acionado...`);
@@ -217,8 +225,6 @@ exports.finishTicket = async (ticketId, relatorioText = "Manutenção preventiva
         await solveAllChecklists(ticketId, agideskHeaders);
         await new Promise(resolve => setTimeout(resolve, 3000));
 
-        console.log(`--> [AGIDESK] Analisando o tipo e status do chamado ${ticketId} para fechamento...`);
-
         let isInfra = false;
         
         try {
@@ -230,13 +236,10 @@ exports.finishTicket = async (ticketId, relatorioText = "Manutenção preventiva
                 }
                 
                 if (ticketInfo.data.finished_at || ticketInfo.data.taskstatus_id === '4' || ticketInfo.data.taskstatus_id === '5' || ticketInfo.data.taskstatus_id === '6') {
-                    console.log(`--> [AGIDESK] O ticket ${ticketId} JÁ ESTAVA ENCERRADO no Agidesk! Liberando a máquina no TechFlow...`);
                     return { success: true, message: "Ticket já estava encerrado." };
                 }
             }
-        } catch (e) {
-            console.warn(`⚠️ Não foi possível verificar o status prévio. Prosseguindo com fluxo normal.`);
-        }
+        } catch (e) {}
 
         const params = new URLSearchParams();
         params.append('tasks', ticketId); 
@@ -261,15 +264,12 @@ exports.finishTicket = async (ticketId, relatorioText = "Manutenção preventiva
             headers: { ...agideskHeaders, 'Content-Type': 'application/x-www-form-urlencoded' }, httpsAgent
         });
         
-        console.log(`--> [AGIDESK] Ticket ${ticketId} encerrado com sucesso!`);
         return response.data;
         
     } catch (error) {
         const errMsg = error.response?.data?.error_message || error.message;
-        console.error(`❌ [AGIDESK] Erro ao tentar encerrar:`, errMsg);
         
         if (errMsg.toLowerCase().includes('permitid') || errMsg.toLowerCase().includes('status') || errMsg.toLowerCase().includes('encerrad')) {
-            console.warn(`⚠️ [AGIDESK] O Agidesk recusou o fechamento. Forçando destravamento no TechFlow.`);
             return { success: true, forced: true };
         }
 
