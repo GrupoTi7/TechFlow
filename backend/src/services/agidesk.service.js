@@ -59,9 +59,9 @@ exports.createPreventiveTicket = async (deviceName, deviceType, techIdentifier, 
             try {
                 console.log(`--> [AGIDESK] Procurando máquina: "${deviceName}"...`);
                 
-                // 🟢 CORREÇÃO CRÍTICA: Voltámos a usar 'title' em vez de 'search'
+                // 🟢 A CORREÇÃO DEFINITIVA: 'search' é o parâmetro correto e forçamos limite alto!
                 const assetRes = await axios.get(`${AGIDESK_API}/assets?app_key=${appKey}`, {
-                    params: { title: deviceName }, headers: { 'X-Tenant-ID': tenant }, httpsAgent
+                    params: { search: deviceName, limit: 1000 }, headers: { 'X-Tenant-ID': tenant }, httpsAgent
                 });
                 
                 console.log(`--> [AGIDESK] A busca retornou ${assetRes.data ? assetRes.data.length : 0} itens da API.`);
