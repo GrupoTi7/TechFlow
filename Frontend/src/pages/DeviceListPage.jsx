@@ -59,13 +59,13 @@ function DeviceListPage() {
   const location = useLocation();
   
   const initialTypeFilter = location.state?.initialTypeFilter || 'all';
-  const hasCategoryState = !!location.state?.initialTypeFilter; 
+  const hasCategoryState = !!location.state?.initialTypeFilter || !!location.state?.initialNomenclatureFilter; 
   
-  // Mantemos o filterType no código apenas para respeitar o clique da página anterior (Categorias)
+  // Estados de Filtro
   const [filterType, setFilterType] = useState(initialTypeFilter);
-  
-  // O Status agora possui os 4 estados: 'all', 'overdue', 'upcoming', 'compliant'
   const [statusFilter, setStatusFilter] = useState(location.state?.initialStatusFilter || 'all'); 
+  const [nomenclatureFilter, setNomenclatureFilter] = useState(location.state?.initialNomenclatureFilter || 'all');
+  
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [viewMode, setViewMode] = useState('map'); 
@@ -88,16 +88,26 @@ function DeviceListPage() {
     const now = new Date(); now.setHours(0,0,0,0);
     const limit = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
 
-    // FILTRO DE TIPO (Invisível na UI, mas funciona via Categorias)
+    // 🟢 Função caçadora de zombies (Servidores)
+    const checkIsServer = (d) => {
+        const n = (d.name || '').toUpperCase();
+        const t = (d.deviceType || '').toUpperCase();
+        const s = (d.serial || '').toUpperCase();
+        return n.includes('SRV') || n.includes('VMWARE') || n.includes('SERVIDOR') ||
+               t.includes('SERVER') || t.includes('SERVIDOR') || t.includes('VMWARE') ||
+               s.includes('VMWARE');
+    };
+
+    // 1. FILTRO DE TIPO
     if (filterType !== 'all') {
       if (filterType === 'computer') {
           temp = temp.filter(d => {
-              const t = (d.deviceType || '').toLowerCase();
-              return !t.includes('printer') && 
-                     !t.includes('switch') && 
-                     !t.includes('ap') && 
-                     !t.includes('wifi') && 
-                     !t.includes('access point');
+              const t = (d.deviceType || '').toUpperCase();
+              const isInfra = ['SWITCH', 'AP', 'WIFI', 'ACCESS POINT'].some(k => t.includes(k));
+              const isPrinter = t.includes('PRINTER') || t.includes('IMPRESSORA');
+              
+              // Se é infra, impressora ou servidor, NÃO ENTRA na lista de computadores!
+              return !isInfra && !isPrinter && !checkIsServer(d);
           });
       } else if (filterType === 'printer') {
           temp = temp.filter(d => d.deviceType && d.deviceType.toLowerCase().includes('printer'));
@@ -109,7 +119,22 @@ function DeviceListPage() {
       }
     }
 
-    // FILTRO DE STATUS ATUALIZADO
+    // 2. FILTRO DE NOMENCLATURA (Vindo dos Cards do Dashboard)
+    if (nomenclatureFilter === 'owned') {
+        temp = temp.filter(d => {
+            const n = (d.name || '').toUpperCase();
+            // Tem de ser PTR ou TRC, e NÃO PODE ser um servidor
+            return (n.startsWith('PTR') || n.startsWith('TRC')) && !checkIsServer(d);
+        });
+    } else if (nomenclatureFilter === 'rented') {
+        temp = temp.filter(d => {
+            const n = (d.name || '').toUpperCase();
+            // Tem de ser da lista de alugados, e NÃO PODE ser um servidor
+            return ['NETSITE', 'VIVO', 'SOROCAMP', 'INFOBRAS', 'LENOVO'].some(p => n.startsWith(p)) && !checkIsServer(d);
+        });
+    }
+
+    // 3. FILTRO DE STATUS
     if (statusFilter === 'overdue') {
         temp = temp.filter(d => d.nextPreventiveDate && new Date(d.nextPreventiveDate) < now);
     } else if (statusFilter === 'upcoming') {
@@ -118,14 +143,14 @@ function DeviceListPage() {
        temp = temp.filter(d => d.nextPreventiveDate && new Date(d.nextPreventiveDate) > limit);
     }
     
-    // FILTRO DE BUSCA (Busca Universal)
+    // 4. FILTRO DE BUSCA
     if (searchQuery.trim()) {
       const lower = searchQuery.toLowerCase(); 
       temp = temp.filter(d => (d.name?.toLowerCase() || '').includes(lower) || (d.serial?.toLowerCase() || '').includes(lower) || (d.contact?.toLowerCase() || '').includes(lower));
     }
     
     return temp;
-  }, [devices, filterType, statusFilter, searchQuery]);
+  }, [devices, filterType, statusFilter, searchQuery, nomenclatureFilter]);
 
   const totalPages = Math.ceil(filteredDevices.length / itemsPerPage);
   const paginatedData = filteredDevices.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
@@ -159,7 +184,6 @@ function DeviceListPage() {
     </Table.Tr>
   ));
 
-  // Função auxiliar para o texto do botão de Status
   const getStatusLabel = () => {
     if (statusFilter === 'overdue') return 'Atrasados';
     if (statusFilter === 'upcoming') return 'Próximos';
@@ -171,7 +195,7 @@ function DeviceListPage() {
     <Stack gap="lg">
       {hasCategoryState && (
          <Group>
-            <Button component={Link} to="/devices/categories" variant="subtle" size="sm" leftSection={<IconArrowLeft size={16} />} color="gray" style={{ paddingLeft: 0, '&:hover': { background: 'transparent', textDecoration: 'underline' }}}>Voltar para Categorias</Button>
+            <Button component={Link} to="/devices/categories" variant="subtle" size="sm" leftSection={<IconArrowLeft size={16} />} color="gray" style={{ paddingLeft: 0, '&:hover': { background: 'transparent', textDecoration: 'underline' }}}>Voltar ao Dashboard / Categorias</Button>
          </Group>
       )}
 
@@ -185,7 +209,6 @@ function DeviceListPage() {
         </Group>
       </Paper>
 
-      {/* 🟢 GRID DA BARRA DE FILTROS SIMPLIFICADA */}
       <Paper p="md" radius="md" withBorder>
         <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
           <TextInput 
