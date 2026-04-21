@@ -52,7 +52,37 @@ function HomePage() {
       try {
         const data = await getDashboardStats(); 
         if (data.success) {
-          setStats(data.stats); 
+          // 🟢 Filtro de Higiene: Subtrair servidores das contagens (SRV ou VMware)
+          const rawStats = data.stats;
+          
+          // Se o backend enviar a lista de dispositivos dentro de 'rawStats', podemos contar os servidores.
+          // Se não enviar, e só mandar os números finais, usamos uma lógica segura caso o backend seja alterado depois.
+          let serverCount = 0;
+          let serverOwnedCount = 0;
+          let serverRentedCount = 0;
+
+          if (rawStats.allDevices && Array.isArray(rawStats.allDevices)) {
+              rawStats.allDevices.forEach(d => {
+                  const name = (d.name || '').toUpperCase();
+                  if (name.includes('SRV') || name.includes('VMWARE') || name.includes('SERVIDOR')) {
+                      serverCount++;
+                      if (name.startsWith('PTR') || name.startsWith('TRC')) {
+                          serverOwnedCount++;
+                      } else if (['NETSITE','VIVO','SOROCAMP','INFOBRAS','LENOVO'].some(p => name.startsWith(p))) {
+                          serverRentedCount++;
+                      }
+                  }
+              });
+          }
+
+          setStats({
+              ...rawStats,
+              // Ajusta os números retirando os servidores
+              computerCount: Math.max(0, (rawStats.computerCount || 0) - serverCount),
+              ownedCount: Math.max(0, (rawStats.ownedCount || 0) - serverOwnedCount),
+              rentedCount: Math.max(0, (rawStats.rentedCount || 0) - serverRentedCount),
+          });
+
         } else {
           setError(data.message);
         }
@@ -73,7 +103,6 @@ function HomePage() {
     navigate('/devices', { state: { initialNomenclatureFilter: nomenclatureFilter } });
   };
 
-  // 🟢 Nova função para redirecionar para Computadores ou Infra
   const handleTypeClick = (type) => {
     navigate('/devices', { state: { initialTypeFilter: type } });
   };
@@ -85,11 +114,11 @@ function HomePage() {
   const inComplianceCount = stats.compliantCount || 0;
 
   const barChartData = {
-    labels: stats.preventiveChartData.map(d => d.name),
+    labels: stats.preventiveChartData ? stats.preventiveChartData.map(d => d.name) : [],
     datasets: [
       {
         label: 'Preventivas Realizadas',
-        data: stats.preventiveChartData.map(d => d.value),
+        data: stats.preventiveChartData ? stats.preventiveChartData.map(d => d.value) : [],
         backgroundColor: 'rgba(0, 3, 217, 0.7)',
         borderColor: BRAND_BLUE,
         borderWidth: 1,
@@ -130,7 +159,6 @@ function HomePage() {
       
       <Grid>
         <Grid.Col span={{ base: 12, md: 6, lg: 3 }}>
-          {/* 🟢 CARTÃO DIVIDIDO: ESTAÇÕES VS INFRAESTRUTURA */}
           <StatCard 
             title="Estações de Trabalho" 
             value={stats.computerCount || 0} 
@@ -141,7 +169,6 @@ function HomePage() {
           />
         </Grid.Col>
         <Grid.Col span={{ base: 12, md: 6, lg: 3 }}>
-          {/* CARD VERDE VIVO */}
           <StatCard 
             title="Em Conformidade" 
             value={inComplianceCount}
@@ -151,10 +178,9 @@ function HomePage() {
           />
         </Grid.Col>
         <Grid.Col span={{ base: 12, md: 6, lg: 3 }}>
-           {/* CARD LARANJA VIVO (Atenção) */}
           <StatCard 
             title="Atenção (30 dias)" 
-            value={stats.upcomingCount} 
+            value={stats.upcomingCount || 0} 
             description="Vencendo nos próximos 30 dias."
             icon={<IconClock />} 
             color={VIVID_ORANGE} 
@@ -162,10 +188,9 @@ function HomePage() {
           />
         </Grid.Col>
         <Grid.Col span={{ base: 12, md: 6, lg: 3 }}>
-           {/* CARD VERMELHO VIVO (Alerta) */}
           <StatCard 
             title="Alerta Crítico" 
-            value={stats.overdueCount} 
+            value={stats.overdueCount || 0} 
             description="Manutenção preventiva vencida."
             icon={<IconAlertTriangle />} 
             color={VIVID_RED} 
@@ -193,7 +218,7 @@ function HomePage() {
            <Stack gap="xl">
              <StatCard 
                title="Dispositivos Internos (Comprados)" 
-               value={stats.ownedCount} 
+               value={stats.ownedCount || 0} 
                description="Prefixos PTR e TRC."
                icon={<IconBuildingStore />} 
                color={BRAND_BLUE} 
@@ -203,7 +228,7 @@ function HomePage() {
              
              <StatCard 
                title="Dispositivos Alugados" 
-               value={stats.rentedCount} 
+               value={stats.rentedCount || 0} 
                description="Prefixos NETSITE, VIVO, SOROCAMP e INFOBRAS."
                icon={<IconBuildingFactory />} 
                color={VIVID_GRAY} 
