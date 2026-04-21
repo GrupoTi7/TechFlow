@@ -27,9 +27,11 @@ exports.createPreventiveTicket = async (deviceName, deviceType, techIdentifier, 
         const isEmail = techIdentifier.includes('@');
         const searchParams = isEmail ? { email: techIdentifier } : { username: techIdentifier };
         
-        // 🟢 REMOVIDO O BEARER: O Agidesk odeia cabeçalhos não documentados.
+        // 🟢 A CHAVE MESTRA: Exatamente como o servidor exigiu no teste!
         const agideskHeaders = { 
-            'X-Tenant-ID': tenant
+            'X-Tenant-ID': tenant,
+            'X-Auth-Token': appKey,
+            'Authorization': appKey
         };
 
         const isInfra = (deviceType || '').toLowerCase().match(/switch|ap|wifi/);
@@ -183,8 +185,15 @@ exports.createPreventiveTicket = async (deviceName, deviceType, techIdentifier, 
 // ==========================================
 exports.startTicketTimer = async (ticketId) => {
     try {
+        // 🟢 APLICADO AQUI TAMBÉM
+        const agideskHeaders = { 
+            'X-Tenant-ID': tenant,
+            'X-Auth-Token': appKey,
+            'Authorization': appKey
+        };
+        
         await axios.put(`${AGIDESK_API}/tasks/${ticketId}/start?app_key=${appKey}`, null, {
-            headers: { 'X-Tenant-ID': tenant }, httpsAgent
+            headers: agideskHeaders, httpsAgent
         });
         console.log(`--> [AGIDESK] Play executado com sucesso no ticket ${ticketId}.`);
         return true;
@@ -217,7 +226,12 @@ const solveAllChecklists = async (ticketId, headers) => {
 
 exports.finishTicket = async (ticketId, relatorioText = "Manutenção preventiva concluída.") => {
     try {
-        const agideskHeaders = { 'X-Tenant-ID': tenant };
+        // 🟢 APLICADO AQUI TAMBÉM
+        const agideskHeaders = { 
+            'X-Tenant-ID': tenant,
+            'X-Auth-Token': appKey,
+            'Authorization': appKey
+        };
         
         await solveAllChecklists(ticketId, agideskHeaders);
         await new Promise(resolve => setTimeout(resolve, 3000));
