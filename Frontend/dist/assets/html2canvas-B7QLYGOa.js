@@ -1,0 +1,1 @@
+import{t as e}from"./index-BU46T_Fn.js";export default e();
