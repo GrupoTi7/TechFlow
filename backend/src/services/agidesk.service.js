@@ -1,9 +1,10 @@
 const axios = require('axios');
 const https = require('https');
 
-const tenant = process.env.AGIDESK_TENANT || 'ptractor';
-const appKey = process.env.AGIDESK_APP_KEY || '11d74d38dc2cf9ad1acdcee503e28206'; 
-const customerId = process.env.AGIDESK_CUSTOMER_ID || '1';
+// 🟢 LIMPEZA EXTREMA: Remove aspas, aspas simples e espaços vazios do .env
+const tenant = (process.env.AGIDESK_TENANT || 'ptractor').replace(/['"]+/g, '').trim();
+const appKey = (process.env.AGIDESK_APP_KEY || '11d74d38dc2cf9ad1acdcee503e28206').replace(/['"]+/g, '').trim(); 
+const customerId = (process.env.AGIDESK_CUSTOMER_ID || '1').replace(/['"]+/g, '').trim();
 
 const httpsAgent = new https.Agent({ rejectUnauthorized: false });
 const AGIDESK_API = `https://${tenant}.agidesk.com.br/api/v1`;
@@ -26,9 +27,9 @@ exports.createPreventiveTicket = async (deviceName, deviceType, techIdentifier, 
         const isEmail = techIdentifier.includes('@');
         const searchParams = isEmail ? { email: techIdentifier } : { username: techIdentifier };
         
+        // 🟢 REMOVIDO O BEARER: O Agidesk odeia cabeçalhos não documentados.
         const agideskHeaders = { 
-            'X-Tenant-ID': tenant,
-            'Authorization': `Bearer ${appKey}`
+            'X-Tenant-ID': tenant
         };
 
         const isInfra = (deviceType || '').toLowerCase().match(/switch|ap|wifi/);
@@ -55,7 +56,6 @@ exports.createPreventiveTicket = async (deviceName, deviceType, techIdentifier, 
             assetId = 2799; 
             console.log(`--> [AGIDESK] 2. Ativo PC-TESTE fixado (ID: 2799)`);
         } else {
-            // 🟢 BLOCO TRY/CATCH AJUSTADO PARA CAPTURAR ERRO REAL
             try {
                 console.log(`--> [AGIDESK] Procurando máquina: "${deviceName}"...`);
                 const assetRes = await axios.get(`${AGIDESK_API}/assets?app_key=${appKey}`, {
@@ -179,12 +179,12 @@ exports.createPreventiveTicket = async (deviceName, deviceType, techIdentifier, 
 };
 
 // ==========================================
-// FUNÇÕES DE TIMER E CHECKLIST (Mantidas)
+// FUNÇÕES DE TIMER E CHECKLIST
 // ==========================================
 exports.startTicketTimer = async (ticketId) => {
     try {
         await axios.put(`${AGIDESK_API}/tasks/${ticketId}/start?app_key=${appKey}`, null, {
-            headers: { 'X-Tenant-ID': tenant, 'Authorization': `Bearer ${appKey}` }, httpsAgent
+            headers: { 'X-Tenant-ID': tenant }, httpsAgent
         });
         console.log(`--> [AGIDESK] Play executado com sucesso no ticket ${ticketId}.`);
         return true;
@@ -217,7 +217,7 @@ const solveAllChecklists = async (ticketId, headers) => {
 
 exports.finishTicket = async (ticketId, relatorioText = "Manutenção preventiva concluída.") => {
     try {
-        const agideskHeaders = { 'X-Tenant-ID': tenant, 'Authorization': `Bearer ${appKey}` };
+        const agideskHeaders = { 'X-Tenant-ID': tenant };
         
         await solveAllChecklists(ticketId, agideskHeaders);
         await new Promise(resolve => setTimeout(resolve, 3000));
