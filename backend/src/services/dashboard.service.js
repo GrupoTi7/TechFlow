@@ -11,25 +11,38 @@ async function getDashboardStats() {
     overdueCount,
     upcomingCount,
     compliantCount, 
-    ownedCount,
-    rentedCount,
+    rawOwnedCount, // Contagem bruta (ainda inclui servidores)
+    rawRentedCount, // Contagem bruta (ainda inclui servidores)
     preventivesLast7Days,
     preventivesLast30Days,
     preventivesLast90Days,
-    // 🟢 1. BUSCAMOS EXCLUSIVAMENTE A INFRAESTRUTURA
-    infraCount 
+    infraCount,
+    
+    // 🟢 1. O FILTRO DE SERVIDORES: Conta quantos servidores existem na base
+    serverCount,
+    
+    // 🟢 2. SERVIDORES COMPRADOS: Para remover da caixinha de "Comprados"
+    serverOwnedCount,
+    
+    // 🟢 3. SERVIDORES ALUGADOS: Para remover da caixinha de "Alugados"
+    serverRentedCount
+
   ] = await Promise.all([
     prisma.device.count({ where: { isActive: true } }),
     prisma.device.count({ where: { isActive: true, nextPreventiveDate: { lt: today, not: null } } }),
     prisma.device.count({ where: { isActive: true, nextPreventiveDate: { gte: today, lte: thirtyDaysFromNow } } }),
     prisma.device.count({ where: { isActive: true, nextPreventiveDate: { gte: today } } }),
+    
+    // Contagem de Nomenclatura Padrão
     prisma.device.count({ where: { isActive: true, OR: [{ name: { startsWith: 'PTR' } }, { name: { startsWith: 'TRC' } }] } }),
     prisma.device.count({ where: { isActive: true, OR: [{ name: { startsWith: 'NETSITE' } }, { name: { startsWith: 'VIVO' } }, { name: { startsWith: 'SOROCAMP' } }, { name: { startsWith: 'INFOBRAS' } }, { name: { startsWith: 'LENOVO' } }] } }),
+    
+    // Preventivas
     prisma.preventive.count({ where: { date: { gte: subDays(today, 7) } } }),
     prisma.preventive.count({ where: { date: { gte: subDays(today, 30) } } }),
     prisma.preventive.count({ where: { date: { gte: ninetyDaysAgo } } }),
     
-    // 🟢 A MÁGICA: Conta apenas se for switch, ap, wifi, etc.
+    // Filtro Infra
     prisma.device.count({
       where: {
         isActive: true,
@@ -40,11 +53,56 @@ async function getDashboardStats() {
           { deviceType: { contains: 'access point' } }
         ]
       }
+    }),
+
+    // 🟢 A CAÇA AOS SERVIDORES
+    prisma.device.count({
+        where: {
+          isActive: true,
+          OR: [
+            { name: { contains: 'SRV' } },
+            { name: { contains: 'VMware' } },
+            { name: { contains: 'Servidor' } },
+            { deviceType: { contains: 'server' } }
+          ]
+        }
+    }),
+
+    prisma.device.count({
+        where: {
+          isActive: true,
+          OR: [
+            { name: { contains: 'SRV' } },
+            { name: { contains: 'VMware' } },
+            { name: { contains: 'Servidor' } }
+          ],
+          AND: {
+              OR: [{ name: { startsWith: 'PTR' } }, { name: { startsWith: 'TRC' } }]
+          }
+        }
+    }),
+
+    prisma.device.count({
+        where: {
+          isActive: true,
+          OR: [
+            { name: { contains: 'SRV' } },
+            { name: { contains: 'VMware' } },
+            { name: { contains: 'Servidor' } }
+          ],
+          AND: {
+              OR: [{ name: { startsWith: 'NETSITE' } }, { name: { startsWith: 'VIVO' } }, { name: { startsWith: 'SOROCAMP' } }, { name: { startsWith: 'INFOBRAS' } }, { name: { startsWith: 'LENOVO' } }]
+          }
+        }
     })
   ]);
 
-  // 🟢 2. A MATEMÁTICA: O resto é computador/servidor
-  const computerCount = totalDevices - infraCount;
+  // 🟢 A MATEMÁTICA LIMPA: Removemos infraestrutura E servidores da contagem de utilizadores finais.
+  const computerCount = Math.max(0, totalDevices - infraCount - serverCount);
+  
+  // Limpamos os servidores das contagens de propriedade
+  const ownedCount = Math.max(0, rawOwnedCount - serverOwnedCount);
+  const rentedCount = Math.max(0, rawRentedCount - serverRentedCount);
 
   const preventivesList = await prisma.preventive.findMany({
       where: { date: { gte: ninetyDaysAgo } },
@@ -63,11 +121,11 @@ async function getDashboardStats() {
     overdueCount,
     upcomingCount,
     compliantCount, 
-    ownedCount,
-    rentedCount,
+    ownedCount,        // 🟢 Número já filtrado sem servidores
+    rentedCount,       // 🟢 Número já filtrado sem servidores
     preventiveChartData,
-    computerCount, // 🟢 3. Enviamos o número de PCs para a tela
-    infraCount     // 🟢 4. Enviamos o número de Infra para a tela
+    computerCount,     // 🟢 Número já filtrado sem servidores
+    infraCount 
   };
 }
 
