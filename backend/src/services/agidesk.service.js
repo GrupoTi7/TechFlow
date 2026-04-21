@@ -26,7 +26,6 @@ exports.createPreventiveTicket = async (deviceName, deviceType, techIdentifier, 
         const isEmail = techIdentifier.includes('@');
         const searchParams = isEmail ? { email: techIdentifier } : { username: techIdentifier };
         
-        // 🟢 ADICIONADO O TOKEN NO HEADER PARA GARANTIR A AUTENTICAÇÃO
         const agideskHeaders = { 
             'X-Tenant-ID': tenant,
             'Authorization': `Bearer ${appKey}`
@@ -56,13 +55,12 @@ exports.createPreventiveTicket = async (deviceName, deviceType, techIdentifier, 
             assetId = 2799; 
             console.log(`--> [AGIDESK] 2. Ativo PC-TESTE fixado (ID: 2799)`);
         } else {
+            // 🟢 BLOCO TRY/CATCH AJUSTADO PARA CAPTURAR ERRO REAL
             try {
                 console.log(`--> [AGIDESK] Procurando máquina: "${deviceName}"...`);
                 const assetRes = await axios.get(`${AGIDESK_API}/assets?app_key=${appKey}`, {
                     params: { search: deviceName }, headers: agideskHeaders, httpsAgent
                 });
-                
-                console.log(`--> [AGIDESK] A busca retornou ${assetRes.data ? assetRes.data.length : 0} possíveis resultados.`);
                 
                 if (assetRes.data && assetRes.data.length > 0) {
                     const ativoEncontrado = assetRes.data.find(item => item.title && item.title.toUpperCase().includes(deviceName.toUpperCase()));
@@ -72,9 +70,14 @@ exports.createPreventiveTicket = async (deviceName, deviceType, techIdentifier, 
                     }
                 }
             } catch (err) {
-                // 🟢 MICROFONE LIGADO: Vamos ouvir o motivo exato do 403!
-                const errorDetails = err.response?.data ? JSON.stringify(err.response.data) : err.message;
-                console.error(`--> [AGIDESK] Erro API Assets (${err.response?.status}):`, errorDetails);
+                if (err.response) {
+                    console.error(`--> [AGIDESK] ERRO REAL DO SERVIDOR NA BUSCA (Status ${err.response.status}):`, {
+                        dados: err.response.data,
+                        mensagem: err.response.data?.message || err.response.data?.error || "Sem mensagem detalhada"
+                    });
+                } else {
+                    console.error(`--> [AGIDESK] Erro de rede ou timeout ao pesquisar máquina:`, err.message);
+                }
             }
         }
 
@@ -83,6 +86,7 @@ exports.createPreventiveTicket = async (deviceName, deviceType, techIdentifier, 
             const tituloLimpo = `${actionType}: ${deviceName}`;
             const randomId = Math.floor(10000 + Math.random() * 90000);
             
+            // 🟢 PLANO B (FALLBACK): Se a máquina não for achada, o TechFlow avisa mas NÃO trava mais.
             const alertaFallback = (!assetId && !isInfra) 
                 ? `<br><br><p style="color: #d93025;"><b>⚠️ ATENÇÃO:</b> A máquina <b>${deviceName}</b> não foi vinculada automaticamente a este chamado porque o nome dela no Agidesk não bateu exatamente com o nome no TechFlow.</p>` 
                 : '';
@@ -154,12 +158,10 @@ exports.createPreventiveTicket = async (deviceName, deviceType, techIdentifier, 
                 response = await axios.post(`${AGIDESK_API}/issues?app_key=${appKey}`, params, axiosConfig);
                 if (response.data && response.data.error) throw new Error(response.data.error_message);
             } catch (err) {
-                // 🟢 MICROFONE LIGADO: Extraindo a resposta exata do erro na criação do ticket
                 const errorPayload = err.response?.data ? JSON.stringify(err.response.data) : err.message;
                 console.error(`❌ [AGIDESK] Erro API Issues (${err.response?.status}):`, errorPayload);
                 
                 if (errorPayload.includes('invalid_teams_users')) {
-                    console.warn(`⚠️ [AGIDESK] Bypass de equipe acionado...`);
                     params.delete('responsible_id'); 
                     response = await axios.post(`${AGIDESK_API}/issues?app_key=${appKey}`, params, axiosConfig);
                     if (response.data && response.data.error) throw new Error(response.data.error_message);
@@ -177,7 +179,7 @@ exports.createPreventiveTicket = async (deviceName, deviceType, techIdentifier, 
 };
 
 // ==========================================
-// FUNÇÕES DE TIMER E CHECKLIST (Mantidas iguais)
+// FUNÇÕES DE TIMER E CHECKLIST (Mantidas)
 // ==========================================
 exports.startTicketTimer = async (ticketId) => {
     try {
