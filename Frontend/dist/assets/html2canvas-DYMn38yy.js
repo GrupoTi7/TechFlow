@@ -1,0 +1,1 @@
+import{t as e}from"./index-sePpIglo.js";export default e();
