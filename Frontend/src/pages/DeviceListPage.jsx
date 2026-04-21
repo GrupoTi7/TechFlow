@@ -178,7 +178,7 @@ function DeviceListPage() {
       <Paper p="xl" radius="md" withBorder style={{ borderLeft: `6px solid ${BRAND_BLUE}` }}>
         <Group justify="space-between" align="center">
             <div>
-                <Title order={2} fw={800} c="red">{filterType === 'all' ? 'INVENTARIO TESTE' : `Inventário: ${filterLabels[filterType] || filterType}`}</Title>
+                <Title order={2} fw={800} c="dark.5">{filterType === 'all' ? 'Inventário de Ativos' : `Inventário: ${filterLabels[filterType] || filterType}`}</Title>
                 <Text c="dimmed" size="sm" mt={4}>Dispositivos da empresa em um só lugar.</Text>
             </div>
             <Button variant="light" color={BRAND_BLUE} onClick={fetchDevices} loading={isLoading} leftSection={<IconRefresh size={18}/>} size="md">Atualizar Lista</Button>
