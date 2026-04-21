@@ -56,33 +56,58 @@ exports.createPreventiveTicket = async (deviceName, deviceType, techIdentifier, 
             assetId = 2799; 
             console.log(`--> [AGIDESK] 2. Ativo PC-TESTE fixado (ID: 2799)`);
         } else {
-            try {
-                console.log(`--> [AGIDESK] Procurando máquina: "${deviceName}"...`);
-                
-                // 🟢 A CORREÇÃO DEFINITIVA: 'search' é o parâmetro correto e forçamos limite alto!
-                const assetRes = await axios.get(`${AGIDESK_API}/assets?app_key=${appKey}`, {
-                    params: { search: deviceName, limit: 1000 }, headers: { 'X-Tenant-ID': tenant }, httpsAgent
-                });
-                
-                console.log(`--> [AGIDESK] A busca retornou ${assetRes.data ? assetRes.data.length : 0} itens da API.`);
-                
-                if (assetRes.data && assetRes.data.length > 0) {
-                    const normalizeName = (name) => String(name).replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
-                    const searchTarget = normalizeName(deviceName);
+            // 🟢 MOTOR DE BUSCA AVANÇADO: Varredura Profunda por Páginas
+            console.log(`--> [AGIDESK] Iniciando Varredura Profunda pela máquina: "${deviceName}"...`);
+            
+            let page = 1;
+            let maxPages = 50; // Limite de segurança para não rodar infinito (aprox. 5000 máquinas)
+            
+            const normalizeName = (name) => String(name).replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+            const searchTarget = normalizeName(deviceName);
 
-                    const ativoEncontrado = assetRes.data.find(item => {
+            while (page <= maxPages && !assetId) {
+                try {
+                    // Enviamos title e search para tentar forçar o filtro, mas preparamos a paginação
+                    const assetRes = await axios.get(`${AGIDESK_API}/assets?app_key=${appKey}`, {
+                        params: { search: deviceName, title: deviceName, limit: 100, page: page }, 
+                        headers: { 'X-Tenant-ID': tenant }, 
+                        httpsAgent
+                    });
+                    
+                    const items = assetRes.data;
+                    
+                    if (!items || items.length === 0) {
+                        console.log(`--> [AGIDESK] Fim da base de dados alcançado na página ${page}.`);
+                        break; // Acabaram as máquinas no Agidesk
+                    }
+
+                    // Tenta encontrar a máquina nesta página
+                    const ativoEncontrado = items.find(item => {
                         return item.title && normalizeName(item.title).includes(searchTarget);
                     });
 
                     if (ativoEncontrado) {
                         assetId = ativoEncontrado.id;
-                        console.log(`--> [AGIDESK] SUCESSO: Máquina encontrada! ID Agidesk = ${assetId}`);
-                    } else {
-                        console.log(`--> [AGIDESK] Máquina NÃO encontrada na lista recebida.`);
+                        console.log(`--> [AGIDESK] 🎯 SUCESSO: Máquina encontrada na Página ${page}! ID Agidesk = ${assetId}`);
+                        break;
                     }
+
+                    // Se a API retornou menos de 100 itens, significa que esta era a última página
+                    if (items.length < 100) {
+                        console.log(`--> [AGIDESK] Fim da base de dados alcançado na página ${page} (últimos itens).`);
+                        break;
+                    }
+
+                    // Se não encontrou e a página estava cheia, vai para a próxima página!
+                    page++;
+                } catch (err) {
+                    console.error(`--> [AGIDESK] Erro de rede ao pesquisar na página ${page}:`, err.message);
+                    break;
                 }
-            } catch (err) {
-                console.error(`--> [AGIDESK] Erro de rede ou permissão ao pesquisar máquina:`, err.message);
+            }
+
+            if (!assetId) {
+                console.log(`--> [AGIDESK] ❌ Máquina NÃO encontrada após varrer ${page} páginas.`);
             }
         }
 
@@ -160,7 +185,7 @@ exports.createPreventiveTicket = async (deviceName, deviceType, techIdentifier, 
                 const errorPayload = err.response?.data ? JSON.stringify(err.response.data) : err.message;
                 
                 if (errorPayload.includes('requiredfield_asset')) {
-                    throw new Error(`O Agidesk exige que a máquina "${deviceName}" seja vinculada a este chamado, mas a API não conseguiu encontrá-la no inventário.`);
+                    throw new Error(`O Agidesk exige o vínculo obrigatório desta máquina, mas ela não foi encontrada na base de dados (varredura completa). Verifique no Agidesk se o cadastro existe e está Ativo.`);
                 }
                 
                 if (errorPayload.includes('invalid_teams_users')) {
