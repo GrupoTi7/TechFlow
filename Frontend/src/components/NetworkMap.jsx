@@ -92,7 +92,6 @@ const ZoneNode = memo(({ data, selected }) => {
 const nodeTypes = { device: DeviceNode, zone: ZoneNode, bgImage: ImageBackgroundNode };
 
 export default function NetworkMap({ devices, filterType = 'switch' }) {
-  // 🟢 A TRAVA ABSOLUTA: Reconhece o AP sem margem de erro.
   const isAPMap = filterType && (
     filterType.toLowerCase().includes('access point') || 
     filterType.toLowerCase() === 'ap' || 
@@ -100,9 +99,6 @@ export default function NetworkMap({ devices, filterType = 'switch' }) {
   );
 
   const [activeTab, setActiveTab] = useState('matriz'); 
-  
-  // 🟢 O CONTEXTO FORÇADO: Ignora o 'activeTab' se estivermos na página de AP.
-  // Isso garante que NENHUMA requisição vaze para os Switches.
   const currentContext = isAPMap ? 'aps' : activeTab;
 
   const [nodes, setNodes] = useState([]);
@@ -162,7 +158,6 @@ export default function NetworkMap({ devices, filterType = 'switch' }) {
 
   const loadTopology = async () => {
     try {
-      // 🟢 Todas as requisições usam o currentContext blindado
       const dbZones = await getMapZones(currentContext);
       const zoneNodes = dbZones.map(z => ({
         id: `zone-${z.id}`, type: 'zone', position: { x: z.x, y: z.y }, style: { width: z.width, height: z.height },
@@ -179,7 +174,7 @@ export default function NetworkMap({ devices, filterType = 'switch' }) {
 
       const currentBg = localStorage.getItem(`map_bg_${currentContext}`);
       const bgNode = currentBg ? [{
-        id: 'bg-image-node', type: 'bgImage', position: { x: 0, y: 0 }, data: { url: currentBg }, selectable: false, draggable: false, zIndex: -100       
+        id: 'bg-image-node', type: 'bgImage', position: { x: 0, y: 0 }, data: { url: currentBg }, selectable: false, draggable: false, zIndex: -100      
       }] : [];
 
       setNodes([...bgNode, ...zoneNodes, ...deviceNodes]);
@@ -246,6 +241,17 @@ export default function NetworkMap({ devices, filterType = 'switch' }) {
     for (const edge of edgesToDelete) await deleteNetworkLink(edge.id);
   };
 
+  // 🟢 CORREÇÃO: Permite apagar a máquina pressionando "Delete" no teclado
+  const onNodesDelete = async (nodesToDelete) => {
+    for (const node of nodesToDelete) {
+      if (node.type === 'device') {
+        try { await deleteDevice(node.data.id); } catch(e) { console.error("Erro ao apagar:", e); }
+      } else if (node.type === 'zone') {
+        try { await deleteMapZone(node.data.id); } catch(e) { console.error("Erro ao apagar zona:", e); }
+      }
+    }
+  };
+
   const onNodeClick = (event, node) => {
     if (node.type === 'device') { 
       setSelectedDevice(node); 
@@ -266,17 +272,34 @@ export default function NetworkMap({ devices, filterType = 'switch' }) {
     try { await clearAllLinks(currentContext); await loadTopology(); } catch(e) { alert("Erro ao limpar cabos."); }
   };
 
+  // 🟢 CORREÇÃO: Lógica de adição de equipamento manual blindada
   const handleAddManualDevice = async () => {
     if (!newData.name) return alert("O nome é obrigatório!");
     try {
-      const newDev = await createManualDevice({ name: newData.name, ipAddress: newData.ip, deviceType: newData.type });
+      const res = await createManualDevice({ name: newData.name, ipAddress: newData.ip, deviceType: newData.type });
       setNewDeviceModal(false);
       setNewData({ name: '', ip: '', type: isAPMap ? 'Access Point' : 'Switch' });
-      if (newDev && newDev.id) {
-         const newNode = { id: String(newDev.id), type: 'device', position: { x: 100, y: 100 }, zIndex: 10, data: { id: newDev.id, label: newData.name, ip: newData.ip, type: newData.type, isAPMap: isAPMap } };
+      
+      // Captura o objeto 'device' corretamente da resposta do backend
+      const createdDevice = res.device || res.data?.device || res;
+
+      if (createdDevice && createdDevice.id) {
+         const newNode = { 
+           id: String(createdDevice.id), 
+           type: 'device', 
+           position: { x: 300, y: 200 }, // Aparece no meio da tela e não no canto escondido
+           zIndex: 10, 
+           data: { id: createdDevice.id, label: newData.name, ip: newData.ip, type: newData.type, isAPMap: isAPMap } 
+         };
          setNodes((nds) => [...nds, newNode]);
-      } else { window.location.reload(); }
-    } catch (error) { console.error(error); }
+      } else { 
+         // Fallback de segurança apenas se o banco demorar a responder
+         window.location.reload(); 
+      }
+    } catch (error) { 
+        console.error(error); 
+        alert("Erro ao criar equipamento.");
+    }
   };
 
   const handleSaveLayout = async () => {
@@ -299,21 +322,14 @@ export default function NetworkMap({ devices, filterType = 'switch' }) {
 
   const handleUploadZabbix = async (file) => {
     if (!file) return;
-    console.log("1. Ficheiro Zabbix recebido no Frontend:", file.name);
-    
     const reader = new FileReader();
     reader.onload = async (e) => {
       try {
-        console.log("2. Ficheiro lido. A transformar em JSON...");
         const json = JSON.parse(e.target.result);
-        
-        console.log("3. JSON pronto! A enviar para Aba: " + currentContext);
         await importZabbixData(json, currentContext); 
-        
         alert("Importado com sucesso!"); 
         await loadTopology(); 
       } catch (err) { 
-        console.error("❌ Erro interno no Frontend:", err);
         alert("Erro ao importar: " + err.message); 
       } finally {
         if (zabbixInputRef.current) zabbixInputRef.current.value = '';
@@ -548,7 +564,7 @@ export default function NetworkMap({ devices, filterType = 'switch' }) {
                     setNodes((nds) => nds.filter((n) => n.id !== selectedDevice.id));
                     setEdges((eds) => eds.filter((e) => e.source !== selectedDevice.id && e.target !== selectedDevice.id));
                     setSelectedDevice(null);
-                  } catch(e) { alert("Erro ao excluir."); }
+                  } catch(e) { alert("Erro ao excluir. A máquina pode ter amarras."); }
                 }
               }} leftSection={<IconTrash size={16}/>}>Apagar do Banco de Dados</Button>
           </Stack>
@@ -582,6 +598,7 @@ export default function NetworkMap({ devices, filterType = 'switch' }) {
           onNodeDragStop={onNodeDragStop} 
           onConnect={onConnect} 
           onEdgesDelete={onEdgesDelete} 
+          onNodesDelete={onNodesDelete}   // 🟢 Nova propriedade injetada!
           onNodeClick={onNodeClick} 
           nodeTypes={nodeTypes} 
           fitView
