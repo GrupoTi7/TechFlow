@@ -30,15 +30,6 @@ function App() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth(); 
-
-  // --- CORREÇÃO DA PERMISSÃO ---
-  // Agora aceita 'admin' (seed), 'sync', 'vinicius.izidoro' OU qualquer usuário com role 'ADMIN'
-  const isAdmin = user && (
-      user.username === 'admin' || 
-      user.username === 'sync' || 
-      user.username === 'vinicius.izidoro' || 
-      user.role === 'ADMIN'
-  );
   
   const handleLogout = () => {
     localStorage.removeItem('authToken');
@@ -115,7 +106,7 @@ function App() {
                   label="Dispositivos"
                   leftSection={<IconDeviceDesktop size="1.2rem" stroke={1.5} />}
                   component={Link} 
-                  to="/devices/categories" // 🟢 MUDANÇA AQUI! Aponta para a tela de cartões
+                  to="/devices/categories"
                   active={location.pathname.startsWith('/devices')}
                   styles={getNavLinkStyles(location.pathname.startsWith('/devices'))}
                   onClick={() => { if(window.innerWidth < 768) toggleMobile() }}
@@ -129,22 +120,19 @@ function App() {
                   onClick={() => { if(window.innerWidth < 768) toggleMobile() }}
                 />
 
-                {isAdmin && (
-                  <>
-                    <Text c="white" size="xs" fw={700} tt="uppercase" mt="xl" mb="xs" style={{ opacity: 0.7, paddingLeft: 12 }}>
-                        Configurações
-                    </Text>
-                    {/* LINK PARA SERVIÇOS & PARÂMETROS */}
-                    <NavLink
-                      label="Serviços & Parâmetros"
-                      leftSection={<IconBriefcase size="1.2rem" stroke={1.5} />}
-                      component={Link} to="/services"
-                      active={location.pathname.startsWith('/services')}
-                      styles={getNavLinkStyles(location.pathname.startsWith('/services'))}
-                      onClick={() => { if(window.innerWidth < 768) toggleMobile() }}
-                    />
-                  </>
-                )}
+                {/* 🟢 O CADEADO FOI REMOVIDO! Esta aba agora é livre para todos. */}
+                <Text c="white" size="xs" fw={700} tt="uppercase" mt="xl" mb="xs" style={{ opacity: 0.7, paddingLeft: 12 }}>
+                    Configurações
+                </Text>
+                
+                <NavLink
+                  label="Serviços & Parâmetros"
+                  leftSection={<IconBriefcase size="1.2rem" stroke={1.5} />}
+                  component={Link} to="/services"
+                  active={location.pathname.startsWith('/services')}
+                  styles={getNavLinkStyles(location.pathname.startsWith('/services'))}
+                  onClick={() => { if(window.innerWidth < 768) toggleMobile() }}
+                />
             </div>
         </AppShell.Section>
         
