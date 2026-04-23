@@ -52,11 +52,8 @@ function HomePage() {
       try {
         const data = await getDashboardStats(); 
         if (data.success) {
-          // 🟢 Filtro de Higiene: Subtrair servidores das contagens (SRV ou VMware)
           const rawStats = data.stats;
           
-          // Se o backend enviar a lista de dispositivos dentro de 'rawStats', podemos contar os servidores.
-          // Se não enviar, e só mandar os números finais, usamos uma lógica segura caso o backend seja alterado depois.
           let serverCount = 0;
           let serverOwnedCount = 0;
           let serverRentedCount = 0;
@@ -77,7 +74,6 @@ function HomePage() {
 
           setStats({
               ...rawStats,
-              // Ajusta os números retirando os servidores
               computerCount: Math.max(0, (rawStats.computerCount || 0) - serverCount),
               ownedCount: Math.max(0, (rawStats.ownedCount || 0) - serverOwnedCount),
               rentedCount: Math.max(0, (rawStats.rentedCount || 0) - serverRentedCount),
@@ -169,12 +165,14 @@ function HomePage() {
           />
         </Grid.Col>
         <Grid.Col span={{ base: 12, md: 6, lg: 3 }}>
+          {/* 🟢 A MÁGICA ACONTECE AQUI: Adicionado o onClick para o filtro compliant */}
           <StatCard 
             title="Em Conformidade" 
             value={inComplianceCount}
             description="Ativos com a preventiva planejada."
             icon={<IconCircleCheck />} 
             color={VIVID_GREEN} 
+            onClick={() => handleCardClick('compliant')} 
           />
         </Grid.Col>
         <Grid.Col span={{ base: 12, md: 6, lg: 3 }}>
