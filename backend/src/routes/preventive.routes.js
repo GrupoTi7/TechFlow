@@ -1,5 +1,4 @@
 // src/routes/preventive.routes.js
-
 const express = require('express');
 const router = express.Router();
 const preventiveController = require('../controllers/preventive.controller');
@@ -8,11 +7,18 @@ const { authenticateToken } = require('../middleware/auth.middleware');
 
 // --- ROTAS DE REGISTRO INTERNO (TechFlow) ---
 
-// Rota para LISTAR (GET)
+// Rota para LISTAR preventivas de uma máquina específica
 router.get(
   '/devices/:deviceId/preventives', 
   authenticateToken, 
   preventiveController.getPreventivesByDevice
+);
+
+// 🟢 NOVA ROTA: Listar TODAS as preventivas (Histórico Global)
+router.get(
+  '/preventives', 
+  authenticateToken, 
+  preventiveController.getAllPreventives
 );
 
 // Rota para CRIAR (POST) registro no banco local
@@ -30,26 +36,8 @@ router.delete(
 );
 
 // --- 🚀 INTEGRAÇÃO AGIDESK ---
-
-// 1. Cria o ticket no Agidesk (e devolve o ID)
-router.post(
-  '/agidesk/start', 
-  authenticateToken, 
-  agideskController.startTicket
-);
-
-// 2. Dá o Play no cronômetro do Agidesk
-router.post(
-  '/agidesk/play', 
-  authenticateToken, 
-  agideskController.playTicket
-);
-
-// 3. Encerra o ticket no Agidesk
-router.post(
-  '/agidesk/finish', 
-  authenticateToken, 
-  agideskController.finishTicket
-);
+router.post('/agidesk/start', authenticateToken, agideskController.startTicket);
+router.post('/agidesk/play', authenticateToken, agideskController.playTicket);
+router.post('/agidesk/finish', authenticateToken, agideskController.finishTicket);
 
 module.exports = router;

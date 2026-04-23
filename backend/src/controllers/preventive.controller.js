@@ -1,79 +1,72 @@
 // src/controllers/preventive.controller.js
 const preventiveService = require('../services/preventive.service');
 
-// Função para criar uma nova preventiva
 async function createPreventive(req, res) {
-  try {
-    const { deviceId } = req.params;
+  try {
+    const { deviceId } = req.params;
+    const { date, notes } = req.body; 
+    const technicianName = req.user.username; 
 
-    // 1. LEIA APENAS A DATA E AS NOTAS
-    const { date, notes } = req.body; 
+    if (!date || !technicianName) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Data e técnico (do token) são obrigatórios.' 
+      });
+    }
 
-    // 2. LEIA O NOME DO USUÁRIO DO TOKEN
-    const technicianName = req.user.username; 
+    const preventiveData = {
+      date: new Date(date),
+      technician: technicianName,
+      notes: notes
+    };
 
-    if (!date || !technicianName) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Data e técnico (do token) são obrigatórios.' 
-      });
-    }
-
-    // 3. CONSTRUA O OBJETO DE DADOS
-    const preventiveData = {
-      date: new Date(date),
-      technician: technicianName,
-      notes: notes
-    };
-
-    const newPreventive = await preventiveService.addPreventive(deviceId, preventiveData);
+    const newPreventive = await preventiveService.addPreventive(deviceId, preventiveData);
     
-    res.status(201).json({ 
-      success: true, 
-      message: 'Preventiva registada com sucesso!', 
-      preventive: newPreventive 
-    });
+    res.status(201).json({ 
+      success: true, 
+      message: 'Preventiva registada com sucesso!', 
+      preventive: newPreventive 
+    });
 
-  } catch (error) {
-    // --- MELHORIA: Adicionado log de erro ---
+  } catch (error) {
     console.error('Erro no controller createPreventive:', error);
-    // --- FIM DA MELHORIA ---
-
-    res.status(500).json({ 
+    res.status(500).json({ 
         success: false, 
         message: 'Erro ao criar preventiva.', 
         error: error.message 
     });
-  }
+  }
 }
 
 async function getPreventivesByDevice(req, res) {
-  try {
-    const { deviceId } = req.params;
-
-    // --- CORREÇÃO AQUI ---
-    // Alterado de findPreventivesForDevice para findPreventivesByDevice
-    const preventives = await preventiveService.findPreventivesByDevice(deviceId); 
-    // --- FIM DA CORREÇÃO ---
-
-    res.status(200).json({ success: true, preventives });
-
-  } catch (error) {
-
+  try {
+    const { deviceId } = req.params;
+    const preventives = await preventiveService.findPreventivesByDevice(deviceId); 
+    res.status(200).json({ success: true, preventives });
+  } catch (error) {
     console.error('Erro no controller getPreventivesByDevice:', error); 
-    
-    res.status(500).json({ 
+    res.status(500).json({ 
         success: false, 
         message: 'Erro ao buscar preventivas.', 
         error: error.message 
     });
-  }
+  }
 }
 
-// Nova função para apagar
+// 🟢 NOVA FUNÇÃO: Busca o histórico completo de todas as máquinas
+async function getAllPreventives(req, res) {
+  try {
+    const preventives = await preventiveService.findAllPreventives();
+    res.status(200).json({ success: true, preventives });
+  } catch (error) {
+    console.error('Erro no controller getAllPreventives:', error);
+    res.status(500).json({ success: false, message: 'Erro ao buscar todo o histórico.', error: error.message });
+  }
+}
+
 async function deletePreventive(req, res) {
   try {
-    const { id } = req.params; // Pega o ID da preventiva (ex: /api/preventives/abc123)
+    const { id } = req.params; 
     await preventiveService.deletePreventive(id);
     res.status(200).json({ success: true, message: 'Preventiva apagada com sucesso.' });
   } catch (error) {
@@ -82,8 +75,21 @@ async function deletePreventive(req, res) {
   }
 }
 
+async function findAllPreventives() {
+  return await prisma.preventive.findMany({
+    include: {
+      device: true // Puxa os dados da máquina junto para a tabela do frontend!
+    },
+    orderBy: {
+      date: 'desc' // Ordena da mais recente para a mais antiga
+    }
+  });
+}
+
 module.exports = { 
   createPreventive,
   getPreventivesByDevice,
-  deletePreventive
+  getAllPreventives, 
+  deletePreventive,
+  findAllPreventives
 };

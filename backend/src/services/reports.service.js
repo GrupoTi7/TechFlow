@@ -34,82 +34,90 @@ async function getTopDevicesByMaintenance() {
   }));
 }
 
-// Relatório 3: [NOVO] Quantidade de dispositivos por Setor
+// 🟢 CORRIGIDO: Relatório 3: Quantidade de dispositivos por Setor
+// Agora lê o campo de texto 'setor' direto do dispositivo e agrupa os vazios em 'Sem Setor'
 async function getDevicesBySector() {
   const data = await prisma.$queryRaw`
-    SELECT s.name, COUNT(d.id) as count
-    FROM devices d
-    LEFT JOIN sectors s ON d.sectorId = s.id
-    GROUP BY s.name
+    SELECT 
+      CASE 
+        WHEN setor IS NULL OR TRIM(setor) = '' THEN 'Sem Setor / N/D'
+        ELSE setor 
+      END as name, 
+      COUNT(id) as count
+    FROM devices
+    GROUP BY name
     ORDER BY count DESC;
   `;
 
   return data.map(item => ({
-    name: item.name || 'Sem Setor',
+    name: item.name,
     value: Number(item.count),
   }));
 }
 
-// Relatório 4: [NOVO] Status (Lógica via JavaScript)
+// 🟢 CORRIGIDO: Relatório 4: Status (Compliance)
+// Agora usa o 'nextPreventiveDate' real e as mesmas 4 categorias exatas da HomePage
 async function getComplianceStatus() {
-  // 1. Busca todos os dispositivos com o setor incluso
+  // Busca apenas a data do próximo agendamento para ficar ultra-rápido
   const devices = await prisma.device.findMany({
-    include: {
-      sector: true 
-    }
+    select: { nextPreventiveDate: true }
   });
 
   let emDia = 0;
+  let atencao = 0;
   let vencidos = 0;
-  let semDados = 0;
+  let semAgendamento = 0;
   
-  const hoje = new Date();
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  const limit = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // +30 dias
 
-  // 2. Itera para calcular as datas
   devices.forEach(device => {
-    if (!device.lastPreventiveDate) {
-      semDados++;
-      return; 
-    }
-
-    const ultimaData = new Date(device.lastPreventiveDate);
-    // Usa intervalo do setor ou padrão de 30 dias
-    const intervaloDias = device.sector?.maintenanceInterval || 30;
-    
-    const dataVencimento = new Date(ultimaData);
-    dataVencimento.setDate(ultimaData.getDate() + intervaloDias);
-
-    if (dataVencimento < hoje) {
-      vencidos++;
+    if (!device.nextPreventiveDate) {
+      semAgendamento++;
     } else {
-      emDia++;
+      const nextDate = new Date(device.nextPreventiveDate);
+      nextDate.setHours(0, 0, 0, 0);
+      
+      if (nextDate < now) {
+          vencidos++;
+      } else if (nextDate <= limit) {
+          atencao++;
+      } else {
+          emDia++;
+      }
     }
   });
 
+  // Retorna já com as cores padronizadas do sistema
   return [
-    { name: 'Em Dia', value: emDia, color: '#40c057' },
-    { name: 'Vencidos', value: vencidos, color: '#fa5252' },
-    { name: 'Nunca Realizado', value: semDados, color: '#fab005' }
-  ];
+    { name: 'Em Dia', value: emDia, color: '#05a828' },
+    { name: 'Atenção (30 dias)', value: atencao, color: '#f76707' },
+    { name: 'Vencidos', value: vencidos, color: '#d90429' },
+    { name: 'Sem Agend.', value: semAgendamento, color: '#495057' }
+  ].filter(x => x.value > 0); // Oculta categorias que estejam zeradas
 }
 
-// [NOVO] Relatório 5: Histórico de Manutenções (Últimos 6 meses)
+// 🟢 MELHORIA: Relatório 5: Histórico de Manutenções (Últimos 6 meses)
+// Alterado para usar a 'date' (Data real da manutenção) em vez da 'createdAt' (Data em que foi digitada no sistema)
 async function getMaintenanceHistory() {
-  // MySQL Query para agrupar por Mês/Ano (YYYY-MM)
   const data = await prisma.$queryRaw`
-    SELECT DATE_FORMAT(createdAt, '%Y-%m') as month, COUNT(*) as count
+    SELECT DATE_FORMAT(date, '%Y-%m') as month, COUNT(*) as count
     FROM preventives
-    WHERE createdAt >= DATE_SUB(NOW(), INTERVAL 6 MONTH)
+    WHERE date >= DATE_SUB(NOW(), INTERVAL 6 MONTH)
     GROUP BY month
     ORDER BY month ASC;
   `;
 
-  // Formata para ficar bonito no gráfico (Ex: "2025-10" -> "Out/2025")
   const formatted = data.map(item => {
     const [year, month] = item.month.split('-');
-    const date = new Date(year, month - 1);
+    // Importante: No JavaScript o mês começa do zero (0 = Janeiro)
+    const dateObj = new Date(year, parseInt(month) - 1);
+    
+    // Devolve formatado (ex: "out. de 2025" ou "10/2025" consoante o gosto. Mantivemos MM/YYYY para bater com a Home)
+    const monthStr = String(dateObj.getMonth() + 1).padStart(2, '0');
     return {
-      name: date.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' }), // Ex: out. de 2025
+      name: `${monthStr}/${year}`, 
       value: Number(item.count)
     };
   });
@@ -118,11 +126,11 @@ async function getMaintenanceHistory() {
 }
 
 
-// --- IMPORTANTE: EXPORTAR TODAS AS 4 FUNÇÕES AQUI ---
+// --- EXPORTAR TODAS AS FUNÇÕES ---
 module.exports = { 
   getPreventivesByTechnician,
   getTopDevicesByMaintenance,
-  getDevicesBySector,  // <--- Se faltar aqui, dá o erro "is not a function"
-  getComplianceStatus, // <--- Se faltar aqui, dá o erro "is not a function"
+  getDevicesBySector,  
+  getComplianceStatus, 
   getMaintenanceHistory
 };
