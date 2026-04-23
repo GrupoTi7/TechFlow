@@ -15,6 +15,7 @@ function ReportsPage() {
   const [sectorData, setSectorData] = useState([]);
   const [statusData, setStatusData] = useState([]);
   const [historyData, setHistoryData] = useState([]);
+  
   const dashboardRef = useRef(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -50,20 +51,35 @@ function ReportsPage() {
     pdf.save(`Relatorio_TechFlow_${new Date().toISOString().slice(0,10)}.pdf`);
   };
 
-  // 🟢 CÁLCULOS DE KPI (CORRIGIDOS COM TOTALSTATUSCOUNT)
+  // 🟢 CÁLCULOS DE KPI CORRIGIDOS
   const kpis = useMemo(() => {
     const totalStatusCount = statusData.reduce((acc, curr) => acc + curr.value, 0);
-    const totalDevices = totalStatusCount; 
+    const totalDevices = totalStatusCount; // Fonte da verdade absoluta
     const totalMaintenances = techReportData.reduce((acc, curr) => acc + curr.value, 0);
 
     const emDiaItem = statusData.find(d => d.name === 'Em Dia');
     const emDiaCount = emDiaItem ? emDiaItem.value : 0;
-    
     const complianceRate = totalStatusCount > 0 ? Math.round((emDiaCount / totalStatusCount) * 100) : 0;
-    const topSector = sectorData.length > 0 ? sectorData.reduce((prev, current) => (prev.value > current.value) ? prev : current) : { name: '-', value: 0 };
+    
+    // Calcula o maior setor ignorando os vazios
+    const topSector = sectorData.length > 0 
+        ? sectorData.reduce((prev, current) => (prev.value > current.value) ? prev : current) 
+        : { name: '-', value: 0 };
 
     return { totalDevices, totalMaintenances, complianceRate, topSector, totalStatusCount };
   }, [sectorData, techReportData, statusData]);
+
+  // 🟢 AJUSTE DO GRÁFICO DE SETORES: Adiciona os equipamentos sem setor para a conta bater!
+  const adjustedSectorData = useMemo(() => {
+    const sectorSum = sectorData.reduce((acc, curr) => acc + curr.value, 0);
+    const totalStatus = statusData.reduce((acc, curr) => acc + curr.value, 0);
+    
+    let newSectorData = [...sectorData];
+    if (totalStatus > sectorSum) {
+        newSectorData.push({ name: 'Sem Setor / N/D', value: totalStatus - sectorSum });
+    }
+    return newSectorData;
+  }, [sectorData, statusData]);
 
   if (isLoading) return <Center h={300}><Loader size="lg" color="#0003d9" /></Center>;
   if (error) return <Alert icon={<IconAlertTriangle/>} title="Erro" color="red">{error}</Alert>;
@@ -85,9 +101,10 @@ function ReportsPage() {
     datasets: [{ label: 'Manutenções', data: topDevicesData.map(d => d.value), backgroundColor: '#868e96', borderRadius: 4 }]
   };
 
+  // Passa o dado ajustado para o gráfico
   const sectorChartData = {
-    labels: sectorData.map(d => d.name),
-    datasets: [{ label: 'Qtd.', data: sectorData.map(d => d.value), backgroundColor: '#fab005', borderRadius: 4 }]
+    labels: adjustedSectorData.map(d => d.name),
+    datasets: [{ label: 'Qtd.', data: adjustedSectorData.map(d => d.value), backgroundColor: '#fab005', borderRadius: 4 }]
   };
 
   const statusChartData = {
@@ -168,7 +185,7 @@ function ReportsPage() {
 
         <SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
             <ChartCard title="Status dos dispositivos" hasData={statusData.length > 0}><Doughnut data={statusChartData} options={{ maintainAspectRatio: false, plugins: { legend: { position: 'right' } } }} /></ChartCard>
-            <ChartCard title="Equipamentos por Setor" hasData={sectorData.length > 0}><Bar data={sectorChartData} options={commonOptions} /></ChartCard>
+            <ChartCard title="Equipamentos por Setor" hasData={adjustedSectorData.length > 0}><Bar data={sectorChartData} options={commonOptions} /></ChartCard>
             <ChartCard title="Performance Técnica" hasData={techReportData.length > 0}><Bar data={techChartData} options={commonOptions} /></ChartCard>
             <ChartCard title="Top 10 - Manutenções Recorrentes" hasData={topDevicesData.length > 0}><Bar data={topDevicesChartData} options={commonOptions} /></ChartCard>
         </SimpleGrid>
