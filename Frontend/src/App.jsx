@@ -2,25 +2,14 @@ import React from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from './context/AuthContext.jsx';
 import { 
-  AppShell, 
-  NavLink, 
-  Title, 
-  Group, 
-  Burger,
-  ScrollArea,
-  rem,
-  Text
+  AppShell, NavLink, Title, Group, Burger, ScrollArea, rem, Text
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { 
-  IconHome, 
-  IconDeviceDesktop, 
-  IconLogout, 
-  IconHistory,
-  IconBriefcase // Ícone para Serviços
+  IconHome, IconDeviceDesktop, IconLogout, IconHistory, 
+  IconBriefcase, IconChartBar 
 } from '@tabler/icons-react';
 
-// Cor da marca
 const BRAND_BLUE = '#0003d9';
 
 function App() {
@@ -49,12 +38,8 @@ function App() {
         backgroundColor: isActive ? 'white' : 'rgba(255, 255, 255, 0.1)', 
       },
     },
-    label: {
-      fontSize: '0.95rem',
-    },
-    section: {
-      color: isActive ? BRAND_BLUE : 'white', 
-    }
+    label: { fontSize: '0.95rem' },
+    section: { color: isActive ? BRAND_BLUE : 'white' }
   });
 
   return (
@@ -70,24 +55,9 @@ function App() {
     >
       <AppShell.Header style={{ backgroundColor: BRAND_BLUE, borderBottom: 'none' }}>
         <Group h="100%" px="md">
-          <Burger 
-            opened={mobileOpened} 
-            onClick={toggleMobile} 
-            hiddenFrom="sm" 
-            size="sm" 
-            color="white" 
-          />
-          <Burger 
-            opened={desktopOpened} 
-            onClick={toggleDesktop} 
-            visibleFrom="sm" 
-            size="sm" 
-            color="white" 
-            mr="sm"
-          />
-          <Title order={3} c="white" style={{ letterSpacing: '0.5px' }}> 
-            TechFlow
-          </Title>
+          <Burger opened={mobileOpened} onClick={toggleMobile} hiddenFrom="sm" size="sm" color="white" />
+          <Burger opened={desktopOpened} onClick={toggleDesktop} visibleFrom="sm" size="sm" color="white" mr="sm"/>
+          <Title order={3} c="white" style={{ letterSpacing: '0.5px' }}>TechFlow</Title>
         </Group>
       </AppShell.Header>
 
@@ -105,14 +75,23 @@ function App() {
                 <NavLink
                   label="Dispositivos"
                   leftSection={<IconDeviceDesktop size="1.2rem" stroke={1.5} />}
-                  component={Link} 
-                  to="/devices/categories"
+                  component={Link} to="/devices/categories"
                   active={location.pathname.startsWith('/devices')}
                   styles={getNavLinkStyles(location.pathname.startsWith('/devices'))}
                   onClick={() => { if(window.innerWidth < 768) toggleMobile() }}
                 />
+                {/* 🟢 O Dashboard de Relatórios (Charts, KPIs) */}
                 <NavLink
                   label="Relatórios"
+                  leftSection={<IconChartBar size="1.2rem" stroke={1.5} />}
+                  component={Link} to="/reports"
+                  active={location.pathname === '/reports'}
+                  styles={getNavLinkStyles(location.pathname === '/reports')}
+                  onClick={() => { if(window.innerWidth < 768) toggleMobile() }}
+                />
+                {/* 🟢 A Tabela de Histórico (Destino do clique no gráfico) */}
+                <NavLink
+                  label="Histórico Completo"
                   leftSection={<IconHistory size="1.2rem" stroke={1.5} />}
                   component={Link} to="/history"
                   active={location.pathname.startsWith('/history')}
@@ -120,7 +99,6 @@ function App() {
                   onClick={() => { if(window.innerWidth < 768) toggleMobile() }}
                 />
 
-                {/* 🟢 O CADEADO FOI REMOVIDO! Esta aba agora é livre para todos. */}
                 <Text c="white" size="xs" fw={700} tt="uppercase" mt="xl" mb="xs" style={{ opacity: 0.7, paddingLeft: 12 }}>
                     Configurações
                 </Text>
@@ -143,8 +121,7 @@ function App() {
             onClick={handleLogout}
             styles={{
                 root: {
-                    color: '#ffc9c9', 
-                    borderRadius: '8px',
+                    color: '#ffc9c9', borderRadius: '8px',
                     '&:hover': { backgroundColor: 'rgba(255, 0, 0, 0.1)' }
                 },
                 section: { color: '#ffc9c9' }

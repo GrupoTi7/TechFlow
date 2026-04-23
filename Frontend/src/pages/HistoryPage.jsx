@@ -8,16 +8,12 @@ import {
   IconHistory, IconSearch, IconCalendarEvent, 
   IconX, IconArrowRight, IconUserCog 
 } from '@tabler/icons-react';
-
-// Assumindo que você tem ou vai criar esta função no seu api.js
 import { getHistory } from '../services/api.js'; 
 
 const BRAND_BLUE = '#0003d9';
 
 function HistoryPage() {
   const location = useLocation();
-  
-  // 🟢 AQUI ESTÁ A MÁGICA: Ele captura o mês que veio do clique no gráfico!
   const mesFiltroInicial = location.state?.initialMonthFilter || '';
 
   const [records, setRecords] = useState([]);
@@ -26,14 +22,20 @@ function HistoryPage() {
   const [monthFilter, setMonthFilter] = useState(mesFiltroInicial);
 
   useEffect(() => {
-    // Função para buscar o histórico no backend
     const fetchHistory = async () => {
       try {
         setIsLoading(true);
-        // Chama a API (você precisará garantir que essa rota existe no backend)
         const data = await getHistory(); 
-        if (data.success) {
-          setRecords(data.preventives || []);
+        
+        // 🟢 LÊ OS DADOS INDEPENDENTE DE COMO O BACKEND OS ENVIA
+        if (Array.isArray(data)) {
+            setRecords(data);
+        } else if (data && data.preventives) {
+            setRecords(data.preventives);
+        } else if (data && data.data) {
+            setRecords(data.data);
+        } else {
+            setRecords([]);
         }
       } catch (err) {
         console.error("Erro ao buscar histórico:", err);
@@ -41,11 +43,9 @@ function HistoryPage() {
         setIsLoading(false);
       }
     };
-
     fetchHistory();
   }, []);
 
-  // Filtra os dados com base na busca e no mês clicado no Dashboard
   const filteredRecords = useMemo(() => {
     let temp = records;
 
@@ -54,39 +54,37 @@ function HistoryPage() {
       temp = temp.filter(record => {
         if (!record.date) return false;
         const dateObj = new Date(record.date);
-        // Adiciona um zero à esquerda se for menor que 10
-        const month = String(dateObj.getMonth() + 1).padStart(2, '0');
-        const year = dateObj.getFullYear();
+        
+        // 🟢 USA UTC PARA NÃO HAVER ERRO COM FUSO HORÁRIO
+        const month = String(dateObj.getUTCMonth() + 1).padStart(2, '0');
+        const year = dateObj.getUTCFullYear();
         const recordMonthStr = `${month}/${year}`;
+        
         return recordMonthStr === monthFilter;
       });
     }
 
-    // Filtro de Texto (Busca livre)
     if (searchQuery.trim()) {
       const lower = searchQuery.toLowerCase();
       temp = temp.filter(record => 
         (record.technician?.toLowerCase() || '').includes(lower) ||
         (record.notes?.toLowerCase() || '').includes(lower) ||
-        (record.device?.name?.toLowerCase() || '').includes(lower)
+        (record.device?.name?.toLowerCase() || '').includes(lower) ||
+        (record.device?.serial?.toLowerCase() || '').includes(lower)
       );
     }
 
-    // Ordenar da mais recente para a mais antiga
     return temp.sort((a, b) => new Date(b.date) - new Date(a.date));
   }, [records, monthFilter, searchQuery]);
 
-  // Formata a data para padrão Brasileiro
   const formatDate = (dateString) => {
     if (!dateString) return 'N/D';
     const date = new Date(dateString);
-    return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'UTC' });
   };
 
   return (
     <Stack gap="lg" style={{ paddingBottom: '40px' }}>
-      
-      {/* Cabeçalho da Página */}
       <Paper p="xl" radius="md" withBorder style={{ borderLeft: `6px solid ${BRAND_BLUE}` }}>
         <Group justify="space-between" align="center">
           <div>
@@ -95,18 +93,17 @@ function HistoryPage() {
               <Title order={2} fw={800} c="dark.5">Histórico de Preventivas</Title>
             </Group>
             <Text c="dimmed" size="sm" mt={4}>
-              Registro completo de todas as manutenções realizadas.
+              Registro detalhado das manutenções realizadas.
             </Text>
           </div>
         </Group>
       </Paper>
 
-      {/* Barra de Filtros */}
       <Paper p="md" radius="md" withBorder>
         <Group grow align="flex-end">
           <TextInput 
             label="Buscar no histórico"
-            placeholder="Técnico, observação ou dispositivo..." 
+            placeholder="Técnico, observação ou equipamento..." 
             leftSection={<IconSearch size={16} />} 
             value={searchQuery} 
             onChange={(e) => setSearchQuery(e.target.value)} 
@@ -130,7 +127,6 @@ function HistoryPage() {
         </Group>
       </Paper>
 
-      {/* Tabela de Resultados */}
       <Paper withBorder radius="md" shadow="sm" style={{ overflow: 'hidden' }}>
         <div style={{ position: 'relative', minHeight: 300 }}>
           <LoadingOverlay visible={isLoading} zIndex={1000} overlayProps={{ radius: "sm", blur: 2 }} />

@@ -7,33 +7,16 @@ import ActionPlanWidget from '../components/ActionPlanWidget';
 
 import { Bar } from 'react-chartjs-2';
 import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  Title as ChartTitle,
-  Tooltip,
-  Legend,
+  Chart as ChartJS, CategoryScale, LinearScale, BarElement,
+  Title as ChartTitle, Tooltip, Legend,
 } from 'chart.js';
 
 import { 
-  IconDeviceDesktop, 
-  IconAlertTriangle, 
-  IconClock, 
-  IconCircleCheck,
-  IconHistory,
-  IconBuildingStore,
-  IconBuildingFactory
+  IconDeviceDesktop, IconAlertTriangle, IconClock, IconCircleCheck,
+  IconHistory, IconBuildingStore, IconBuildingFactory
 } from '@tabler/icons-react';
 
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  ChartTitle,
-  Tooltip,
-  Legend
-);
+ChartJS.register(CategoryScale, LinearScale, BarElement, ChartTitle, Tooltip, Legend);
 
 const BRAND_BLUE = '#0003d9';    
 const VIVID_GREEN = '#05a828';   
@@ -91,17 +74,9 @@ function HomePage() {
     fetchStats();
   }, []); 
 
-  const handleCardClick = (statusFilter) => {
-    navigate('/devices', { state: { initialStatusFilter: statusFilter } });
-  };
-  
-  const handleNomenclatureClick = (nomenclatureFilter) => {
-    navigate('/devices', { state: { initialNomenclatureFilter: nomenclatureFilter } });
-  };
-
-  const handleTypeClick = (type) => {
-    navigate('/devices', { state: { initialTypeFilter: type } });
-  };
+  const handleCardClick = (statusFilter) => navigate('/devices', { state: { initialStatusFilter: statusFilter } });
+  const handleNomenclatureClick = (nomenclatureFilter) => navigate('/devices', { state: { initialNomenclatureFilter: nomenclatureFilter } });
+  const handleTypeClick = (type) => navigate('/devices', { state: { initialTypeFilter: type } });
 
   if (isLoading) return <div>A carregar estatísticas do dashboard...</div>;
   if (error) return <div style={{ color: 'red' }}>Erro ao carregar dashboard: {error}</div>;
@@ -118,97 +93,56 @@ function HomePage() {
         backgroundColor: 'rgba(0, 3, 217, 0.7)',
         borderColor: BRAND_BLUE,
         borderWidth: 1,
-        hoverBackgroundColor: 'rgba(0, 3, 217, 0.9)', // Dá um destaque visual ao passar o rato
-        cursor: 'pointer' // Mostra a mãozinha de clique
+        hoverBackgroundColor: 'rgba(0, 3, 217, 0.9)', 
+        cursor: 'pointer' 
       },
     ],
   };
 
   const chartOptions = {
     maintainAspectRatio: false, 
-    // 🟢 A MÁGICA DO CLIQUE NO GRÁFICO
+    // 🟢 CLIQUE NO GRÁFICO (Vai para a tabela nova em /history)
     onClick: (event, elements, chart) => {
       if (elements.length > 0) {
         const dataIndex = elements[0].index;
-        const selectedMonth = chart.data.labels[dataIndex]; // Ex: "03/2026"
-        
-        // Redireciona para a tela de Relatórios passando o mês clicado
+        const selectedMonth = chart.data.labels[dataIndex]; 
         navigate('/history', { state: { initialMonthFilter: selectedMonth } });
       }
     },
-    // Faz o cursor virar "mãozinha" quando passa em cima das barras
     onHover: (event, chartElement) => {
       event.native.target.style.cursor = chartElement[0] ? 'pointer' : 'default';
     },
     plugins: {
       tooltip: {
-        backgroundColor: '#fff',
-        titleColor: '#333',
-        bodyColor: '#111',
-        borderColor: '#e0e0e0',
-        borderWidth: 1,
-        padding: 10,
+        backgroundColor: '#fff', titleColor: '#333', bodyColor: '#111', borderColor: '#e0e0e0', borderWidth: 1, padding: 10,
         callbacks: {
           label: function(context) {
               let label = context.dataset.label || '';
-              if (label) {
-                  label += ': ';
-              }
+              if (label) label += ': ';
               label += context.parsed.y + ' manutenções (Clique para ver)';
               return label;
           }
         }
       },
-      legend: {
-        display: false 
-      }
+      legend: { display: false }
     }
   };
 
   return (
     <div style={{ paddingBottom: '40px' }}>
       <Text size="xl" fw={700} mb="lg" c="dark.4">Dashboard de Preventivas</Text>
-      
       <Grid>
         <Grid.Col span={{ base: 12, md: 6, lg: 3 }}>
-          <StatCard 
-            title="Estações de Trabalho" 
-            value={stats.computerCount || 0} 
-            description={`+ ${stats.infraCount || 0} Ativos de Infra (Switches/APs)`}
-            icon={<IconDeviceDesktop />} 
-            color={BRAND_BLUE} 
-            onClick={() => handleTypeClick('computer')}
-          />
+          <StatCard title="Estações de Trabalho" value={stats.computerCount || 0} description={`+ ${stats.infraCount || 0} Ativos de Infra`} icon={<IconDeviceDesktop />} color={BRAND_BLUE} onClick={() => handleTypeClick('computer')} />
         </Grid.Col>
         <Grid.Col span={{ base: 12, md: 6, lg: 3 }}>
-          <StatCard 
-            title="Em Conformidade" 
-            value={inComplianceCount}
-            description="Ativos com a preventiva planejada."
-            icon={<IconCircleCheck />} 
-            color={VIVID_GREEN} 
-            onClick={() => handleCardClick('compliant')} 
-          />
+          <StatCard title="Em Conformidade" value={inComplianceCount} description="Ativos com a preventiva planejada." icon={<IconCircleCheck />} color={VIVID_GREEN} onClick={() => handleCardClick('compliant')} />
         </Grid.Col>
         <Grid.Col span={{ base: 12, md: 6, lg: 3 }}>
-          <StatCard 
-            title="Atenção (30 dias)" 
-            value={stats.upcomingCount || 0} 
-            description="Vencendo nos próximos 30 dias."
-            icon={<IconClock />} 
-            color={VIVID_ORANGE} 
-            onClick={() => handleCardClick('upcoming')}
-          />
+          <StatCard title="Atenção (30 dias)" value={stats.upcomingCount || 0} description="Vencendo nos próximos 30 dias." icon={<IconClock />} color={VIVID_ORANGE} onClick={() => handleCardClick('upcoming')} />
         </Grid.Col>
         <Grid.Col span={{ base: 12, md: 6, lg: 3 }}>
-          <StatCard 
-            title="Alerta Crítico" 
-            value={stats.overdueCount || 0} 
-            description="Manutenção preventiva vencida."
-            icon={<IconAlertTriangle />} 
-            color={VIVID_RED} 
-            onClick={() => handleCardClick('overdue')}
-          />
+          <StatCard title="Alerta Crítico" value={stats.overdueCount || 0} description="Manutenção preventiva vencida." icon={<IconAlertTriangle />} color={VIVID_RED} onClick={() => handleCardClick('overdue')} />
         </Grid.Col>
       </Grid>
       
@@ -226,28 +160,10 @@ function HomePage() {
             </div>
           </Card>
         </Grid.Col>
-        
         <Grid.Col span={{ base: 12, lg: 5 }}>
            <Stack gap="xl">
-             <StatCard 
-               title="Dispositivos Internos (Comprados)" 
-               value={stats.ownedCount || 0} 
-               description="Prefixos PTR e TRC."
-               icon={<IconBuildingStore />} 
-               color={BRAND_BLUE} 
-               onClick={() => handleNomenclatureClick('owned')}
-               valueSize="2.5rem" 
-             />
-             
-             <StatCard 
-               title="Dispositivos Alugados" 
-               value={stats.rentedCount || 0} 
-               description="Prefixos NETSITE, VIVO, SOROCAMP e INFOBRAS."
-               icon={<IconBuildingFactory />} 
-               color={VIVID_GRAY} 
-               onClick={() => handleNomenclatureClick('rented')}
-               valueSize="2.5rem" 
-             />
+             <StatCard title="Dispositivos Internos (Comprados)" value={stats.ownedCount || 0} description="Prefixos PTR e TRC." icon={<IconBuildingStore />} color={BRAND_BLUE} onClick={() => handleNomenclatureClick('owned')} valueSize="2.5rem" />
+             <StatCard title="Dispositivos Alugados" value={stats.rentedCount || 0} description="Prefixos NETSITE, VIVO, SOROCAMP e INFOBRAS." icon={<IconBuildingFactory />} color={VIVID_GRAY} onClick={() => handleNomenclatureClick('rented')} valueSize="2.5rem" />
            </Stack>
         </Grid.Col>
       </Grid>
@@ -258,50 +174,21 @@ function HomePage() {
 function StatCard({ title, value, description, icon, color, onClick, valueSize = "4rem" }) {
   const theme = useMantineTheme();
   const isDark = theme.colorScheme === 'dark';
-
-  const textColor = color.startsWith('#') 
-    ? color 
-    : (isDark ? theme.colors[color][5] : theme.colors[color][7]);
+  const textColor = color.startsWith('#') ? color : (isDark ? theme.colors[color][5] : theme.colors[color][7]);
 
   return (
     <Card 
-      withBorder 
-      radius="md" 
-      p="lg" 
-      shadow="sm" 
-      onClick={onClick}
-      style={{ 
-        cursor: onClick ? 'pointer' : 'default', 
-        transition: 'all 0.2s ease',
-        borderTop: `3px solid ${textColor}` 
-      }}
-      onMouseEnter={(e) => {
-        if(onClick) {
-            e.currentTarget.style.transform = 'translateY(-3px)';
-            e.currentTarget.style.boxShadow = theme.shadows.md;
-        }
-      }}
-      onMouseLeave={(e) => {
-        if(onClick) {
-            e.currentTarget.style.transform = 'translateY(0)';
-            e.currentTarget.style.boxShadow = theme.shadows.sm;
-        }
-      }}
+      withBorder radius="md" p="lg" shadow="sm" onClick={onClick}
+      style={{ cursor: onClick ? 'pointer' : 'default', transition: 'all 0.2s ease', borderTop: `3px solid ${textColor}` }}
+      onMouseEnter={(e) => { if(onClick) { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = theme.shadows.md; } }}
+      onMouseLeave={(e) => { if(onClick) { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = theme.shadows.sm; } }}
     >
       <Group justify="space-between">
-        <Text size="sm" c="dimmed" fw={700} tt="uppercase">
-          {title}
-        </Text>
-        <ThemeIcon color={color} variant="filled" size="lg" radius="md">
-          {icon}
-        </ThemeIcon>
+        <Text size="sm" c="dimmed" fw={700} tt="uppercase">{title}</Text>
+        <ThemeIcon color={color} variant="filled" size="lg" radius="md">{icon}</ThemeIcon>
       </Group>
-      <Text size={valueSize} fw={900} c={textColor}>
-        {value}
-      </Text>
-      <Text size="sm" c="dimmed" mt="xs">
-        {description}
-      </Text>
+      <Text size={valueSize} fw={900} c={textColor}>{value}</Text>
+      <Text size="sm" c="dimmed" mt="xs">{description}</Text>
     </Card>
   );
 }

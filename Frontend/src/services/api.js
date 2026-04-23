@@ -125,10 +125,8 @@ export const updateDeviceTicketInDb = async (deviceId, ticketId) => {
   }
 };
 
-// 🟢 TÚNEL DIRETO: Lendo o ticket (Com bloqueio de Cache)
 export const getDeviceTicketFromDb = async (deviceId) => {
   try {
-    // O "?t=" adiciona os milissegundos atuais, forçando o navegador a não usar cache!
     const response = await apiClient.get(`/api/devices/${deviceId}/ticket?t=${new Date().getTime()}`);
     return response.data.ticketId;
   } catch (error) {
@@ -371,7 +369,6 @@ export const deleteMapZone = async (id) => {
   return response.data;
 };
 
-// 🟢 FUNÇÃO DE IMPORTAÇÃO CORRIGIDA COM O CONTEXT!
 export const importZabbixData = async (zabbixData, context) => {
     try {
         const res = await apiClient.post('/api/devices/zabbix/import', { zabbixData, context });
@@ -411,7 +408,6 @@ export const pingDevices = async (ips) => {
   return response.data;
 };
 
-// 🟢 CORREÇÃO DO PATCH DE CATEGORIA PARA USAR '/api/...'
 export const updateDeviceCategory = async (id, category) => {
     try {
         const res = await apiClient.patch(`/api/devices/${id}/category`, { category });
@@ -421,10 +417,9 @@ export const updateDeviceCategory = async (id, category) => {
     }
 };
 
-// Substitua a última função do arquivo por esta:
+// 🟢 CORRIGIDO AQUI: apiClient em vez de api, e rota para /api/preventives
 export const getHistory = async () => {
   try {
-    // Usando apiClient (correto) em vez de api
     const response = await apiClient.get('/api/preventives'); 
     return response.data;
   } catch (error) {
@@ -432,6 +427,5 @@ export const getHistory = async () => {
     return { success: false, message: error.message };
   }
 };
-
 
 export default apiClient;
