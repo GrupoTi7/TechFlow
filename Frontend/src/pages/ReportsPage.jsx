@@ -99,24 +99,29 @@ function ReportsPage() {
     pdf.save(`Relatorio_TechFlow_${new Date().toISOString().slice(0,10)}.pdf`);
   };
 
-  // --- CÁLCULOS DE KPI ---
+  // --- CÁLCULOS DE KPI (CORRIGIDOS) ---
   const kpis = useMemo(() => {
-    const totalDevices = sectorData.reduce((acc, curr) => acc + curr.value, 0);
+    // 1. Fonte da Verdade: Somamos o Total de Status, pois NENHUM dispositivo escapa sem status.
+    const totalStatusCount = statusData.reduce((acc, curr) => acc + curr.value, 0);
+    const totalDevices = totalStatusCount; 
+
+    // 2. Total de Preventivas realizadas
     const totalMaintenances = techReportData.reduce((acc, curr) => acc + curr.value, 0);
 
+    // 3. Cálculo de Conformidade
     const emDiaItem = statusData.find(d => d.name === 'Em Dia');
     const emDiaCount = emDiaItem ? emDiaItem.value : 0;
-    const totalStatusCount = statusData.reduce((acc, curr) => acc + curr.value, 0);
     
     const complianceRate = totalStatusCount > 0 
         ? Math.round((emDiaCount / totalStatusCount) * 100) 
         : 0;
 
+    // 4. Maior Setor (Protegido contra arrays vazios)
     const topSector = sectorData.length > 0 
         ? sectorData.reduce((prev, current) => (prev.value > current.value) ? prev : current)
         : { name: '-', value: 0 };
 
-    return { totalDevices, totalMaintenances, complianceRate, topSector };
+    return { totalDevices, totalMaintenances, complianceRate, topSector, totalStatusCount };
   }, [sectorData, techReportData, statusData]);
 
 

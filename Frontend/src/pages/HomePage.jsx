@@ -118,12 +118,28 @@ function HomePage() {
         backgroundColor: 'rgba(0, 3, 217, 0.7)',
         borderColor: BRAND_BLUE,
         borderWidth: 1,
+        hoverBackgroundColor: 'rgba(0, 3, 217, 0.9)', // Dá um destaque visual ao passar o rato
+        cursor: 'pointer' // Mostra a mãozinha de clique
       },
     ],
   };
 
   const chartOptions = {
     maintainAspectRatio: false, 
+    // 🟢 A MÁGICA DO CLIQUE NO GRÁFICO
+    onClick: (event, elements, chart) => {
+      if (elements.length > 0) {
+        const dataIndex = elements[0].index;
+        const selectedMonth = chart.data.labels[dataIndex]; // Ex: "03/2026"
+        
+        // Redireciona para a tela de Relatórios passando o mês clicado
+        navigate('/history', { state: { initialMonthFilter: selectedMonth } });
+      }
+    },
+    // Faz o cursor virar "mãozinha" quando passa em cima das barras
+    onHover: (event, chartElement) => {
+      event.native.target.style.cursor = chartElement[0] ? 'pointer' : 'default';
+    },
     plugins: {
       tooltip: {
         backgroundColor: '#fff',
@@ -138,7 +154,7 @@ function HomePage() {
               if (label) {
                   label += ': ';
               }
-              label += context.parsed.y + ' manutenções';
+              label += context.parsed.y + ' manutenções (Clique para ver)';
               return label;
           }
         }
@@ -165,7 +181,6 @@ function HomePage() {
           />
         </Grid.Col>
         <Grid.Col span={{ base: 12, md: 6, lg: 3 }}>
-          {/* 🟢 A MÁGICA ACONTECE AQUI: Adicionado o onClick para o filtro compliant */}
           <StatCard 
             title="Em Conformidade" 
             value={inComplianceCount}

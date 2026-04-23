@@ -9,12 +9,13 @@ import ResetPasswordPage from './pages/ResetPasswordPage.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
 import DeviceListPage from './pages/DeviceListPage.jsx';
 import DeviceDetailPage from './pages/DeviceDetailPage.jsx';
-import ReportsPage from './pages/ReportsPage.jsx';
+
+// 🟢 AQUI ESTÁ A MUDANÇA: Importando a nova página de Histórico que criámos!
+import HistoryPage from './pages/HistoryPage.jsx'; 
+
 import AdminSetorPage from './pages/AdminSetorPage.jsx';
 import AdminRoutes from './components/AdminRoutes.jsx';
 import ServicesPage from './pages/ServicesPage.jsx'; 
-
-// 🟢 IMPORTAÇÃO DA NOVA PÁGINA DE CATEGORIAS
 import DeviceCategoriesPage from './pages/DeviceCategoriesPage.jsx'; 
 
 export const router = createBrowserRouter([
@@ -53,12 +54,10 @@ export const router = createBrowserRouter([
             index: true, 
             element: <HomePage />,
           },
-          // 🟢 A NOVA "PORTA DE ENTRADA" DAS CATEGORIAS (Fica ANTES do :id para evitar conflitos)
           {
             path: "devices/categories", 
             element: <DeviceCategoriesPage />,
           },
-          // A lista antiga de dispositivos
           {
             path: "devices", 
             element: <DeviceListPage />,
@@ -67,9 +66,10 @@ export const router = createBrowserRouter([
             path: "devices/:id", 
             element: <DeviceDetailPage />,
           },
+          // 🟢 AQUI ESTÁ A LIGAÇÃO: Agora a rota "/history" abre a nossa página nova!
           {
             path: "history", 
-            element: <ReportsPage />, 
+            element: <HistoryPage />, 
           },
           {
             path: "services",

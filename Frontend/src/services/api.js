@@ -421,4 +421,17 @@ export const updateDeviceCategory = async (id, category) => {
     }
 };
 
+// Substitua a última função do arquivo por esta:
+export const getHistory = async () => {
+  try {
+    // Usando apiClient (correto) em vez de api
+    const response = await apiClient.get('/api/preventives'); 
+    return response.data;
+  } catch (error) {
+    console.error('Erro em getHistory:', error);
+    return { success: false, message: error.message };
+  }
+};
+
+
 export default apiClient;
