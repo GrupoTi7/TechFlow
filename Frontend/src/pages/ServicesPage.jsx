@@ -341,7 +341,11 @@ const ActionPlansManager = () => {
                 return true; // Mantém os restantes
             });
 
-            setTechnicians(validTechs.map(i => ({ value: String(i.id), label: i.name })));
+            setTechnicians(validTechs.map(i => ({ 
+                value: String(i.id), 
+                label: i.name || i.username || `Técnico Sem Nome (${i.id})`
+            })));
+            
         } catch (error) {} finally { setLoading(false); }
     };
 
