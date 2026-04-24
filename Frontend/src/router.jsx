@@ -8,12 +8,15 @@ import ResetPasswordPage from './pages/ResetPasswordPage.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
 import DeviceListPage from './pages/DeviceListPage.jsx';
 import DeviceDetailPage from './pages/DeviceDetailPage.jsx';
-import ReportsPage from './pages/ReportsPage.jsx'; // Dashboard de Relatórios
-import HistoryPage from './pages/HistoryPage.jsx'; // Tabela Nova
+import ReportsPage from './pages/ReportsPage.jsx'; 
+import HistoryPage from './pages/HistoryPage.jsx'; 
 import AdminSetorPage from './pages/AdminSetorPage.jsx';
 import AdminRoutes from './components/AdminRoutes.jsx';
 import ServicesPage from './pages/ServicesPage.jsx'; 
 import DeviceCategoriesPage from './pages/DeviceCategoriesPage.jsx'; 
+
+// 🟢 IMPORTAÇÃO DA NOVA TELA DA DIRETORIA
+import ActionPlanManagerPage from './pages/ActionPlanManagerPage.jsx'; 
 
 export const router = createBrowserRouter([
   {
@@ -56,15 +59,18 @@ export const router = createBrowserRouter([
             path: "devices/:id", 
             element: <DeviceDetailPage />,
           },
-          // 🟢 DASHBOARD DE RELATÓRIOS VOLTOU PARA A ROTA ORIGINAL
           {
             path: "reports", 
             element: <ReportsPage />, 
           },
-          // 🟢 TABELA DE HISTÓRICO FICA NA SUA PRÓPRIA ROTA
           {
             path: "history", 
             element: <HistoryPage />, 
+          },
+          // 🟢 ROTA REGISTRADA AQUI
+          {
+            path: "campaign-monitor", 
+            element: <ActionPlanManagerPage />, 
           },
           {
             path: "services",

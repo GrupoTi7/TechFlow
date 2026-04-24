@@ -138,19 +138,31 @@ const ActionPlanWidget = () => {
                 plansRaw = Array.isArray(response) ? response : (response ? [response] : []);
             }
             
-            // 🟢 FILTRO DE "MÃO": Mostra apenas o que é DESTE usuário
             const formattedPlans = plansRaw.map(p => {
                 const dataInicio = p.startDate || p.createdAt || new Date();
                 
-                // Pegamos apenas as atribuições cujo technicianId bate com o ID de quem logou
-                const myAssignments = (p.assignments || []).filter(a => 
+                // 🟢 O AJUSTE ESTÁ AQUI: 
+                // Primeiro "achatamos" o objeto device para que o 'name' e 'setorName' 
+                // fiquem disponíveis diretamente no nível principal da atribuição.
+                const allAssignmentsFlattened = (p.assignments || []).map(a => {
+                    if (a.device) {
+                        return { 
+                            ...a, 
+                            ...a.device, 
+                            setor: a.device.setorName || a.device.setor || 'S/ Setor' 
+                        };
+                    }
+                    return a;
+                });
+
+                // Agora filtramos apenas o que é do técnico logado
+                const myAssignments = allAssignmentsFlattened.filter(a => 
                     String(a.technicianId) === String(userObj.id)
                 );
 
-                // Aplicamos o filtro de data (para sumir após finalizar) que já tínhamos
+                // Aplicamos o filtro para esconder as que já foram feitas
                 const pendingOnly = myAssignments.filter(a => {
-                    const deviceData = a.device || a;
-                    const lastPrevStr = deviceData.lastPreventiveDate || deviceData.lastPreventive;
+                    const lastPrevStr = a.lastPreventiveDate || a.lastPreventive;
                     if (lastPrevStr) {
                         const prevDate = new Date(lastPrevStr);
                         const planStart = new Date(dataInicio);
@@ -181,7 +193,6 @@ const ActionPlanWidget = () => {
             setLoading(false);
         }
     };
-
     fetchData();
   }, []); 
 
