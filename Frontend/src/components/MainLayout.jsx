@@ -8,8 +8,7 @@ import {
   Text, 
   ThemeIcon, 
   rem, 
-  Box,
-  Button
+  Box
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
@@ -18,50 +17,62 @@ import {
   IconDeviceDesktopAnalytics, 
   IconFileAnalytics, 
   IconSettings, 
-  IconLogout 
+  IconLogout,
+  IconActivity // Ícone da Diretoria
 } from '@tabler/icons-react';
 
-// --- CONFIGURAÇÃO DA MARCA ---
 const BRAND_BLUE = '#0003d9';
 
-// Lista de itens do menu
-const navItems = [
-  { label: 'Painel', icon: IconLayoutDashboard, to: '/' },
-  { label: 'Dispositivos', icon: IconDeviceDesktopAnalytics, to: '/devices' },
-  { label: 'Relatórios', icon: IconFileAnalytics, to: '/reports' }, // Exemplo
-  { label: 'Administração', icon: IconSettings, to: '/admin' },     // Exemplo
-];
-
 export default function MainLayout() {
-  // Controle de estado para Mobile e Desktop
   const [mobileOpened, { toggle: toggleMobile }] = useDisclosure();
-  const [desktopOpened, { toggle: toggleDesktop }] = useDisclosure(true); // Começa aberto no desktop
+  const [desktopOpened, { toggle: toggleDesktop }] = useDisclosure(true); 
 
   const navigate = useNavigate();
   const location = useLocation();
 
+  // 🟢 1. IDENTIFICAÇÃO (Para saber quem logou)
+  const storedUser = localStorage.getItem('user');
+  const userObj = storedUser ? JSON.parse(storedUser) : null;
+
+  const isGestorUser = 
+    userObj?.role === 'ADMIN' || 
+    userObj?.username === 'vinicius.izidoro' || 
+    userObj?.name?.toLowerCase().includes('juliano') || 
+    userObj?.username?.toLowerCase().includes('juliano') ||
+    userObj?.name?.toLowerCase().includes('eduardo') ||
+    userObj?.username?.toLowerCase().includes('eduardo');
+
+  // 🟢 2. MENU FIXO (Visível para todo mundo, sem esconder nada!)
+  const navItems = [
+    { label: 'Painel', icon: IconLayoutDashboard, to: '/' },
+    { label: 'Dispositivos', icon: IconDeviceDesktopAnalytics, to: '/devices' },
+    { label: 'Relatórios', icon: IconFileAnalytics, to: '/reports' },
+    { label: 'Administração', icon: IconSettings, to: '/admin' } // <-- Voltou para cá!
+  ];
+
+  // 🟢 3. MENU DINÂMICO (Adiciona a Torre de Controle SÓ para a chefia)
+  if (isGestorUser) {
+      navItems.push({ label: 'Monitor de Campanhas', icon: IconActivity, to: '/campaign-monitor' });
+  }
+
   return (
     <AppShell
-      header={{ height: 60 }} // Altura do cabeçalho
+      header={{ height: 60 }} 
       navbar={{
-        width: 300, // Largura do menu lateral
+        width: 300, 
         breakpoint: 'sm',
         collapsed: { mobile: !mobileOpened, desktop: !desktopOpened },
       }}
       padding="md"
-      layout="alt" // 'alt' faz o Header cobrir toda a largura, ou use padrão se preferir
+      layout="alt" 
     >
-      {/* --- CABEÇALHO SUPERIOR (HEADER) --- */}
       <AppShell.Header style={{ borderBottom: '1px solid #dee2e6' }}>
         <Group h="100%" px="md" justify="space-between">
           <Group>
-            {/* Botão Hambúrguer para controlar o menu */}
             <Burger opened={mobileOpened} onClick={toggleMobile} hiddenFrom="sm" size="sm" />
             <Burger opened={desktopOpened} onClick={toggleDesktop} visibleFrom="sm" size="sm" />
             
-            {/* Logo / Título no Header */}
             <Group gap="xs" style={{ userSelect: 'none', cursor: 'pointer' }} onClick={() => navigate('/')}>
-               {/* Você pode colocar sua logo de imagem aqui se tiver */}
                <Text fw={900} size="xl" c={BRAND_BLUE} style={{ letterSpacing: '-0.5px' }}>
                  TechFlow
                </Text>
@@ -69,16 +80,14 @@ export default function MainLayout() {
             </Group>
           </Group>
 
-          {/* Área direita do Header (Avatar, Notificações, etc - Opcional) */}
           <Group>
              <Text size="sm" fw={500} c="dimmed" visibleFrom="sm">
-               Olá, Vinicius
+                Olá, {userObj?.name?.split(' ')[0] || 'Usuário'}
              </Text>
           </Group>
         </Group>
       </AppShell.Header>
 
-      {/* --- MENU LATERAL (NAVBAR) --- */}
       <AppShell.Navbar p="md" style={{ backgroundColor: BRAND_BLUE, borderRight: 'none' }}>
         <AppShell.Section grow component={ScrollArea} scrollbars="y">
           <Box mt="md">
@@ -100,12 +109,11 @@ export default function MainLayout() {
                   }
                   onClick={() => {
                     navigate(item.to);
-                    if (window.innerWidth < 768) toggleMobile(); // Fecha no mobile ao clicar
+                    if (window.innerWidth < 768) toggleMobile();
                   }}
                   active={isActive}
                   variant="filled"
                   color="blue" 
-                  // Estilização customizada para o item ativo ficar mais claro/destacado
                   styles={{
                     root: {
                       borderRadius: '8px',
@@ -122,13 +130,11 @@ export default function MainLayout() {
           </Box>
         </AppShell.Section>
 
-        {/* Rodapé do Menu (Botão Sair) */}
         <AppShell.Section style={{ borderTop: '1px solid rgba(255,255,255,0.2)', paddingTop: '10px' }}>
           <NavLink
             label={<Text c="white" fw={500}>Sair</Text>}
             leftSection={<IconLogout size="1.2rem" color="white" />}
             onClick={() => {
-              // Lógica de Logout
               localStorage.removeItem('user');
               localStorage.removeItem('authToken');
               window.location.href = '/login';
@@ -143,9 +149,7 @@ export default function MainLayout() {
         </AppShell.Section>
       </AppShell.Navbar>
 
-      {/* --- ÁREA PRINCIPAL DE CONTEÚDO --- */}
       <AppShell.Main style={{ backgroundColor: '#f8f9fa' }}>
-        {/* O Outlet renderiza a página atual (Home, Devices, etc) */}
         <Outlet />
       </AppShell.Main>
     </AppShell>

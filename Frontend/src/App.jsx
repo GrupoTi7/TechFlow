@@ -24,8 +24,8 @@ function App() {
   const isGestorUser = 
     user?.role === 'ADMIN' || 
     user?.username === 'vinicius.izidoro' || 
-    user?.name?.toLowerCase().includes('juliano') || 
-    user?.name?.toLowerCase().includes('eduardo');
+    user?.name?.toLowerCase().includes('juliano.veroneze') || 
+    user?.name?.toLowerCase().includes('eduardo.nakai');
 
   const handleLogout = () => {
     localStorage.removeItem('authToken');

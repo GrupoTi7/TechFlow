@@ -129,44 +129,51 @@ const ActionPlanWidget = () => {
         try {
             const isGestorUser = userObj?.role === 'ADMIN' || userObj?.username === 'vinicius.izidoro';
 
+            let plansRaw = [];
             if (isGestorUser) {
-                const plansRaw = await getActionPlans();
-                const plans = Array.isArray(plansRaw) ? plansRaw : (plansRaw?.plans || plansRaw?.data || []);
-                
-                const formattedPlans = plans.map(p => ({
-                    id: p.id,
-                    name: p.name,
-                    startDate: p.startDate, // Garantindo a passagem da data
-                    deadline: p.deadline,
-                    stats: { totalPending: p._count?.assignments || p.assignments?.length || 0 },
-                    assignments: (p.assignments || []).map(a => a.device ? { ...a, ...a.device } : a)
-                })).filter(p => p.assignments.length > 0); 
-
-                setAllPlans(formattedPlans);
-                if (formattedPlans.length > 0) setSelectedPlanId(String(formattedPlans[0].id));
-                
-          } else {
-                const data = await getActionPlanData();
-                const plans = Array.isArray(data) ? data : (data ? [data] : []);
-                
-                const formattedPlans = plans.map(p => {
-                    // 🟢 O SEGREDO: Filtra a lista inteira do backend, guardando APENAS
-                    // as máquinas onde o ID do técnico bate com o ID do usuário logado!
-                    const myAssignments = (p.assignments || []).filter(a => String(a.technicianId) === String(userObj.id));
-
-                    return {
-                        id: p.id || p.planId,
-                        name: p.name,
-                        startDate: p.startDate, // Garantindo a passagem da data
-                        deadline: p.stats?.estimatedEndDate || p.deadline,
-                        stats: { ...p.stats, totalPending: myAssignments.length }, // Atualiza as estatísticas para o número DELE
-                        assignments: myAssignments 
-                    };
-                }).filter(p => p.assignments.length > 0); // Se ele não tiver nenhuma carta (máquina), o plano nem aparece para ele
-
-                setAllPlans(formattedPlans);
-                if (formattedPlans.length > 0) setSelectedPlanId(String(formattedPlans[0].id));
+                const response = await getActionPlans();
+                plansRaw = Array.isArray(response) ? response : (response?.plans || response?.data || []);
+            } else {
+                const response = await getActionPlanData();
+                plansRaw = Array.isArray(response) ? response : (response ? [response] : []);
             }
+            
+            // 🟢 FILTRO DE "MÃO": Mostra apenas o que é DESTE usuário
+            const formattedPlans = plansRaw.map(p => {
+                const dataInicio = p.startDate || p.createdAt || new Date();
+                
+                // Pegamos apenas as atribuições cujo technicianId bate com o ID de quem logou
+                const myAssignments = (p.assignments || []).filter(a => 
+                    String(a.technicianId) === String(userObj.id)
+                );
+
+                // Aplicamos o filtro de data (para sumir após finalizar) que já tínhamos
+                const pendingOnly = myAssignments.filter(a => {
+                    const deviceData = a.device || a;
+                    const lastPrevStr = deviceData.lastPreventiveDate || deviceData.lastPreventive;
+                    if (lastPrevStr) {
+                        const prevDate = new Date(lastPrevStr);
+                        const planStart = new Date(dataInicio);
+                        prevDate.setHours(0,0,0,0);
+                        planStart.setHours(0,0,0,0);
+                        if (prevDate >= planStart) return false;
+                    }
+                    return true;
+                });
+
+                return {
+                    id: p.id || p.planId,
+                    name: p.name,
+                    startDate: p.startDate,
+                    deadline: p.deadline || p.stats?.estimatedEndDate,
+                    stats: { ...p.stats, totalPending: pendingOnly.length },
+                    assignments: pendingOnly 
+                };
+            }).filter(p => p.assignments.length > 0);
+
+            setAllPlans(formattedPlans);
+            if (formattedPlans.length > 0) setSelectedPlanId(String(formattedPlans[0].id));
+            
         } catch (err) {
             console.error("Erro ao carregar planos:", err);
             setAllPlans([]);
