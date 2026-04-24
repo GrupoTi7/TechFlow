@@ -24,6 +24,18 @@ async function findPreventivesByDevice(deviceId) {
   });
 }
 
+// 🟢 A FUNÇÃO QUE FALTAVA: Busca o histórico global
+async function findAllPreventives() {
+  return await prisma.preventive.findMany({
+    include: {
+      device: true // Puxa os dados da máquina (nome, serial, etc.)
+    },
+    orderBy: {
+      date: 'desc' // Ordena da mais recente para a mais antiga
+    }
+  });
+}
+
 /**
  * Adiciona uma preventiva e recalcula a próxima data
  */
@@ -35,20 +47,7 @@ async function addPreventive(deviceId, preventiveData) {
     const device = await tx.device.findUnique({ where: { id: deviceId } });
     if (!device) { throw new Error('Dispositivo não encontrado.'); }
 
-    // ==========================================================
-    // --- TRAVA DE SEGURANÇA DESATIVADA PARA TESTES ---
-    // ==========================================================
-    /*
-    if (!device.maintenanceIntervalDays || !device.setor) {
-      throw new Error(
-        'AÇÃO BLOQUEADA: Este dispositivo ainda não foi categorizado.\n\n' +
-        'Por favor, contacte um administrador para definir o Setor e o Intervalo deste dispositivo antes de registar uma preventiva.'
-      );
-    }
-    */
-    // ==========================================================
-
-    // 3. Se passou, usa o intervalo definido pelo admin (ou 120 por padrão)
+    // 3. Usa o intervalo definido pelo admin (ou 120 por padrão)
     const interval = device.maintenanceIntervalDays || 120;
 
     // 4. Crie a nova preventiva (para o histórico)
@@ -120,8 +119,10 @@ async function deletePreventive(preventiveId) {
   });
 }
 
+// 🟢 AGORA EXPORTANDO A NOVA FUNÇÃO
 module.exports = { 
   findPreventivesByDevice, 
+  findAllPreventives, // <--- O Herói de hoje!
   addPreventive,
   deletePreventive 
 };
