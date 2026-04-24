@@ -2,12 +2,12 @@ import React from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from './context/AuthContext.jsx';
 import { 
-  AppShell, NavLink, Title, Group, Burger, ScrollArea, rem, Text
+  AppShell, NavLink, Title, Group, Burger, ScrollArea, Text
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { 
   IconHome, IconDeviceDesktop, IconLogout, IconHistory, 
-  IconBriefcase, IconChartBar 
+  IconBriefcase, IconChartBar, IconTrophy // 🟢 Ícone novo
 } from '@tabler/icons-react';
 
 const BRAND_BLUE = '#0003d9';
@@ -20,6 +20,13 @@ function App() {
   const location = useLocation();
   const { user } = useAuth(); 
   
+  // 🟢 A REGRA DE OURO DA DIRETORIA
+  const isGestorUser = 
+    user?.role === 'ADMIN' || 
+    user?.username === 'vinicius.izidoro' || 
+    user?.name?.toLowerCase().includes('juliano') || 
+    user?.name?.toLowerCase().includes('eduardo');
+
   const handleLogout = () => {
     localStorage.removeItem('authToken');
     localStorage.removeItem('user');
@@ -80,7 +87,6 @@ function App() {
                   styles={getNavLinkStyles(location.pathname.startsWith('/devices'))}
                   onClick={() => { if(window.innerWidth < 768) toggleMobile() }}
                 />
-                {/* 🟢 O Dashboard de Relatórios (Charts, KPIs) */}
                 <NavLink
                   label="Relatórios"
                   leftSection={<IconChartBar size="1.2rem" stroke={1.5} />}
@@ -89,7 +95,6 @@ function App() {
                   styles={getNavLinkStyles(location.pathname === '/reports')}
                   onClick={() => { if(window.innerWidth < 768) toggleMobile() }}
                 />
-                {/* 🟢 A Tabela de Histórico (Destino do clique no gráfico) */}
                 <NavLink
                   label="Histórico Completo"
                   leftSection={<IconHistory size="1.2rem" stroke={1.5} />}
@@ -99,10 +104,23 @@ function App() {
                   onClick={() => { if(window.innerWidth < 768) toggleMobile() }}
                 />
 
+                {/* 🟢 TELA EXCLUSIVA DA DIRETORIA */}
+                {isGestorUser && (
+                  <NavLink
+                    label="Acompanhar Campanhas"
+                    leftSection={<IconTrophy size="1.2rem" stroke={1.5} />}
+                    component={Link} to="/campaign-monitor"
+                    active={location.pathname.startsWith('/campaign-monitor')}
+                    styles={getNavLinkStyles(location.pathname.startsWith('/campaign-monitor'))}
+                    onClick={() => { if(window.innerWidth < 768) toggleMobile() }}
+                  />
+                )}
+
                 <Text c="white" size="xs" fw={700} tt="uppercase" mt="xl" mb="xs" style={{ opacity: 0.7, paddingLeft: 12 }}>
                     Configurações
                 </Text>
                 
+                {/* Ocultamos configurações críticas de quem não é gestor também, se desejar. Mas mantive padrão. */}
                 <NavLink
                   label="Serviços & Parâmetros"
                   leftSection={<IconBriefcase size="1.2rem" stroke={1.5} />}

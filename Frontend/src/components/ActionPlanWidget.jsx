@@ -7,7 +7,7 @@ import { useDisclosure } from '@mantine/hooks';
 import { 
   IconBuildingFactory, 
   IconDeviceDesktop, IconArrowRight, IconList, 
-  IconClipboardList, IconCalendar
+  IconClipboardList, IconCalendar, IconCheck // 🟢 Adicionado IconCheck
 } from '@tabler/icons-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -136,6 +136,7 @@ const ActionPlanWidget = () => {
                 const formattedPlans = plans.map(p => ({
                     id: p.id,
                     name: p.name,
+                    startDate: p.startDate, // Garantindo a passagem da data
                     deadline: p.deadline,
                     stats: { totalPending: p._count?.assignments || p.assignments?.length || 0 },
                     assignments: (p.assignments || []).map(a => a.device ? { ...a, ...a.device } : a)
@@ -144,17 +145,24 @@ const ActionPlanWidget = () => {
                 setAllPlans(formattedPlans);
                 if (formattedPlans.length > 0) setSelectedPlanId(String(formattedPlans[0].id));
                 
-            } else {
+          } else {
                 const data = await getActionPlanData();
                 const plans = Array.isArray(data) ? data : (data ? [data] : []);
                 
-                const formattedPlans = plans.map(p => ({
-                    id: p.id || p.planId,
-                    name: p.name,
-                    deadline: p.stats?.estimatedEndDate || p.deadline,
-                    stats: p.stats,
-                    assignments: p.assignments || []
-                }));
+                const formattedPlans = plans.map(p => {
+                    // 🟢 O SEGREDO: Filtra a lista inteira do backend, guardando APENAS
+                    // as máquinas onde o ID do técnico bate com o ID do usuário logado!
+                    const myAssignments = (p.assignments || []).filter(a => String(a.technicianId) === String(userObj.id));
+
+                    return {
+                        id: p.id || p.planId,
+                        name: p.name,
+                        startDate: p.startDate, // Garantindo a passagem da data
+                        deadline: p.stats?.estimatedEndDate || p.deadline,
+                        stats: { ...p.stats, totalPending: myAssignments.length }, // Atualiza as estatísticas para o número DELE
+                        assignments: myAssignments 
+                    };
+                }).filter(p => p.assignments.length > 0); // Se ele não tiver nenhuma carta (máquina), o plano nem aparece para ele
 
                 setAllPlans(formattedPlans);
                 if (formattedPlans.length > 0) setSelectedPlanId(String(formattedPlans[0].id));
@@ -168,7 +176,7 @@ const ActionPlanWidget = () => {
     };
 
     fetchData();
-  }, []);
+  }, []); 
 
   // 🟢 FUNÇÃO 1: Decide se abre o Modal (Switch/AP) ou vai direto (PC/Notebook)
   const handleStartDeviceClick = (device) => {
@@ -176,11 +184,9 @@ const ActionPlanWidget = () => {
       const isInfra = tipoCorreto.match(/switch|ap|wifi/);
 
       if (isInfra) {
-          // É Infra: Pergunta a Ação
           setDeviceToAction(device);
           setActionModalOpen(true);
       } else {
-          // É Desktop/Notebook: Vai direto como Preventiva!
           executeTicketCreation(device, 'Preventiva');
       }
   };
@@ -249,7 +255,54 @@ const ActionPlanWidget = () => {
       );
   }
   
-  const pendentes = planData.stats?.totalPending || planData.assignments?.length || 0;
+  // =======================================================================
+  // 🟢 INÍCIO DO FILTRO VISUAL SEGURO
+  // =======================================================================
+  
+  const planStartDate = new Date(planData.startDate || new Date());
+  planStartDate.setHours(0, 0, 0, 0); 
+
+  const filteredAssignments = (planData.assignments || []).filter(assignment => {
+      const deviceData = assignment.device || assignment;
+      const status = String(assignment.status || '').toUpperCase();
+      
+      // Regra 1: Removido pelo Backend (via status)
+      if (['COMPLETED', 'CONCLUIDO', 'FINALIZADO', 'DONE'].includes(status)) return false;
+      
+      // Regra 2: Filtrado no Frontend (A preventiva ocorreu DEPOIS que o plano começou?)
+      const lastPrevStr = deviceData.lastPreventiveDate || deviceData.lastPreventive;
+      if (lastPrevStr) {
+          const prevDate = new Date(lastPrevStr);
+          prevDate.setHours(0, 0, 0, 0);
+          if (prevDate >= planStartDate) return false; 
+      }
+      return true; // Máquina continua pendente
+  });
+
+  const pendentes = filteredAssignments.length;
+
+  // Se o filtro ocultou todas as máquinas, a campanha acabou com sucesso!
+  if (pendentes === 0) {
+      return (
+        <Paper shadow="sm" p="xl" radius="md" withBorder bg="teal.0" mb="xl" mt="xl">
+            <Center>
+                <Stack align="center" gap="xs">
+                    <ThemeIcon size={60} radius="xl" color="teal" variant="light"><IconCheck size={32} /></ThemeIcon>
+                    <Text size="lg" fw={700} c="teal.9">Plano Concluído!</Text>
+                    <Text size="sm" c="teal.8" ta="center" maw={400}>Excelente trabalho! Todas as máquinas deste plano já receberam manutenção preventiva.</Text>
+                    {(currentUser?.role === 'ADMIN' || currentUser?.username === 'vinicius.izidoro') && (
+                        <Button variant="outline" color="teal" mt="md" onClick={() => navigate('/services')}>Gerenciar Planos</Button>
+                    )}
+                </Stack>
+            </Center>
+        </Paper>
+      );
+  }
+
+  // =======================================================================
+  // 🟢 FIM DO FILTRO VISUAL SEGURO
+  // =======================================================================
+
   const metaDiariaReal = planData.stats?.dailyGoal || Math.max(Math.min(Math.ceil(pendentes / 22), pendentes), 1);
   const metaSemanalReal = planData.stats?.weeklyGoal || Math.min(metaDiariaReal * 5, pendentes);
   
@@ -265,7 +318,10 @@ const ActionPlanWidget = () => {
   if (pendentes > metaSemanalReal) segmentOptions.push({ label: 'Mensal', value: 'mensal' });
 
   const currentView = viewLimits[viewMode] || viewLimits['diaria'];
-  const allAssignments = planData.assignments || [];
+  
+  // 🟢 Usando a lista filtrada em vez da lista crua do Backend
+  const allAssignments = filteredAssignments;
+  
   const WIDGET_DISPLAY_LIMIT = 4;
   const previewList = allAssignments.slice(0, WIDGET_DISPLAY_LIMIT);
 
