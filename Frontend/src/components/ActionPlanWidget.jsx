@@ -63,7 +63,7 @@ const DeviceCardWidget = ({ device, index, onStart }) => {
             <Divider my="md" color={isPriority ? 'red.1' : 'gray.2'} />
             <Group justify="space-between" align="center" wrap="wrap">
                 <Text size="sm" c="dimmed">
-                    Última: <b>{device.lastPreventive ? new Date(device.lastPreventive).toLocaleDateString() : 'Nunca'}</b>
+                    Última: <b>{device.lastPreventiveDate ? new Date(device.lastPreventiveDate).toLocaleDateString() : (device.lastPreventive ? new Date(device.lastPreventive).toLocaleDateString() : 'Nunca')}</b>
                 </Text>
                 <Button onClick={handleStartClick} loading={loading} rightSection={!loading && <IconArrowRight size={18} />} variant={isPriority ? "filled" : "light"} color={isPriority ? "red" : BRAND_BLUE} size="sm">
                     Iniciar
@@ -129,17 +129,48 @@ const ActionPlanWidget = () => {
         try {
             const isGestorUser = userObj?.role === 'ADMIN' || userObj?.username === 'vinicius.izidoro';
 
+            // 🟢 O FILTRO INTELIGENTE: Remove máquinas já finalizadas
+            const filterPending = (planStart, assignments) => {
+                const mapped = (assignments || []).map(a => a.device ? { ...a, ...a.device } : a);
+                return mapped.filter(a => {
+                    // Regra 1: O Backend enviou um status explícito de finalizado?
+                    const st = String(a.status || '').toUpperCase();
+                    if (['COMPLETED', 'CONCLUIDO', 'FINALIZADO', 'DONE'].includes(st)) return false;
+
+                    // Regra 2: A preventiva foi feita durante ou após o início do plano?
+                    const lastPrevDate = a.lastPreventiveDate || a.lastPreventive; // Cobre os dois nomes de variável possíveis
+                    if (lastPrevDate && planStart) {
+                        const lastPrev = new Date(lastPrevDate);
+                        const pStart = new Date(planStart);
+                        
+                        // Zera as horas para garantir que o fuso horário não atrapalhe a comparação
+                        lastPrev.setHours(0,0,0,0);
+                        pStart.setHours(0,0,0,0);
+                        
+                        if (lastPrev >= pStart) return false;
+                    }
+                    
+                    return true; // Continua pendente
+                });
+            };
+
             if (isGestorUser) {
                 const plansRaw = await getActionPlans();
                 const plans = Array.isArray(plansRaw) ? plansRaw : (plansRaw?.plans || plansRaw?.data || []);
                 
-                const formattedPlans = plans.map(p => ({
-                    id: p.id,
-                    name: p.name,
-                    deadline: p.deadline,
-                    stats: { totalPending: p._count?.assignments || p.assignments?.length || 0 },
-                    assignments: (p.assignments || []).map(a => a.device ? { ...a, ...a.device } : a)
-                })).filter(p => p.assignments.length > 0); 
+                const formattedPlans = plans.map(p => {
+                    // Usa a data de início do plano para comparar
+                    const dataInicio = p.startDate || p.createdAt || new Date();
+                    const pendingAssignments = filterPending(dataInicio, p.assignments);
+                    
+                    return {
+                        id: p.id,
+                        name: p.name,
+                        deadline: p.deadline,
+                        stats: { totalPending: pendingAssignments.length },
+                        assignments: pendingAssignments // 🟢 Lista já limpa
+                    };
+                }).filter(p => p.assignments.length > 0); // Se não sobrar máquina nenhuma, esconde o plano!
 
                 setAllPlans(formattedPlans);
                 if (formattedPlans.length > 0) setSelectedPlanId(String(formattedPlans[0].id));
@@ -148,13 +179,18 @@ const ActionPlanWidget = () => {
                 const data = await getActionPlanData();
                 const plans = Array.isArray(data) ? data : (data ? [data] : []);
                 
-                const formattedPlans = plans.map(p => ({
-                    id: p.id || p.planId,
-                    name: p.name,
-                    deadline: p.stats?.estimatedEndDate || p.deadline,
-                    stats: p.stats,
-                    assignments: p.assignments || []
-                }));
+                const formattedPlans = plans.map(p => {
+                    const dataInicio = p.startDate || p.createdAt || new Date();
+                    const pendingAssignments = filterPending(dataInicio, p.assignments);
+
+                    return {
+                        id: p.id || p.planId,
+                        name: p.name,
+                        deadline: p.stats?.estimatedEndDate || p.deadline,
+                        stats: { ...p.stats, totalPending: pendingAssignments.length },
+                        assignments: pendingAssignments // 🟢 Lista já limpa
+                    };
+                }).filter(p => p.assignments.length > 0);
 
                 setAllPlans(formattedPlans);
                 if (formattedPlans.length > 0) setSelectedPlanId(String(formattedPlans[0].id));
