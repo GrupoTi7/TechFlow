@@ -328,11 +328,10 @@ const ActionPlansManager = () => {
                     return true;
                 }
                 
-                // 2. Remove administradores padrão do sistema
-                const role = String(user.role || '').toUpperCase();
-                if (role === 'ADMIN' || role === 'ADMINISTRADOR') return false;
+                // 🟢 REMOVIDO: A trava que escondia usuários com role 'ADMIN' estava aqui.
+                // Como os seus outros técnicos devem estar como ADMIN no banco, eles sumiam.
 
-                // 3. Trava nominal para os usuários específicos que você solicitou remover
+                // 2. Trava nominal para os usuários específicos que você solicitou remover
                 const nameStr = String(user.name || '').toLowerCase();
                 const userStr = String(user.username || '').toLowerCase();
                 if (nameStr.includes('juliano') || userStr.includes('juliano')) return false;
@@ -341,9 +340,10 @@ const ActionPlansManager = () => {
                 return true; // Mantém os restantes
             });
 
+            // 🟢 Adicionado um 'fallback' no value para evitar conflitos se o banco não mandar o ID
             setTechnicians(validTechs.map(i => ({ 
-                value: String(i.id), 
-                label: i.name || i.username || `Técnico Sem Nome (${i.id})`
+                value: String(i.id || i.username), 
+                label: i.name || i.username || `Técnico Sem Nome`
             })));
             
         } catch (error) {} finally { setLoading(false); }
