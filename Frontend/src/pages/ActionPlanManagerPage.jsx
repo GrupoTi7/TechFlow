@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { 
   Title, Text, Card, Group, Stack, Progress, Badge, Loader, 
   Center, RingProgress, Paper, SimpleGrid, Divider, Tabs, 
-  ThemeIcon, Grid, Avatar, TextInput, Menu, ActionIcon, Timeline, Tooltip, Button
+  ThemeIcon, Grid, Avatar, TextInput, Menu, ActionIcon, Timeline, Tooltip
 } from '@mantine/core';
 import { 
   IconTrophy, IconActivity, IconClock, IconBuildingStore, 
@@ -25,7 +25,7 @@ export default function ActionPlanManagerPage() {
     totalPending: 0, 
     totalDone: 0, 
     activePlans: 0,
-    healthScore: 100 // % de planos dentro do prazo
+    healthScore: 100 
   });
 
   useEffect(() => {
@@ -127,7 +127,7 @@ export default function ActionPlanManagerPage() {
             
             if (daysLeft < 0 && completed.length < total) {
               urgencyColor = 'red';
-              isOnTrack = false; // Estourou o SLA
+              isOnTrack = false; 
             } else if (daysLeft <= 3 && completed.length < total) {
               urgencyColor = 'orange';
             }
@@ -151,7 +151,6 @@ export default function ActionPlanManagerPage() {
           };
         });
 
-        // Calcula a saúde geral da operação
         const health = enrichedPlans.length > 0 ? Math.round((onTrackPlans / enrichedPlans.length) * 100) : 100;
 
         setGlobalStats({ totalPending: gPending, totalDone: gDone, activePlans: enrichedPlans.length, healthScore: health });
@@ -164,7 +163,7 @@ export default function ActionPlanManagerPage() {
     fetchPlans();
   }, []);
 
-  // Motor de Busca em Tempo Real
+  // Motor de Busca
   useEffect(() => {
     const lowerQuery = searchQuery.toLowerCase();
     const filtered = plans.filter(p => p.name.toLowerCase().includes(lowerQuery));
@@ -240,7 +239,6 @@ export default function ActionPlanManagerPage() {
                 <div>
                   <Group align="center">
                     <Title order={3} fw={800} c="dark.7">{plan.name}</Title>
-                    {/* QUICK ACTIONS MENU */}
                     <Menu shadow="md" width={200} position="bottom-start">
                       <Menu.Target>
                         <ActionIcon variant="subtle" color="gray"><IconDotsVertical size={18} /></ActionIcon>
@@ -325,16 +323,16 @@ export default function ActionPlanManagerPage() {
                 <Tabs.Panel value="setores">
                   <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md">
                     {plan.sectors.map(sector => (
-                      <Paper key={sector.name} p="md" radius="md" withBorder bg={sector.percent < 30 ? 'red.0' : 'gray.0'} style={{ borderColor: sector.percent < 30 ? 'var(--mantine-color-red-2)' : '#e9ecef' }}>
+                      <Paper key={sector.name} p="md" radius="md" withBorder bg={sector.percent < 30 && sector.total > 0 ? 'red.0' : 'gray.0'} style={{ borderColor: sector.percent < 30 && sector.total > 0 ? 'var(--mantine-color-red-2)' : '#e9ecef' }}>
                         <Group justify="space-between" align="flex-start" wrap="nowrap">
-                          <Text size="sm" tt="uppercase" fw={800} c={sector.percent < 30 ? 'red.9' : 'dimmed'} truncate>{sector.name}</Text>
+                          <Text size="sm" tt="uppercase" fw={800} c={sector.percent < 30 && sector.total > 0 ? 'red.9' : 'dimmed'} truncate>{sector.name}</Text>
                           {sector.percent < 30 && sector.total > 0 && <Tooltip label="Setor Crítico (Gargalo)"><IconFlame size={18} color="red" /></Tooltip>}
                         </Group>
                         <Group justify="space-between" mt={8} mb={8}>
                           <Text size="xl" fw={900} c="dark.6">{sector.done} <Text component="span" size="sm" c="dimmed" fw={500}>/ {sector.total}</Text></Text>
-                          <Text size="md" fw={800} c={sector.percent < 30 ? 'red' : (sector.percent === 100 ? 'teal' : BRAND_BLUE)}>{sector.percent}%</Text>
+                          <Text size="md" fw={800} c={sector.percent < 30 && sector.total > 0 ? 'red' : (sector.percent === 100 ? 'teal' : BRAND_BLUE)}>{sector.percent}%</Text>
                         </Group>
-                        <Progress value={sector.percent} size="md" color={sector.percent < 30 ? 'red' : (sector.percent === 100 ? 'teal' : BRAND_BLUE)} />
+                        <Progress value={sector.percent} size="md" color={sector.percent < 30 && sector.total > 0 ? 'red' : (sector.percent === 100 ? 'teal' : BRAND_BLUE)} />
                       </Paper>
                     ))}
                   </SimpleGrid>
