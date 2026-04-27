@@ -94,7 +94,7 @@ export default function ActionPlanManagerPage() {
           assignments.forEach(a => {
             const isDone = completed.includes(a);
             
-            const tName = a.technician?.name || a.technician?.username || `Téc. ID: ${String(a.technicianId).substring(0,4)}`;
+           const tName = a.technician?.name || a.technicianName || a.technician?.username || 'Técnico da Equipe';
             if (!techStats[tName]) techStats[tName] = { total: 0, done: 0 };
             techStats[tName].total += 1;
             if (isDone) techStats[tName].done += 1;
@@ -175,48 +175,51 @@ export default function ActionPlanManagerPage() {
   return (
     <Stack gap="xl" pb="xl">
       {/* 🟢 CABEÇALHO ENTERPRISE COM SLA E SEARCH */}
-      <Paper p="xl" radius="lg" bg="dark.9" c="white" style={{ overflow: 'hidden', position: 'relative' }}>
-        <div style={{ position: 'absolute', top: -50, right: -50, width: 250, height: 250, background: globalStats.healthScore < 50 ? 'red' : BRAND_BLUE, borderRadius: '50%', filter: 'blur(100px)', opacity: 0.3, transition: 'background 0.5s' }}></div>
+      <Paper p="xl" radius="lg" style={{ background: `linear-gradient(135deg, ${BRAND_BLUE} 0%, #3b5bdb 100%)`, color: 'white', overflow: 'hidden', position: 'relative' }}>
+        <div style={{ position: 'absolute', top: -50, right: -50, width: 250, height: 250, background: globalStats.healthScore < 50 ? '#ff6b6b' : '#4dabf7', borderRadius: '50%', filter: 'blur(100px)', opacity: 0.4, transition: 'background 0.5s' }}></div>
         <Grid align="center" gutter="xl">
           <Grid.Col span={{ base: 12, lg: 5 }}>
             <Group gap="sm">
-              <ThemeIcon size={42} radius="md" variant="light" color={globalStats.healthScore === 100 ? 'teal' : (globalStats.healthScore < 50 ? 'red' : 'orange')}>
+              <ThemeIcon size={42} radius="md" variant="white" color={BRAND_BLUE}>
                 <IconHeartRateMonitor size={26} />
               </ThemeIcon>
               <div>
-                <Title order={2} fw={900} style={{ letterSpacing: '-1px' }}>Command Center</Title>
-                <Text c="dimmed" mt={-4} size="sm">Visão global e preditiva de manutenções.</Text>
+                <Title order={2} fw={900} style={{ letterSpacing: '-1px', color: 'white' }}>Command Center</Title>
+                <Text style={{ color: 'rgba(255,255,255,0.7)' }} mt={-4} size="sm">Visão global e preditiva de manutenções.</Text>
               </div>
             </Group>
             <TextInput 
               mt="lg"
               placeholder="Pesquisar campanha pelo nome..." 
-              leftSection={<IconSearch size={16} />}
+              leftSection={<IconSearch size={16} color="white" />}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.currentTarget.value)}
-              styles={{ input: { backgroundColor: 'rgba(255,255,255,0.1)', color: 'white', border: 'none' } }}
+              styles={{ 
+                input: { backgroundColor: 'rgba(255,255,255,0.15)', color: 'white', border: '1px solid rgba(255,255,255,0.2)' },
+                inputPlaceholder: { color: 'rgba(255,255,255,0.5)' }
+              }}
             />
           </Grid.Col>
           <Grid.Col span={{ base: 12, lg: 7 }}>
             <Group justify="flex-end" gap="xl" wrap="wrap">
               <Stack gap={0} align="center">
-                <Text size="xs" c="dimmed" tt="uppercase" fw={700}>Saúde SLA</Text>
-                <Text size="2.5rem" fw={900} c={globalStats.healthScore === 100 ? 'teal.4' : (globalStats.healthScore < 50 ? 'red.4' : 'orange.4')} lh={1}>{globalStats.healthScore}%</Text>
+                <Text size="xs" tt="uppercase" fw={700} style={{ color: 'rgba(255,255,255,0.7)' }}>Saúde SLA</Text>
+                <Text size="2.5rem" fw={900} c={globalStats.healthScore === 100 ? '#69db7c' : (globalStats.healthScore < 50 ? '#ffa8a8' : '#ffd43b')} lh={1}>{globalStats.healthScore}%</Text>
               </Stack>
-              <Divider orientation="vertical" color="dark.6" />
+              <Divider orientation="vertical" style={{ borderColor: 'rgba(255,255,255,0.2)' }} />
               <Stack gap={0} align="center">
-                <Text size="xs" c="dimmed" tt="uppercase" fw={700}>Planos Ativos</Text>
+                <Text size="xs" tt="uppercase" fw={700} style={{ color: 'rgba(255,255,255,0.7)' }}>Planos Ativos</Text>
                 <Text size="2.5rem" fw={900} c="white" lh={1}>{globalStats.activePlans}</Text>
               </Stack>
-              <Divider orientation="vertical" color="dark.6" />
+              <Divider orientation="vertical" style={{ borderColor: 'rgba(255,255,255,0.2)' }} />
               <Stack gap={0} align="center">
-                <Text size="xs" c="dimmed" tt="uppercase" fw={700}>Pendências</Text>
-                <Text size="2.5rem" fw={900} c="blue.4" lh={1}>{globalStats.totalPending}</Text>
+                <Text size="xs" tt="uppercase" fw={700} style={{ color: 'rgba(255,255,255,0.7)' }}>Pendências</Text>
+                <Text size="2.5rem" fw={900} c="#a5d8ff" lh={1}>{globalStats.totalPending}</Text>
               </Stack>
-              <Divider orientation="vertical" color="dark.6" />
+              <Divider orientation="vertical" style={{ borderColor: 'rgba(255,255,255,0.2)' }} />
               <Stack gap={0} align="center">
-                <Text size="xs" c="dimmed" tt="uppercase" fw={700}>Concluídas</Text>
-                <Text size="2.5rem" fw={900} c="teal.4" lh={1}>{globalStats.totalDone}</Text>
+                <Text size="xs" tt="uppercase" fw={700} style={{ color: 'rgba(255,255,255,0.7)' }}>Concluídas</Text>
+                <Text size="2.5rem" fw={900} c="#69db7c" lh={1}>{globalStats.totalDone}</Text>
               </Stack>
             </Group>
           </Grid.Col>
