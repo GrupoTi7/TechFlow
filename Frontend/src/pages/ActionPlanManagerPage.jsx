@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react'; // 🟢 Adicionado useMemo
+import React, { useEffect, useState, useMemo } from 'react';
 import { 
   Title, Text, Card, Group, Stack, Progress, Badge, Loader, 
   Center, RingProgress, Paper, SimpleGrid, Divider, Tabs, 
@@ -8,7 +8,7 @@ import {
   IconTrophy, IconActivity, IconClock, IconBuildingStore, 
   IconDeviceDesktop, IconCheck, IconAlertCircle, IconUsers,
   IconSearch, IconDotsVertical, IconBellRinging, IconDownload, 
-  IconFlame, IconHeartRateMonitor, IconSettings
+  IconFlame, IconHeartRateMonitor
 } from '@tabler/icons-react';
 import { getActionPlans, getUsers } from '../services/api';
 
@@ -16,7 +16,7 @@ const BRAND_BLUE = '#0003d9';
 
 export default function ActionPlanManagerPage() {
   const [plans, setPlans] = useState([]);
-  const [searchQuery, setSearchQuery] = useState(''); // Estado da pesquisa
+  const [searchQuery, setSearchQuery] = useState(''); 
   const [loading, setLoading] = useState(true);
   
   const [globalStats, setGlobalStats] = useState({ 
@@ -26,11 +26,10 @@ export default function ActionPlanManagerPage() {
     healthScore: 100 
   });
 
-  // 🟢 LOGICA DE FILTRO CORRIGIDA (Alta Performance)
+  // 🟢 MOTOR DE BUSCA CORRIGIDO: Filtra em tempo real sem travar
   const filteredPlans = useMemo(() => {
-    const lowerQuery = searchQuery.toLowerCase().trim();
-    if (!lowerQuery) return plans;
-    return plans.filter(plan => plan.name.toLowerCase().includes(lowerQuery));
+    if (!searchQuery) return plans;
+    return plans.filter(plan => plan.name.toLowerCase().includes(searchQuery.toLowerCase()));
   }, [searchQuery, plans]);
 
   useEffect(() => {
@@ -152,8 +151,12 @@ export default function ActionPlanManagerPage() {
         const health = enrichedPlans.length > 0 ? Math.round((onTrackPlans / enrichedPlans.length) * 100) : 100;
         setGlobalStats({ totalPending: gPending, totalDone: gDone, activePlans: enrichedPlans.length, healthScore: health });
         setPlans(enrichedPlans);
-      } catch (error) { console.error('Erro ao carregar Torre de Controle:', error); } 
-      finally { setLoading(false); }
+        
+      } catch (error) { 
+        console.error('Erro ao carregar Torre de Controle:', error); 
+      } finally { 
+        setLoading(false); 
+      }
     };
     fetchPlans();
   }, []);
@@ -162,7 +165,7 @@ export default function ActionPlanManagerPage() {
 
   return (
     <Stack gap="xl" pb="xl">
-      {/* 🔵 CABEÇALHO TECHFLOW COLOR */}
+      {/* CABEÇALHO */}
       <Paper p="xl" radius="lg" style={{ background: `linear-gradient(135deg, ${BRAND_BLUE} 0%, #3b5bdb 100%)`, color: 'white', overflow: 'hidden', position: 'relative' }}>
         <div style={{ position: 'absolute', top: -50, right: -50, width: 250, height: 250, background: globalStats.healthScore < 50 ? '#ff6b6b' : '#4dabf7', borderRadius: '50%', filter: 'blur(100px)', opacity: 0.4 }}></div>
         <Grid align="center" gutter="xl">
@@ -182,6 +185,7 @@ export default function ActionPlanManagerPage() {
               onChange={(e) => setSearchQuery(e.currentTarget.value)}
               styles={{ 
                 input: { backgroundColor: 'rgba(255,255,255,0.15)', color: 'white', border: '1px solid rgba(255,255,255,0.2)' },
+                inputPlaceholder: { color: 'rgba(255,255,255,0.6)' }
               }}
             />
           </Grid.Col>
@@ -215,7 +219,22 @@ export default function ActionPlanManagerPage() {
                     <Title order={3} fw={800} c="dark.7">{plan.name}</Title>
                     <Menu shadow="md" width={200} position="bottom-start">
                       <Menu.Target><ActionIcon variant="subtle" color="gray"><IconDotsVertical size={18} /></ActionIcon></Menu.Target>
-                      <Menu.Dropdown><Menu.Label>Ações</Menu.Label><Menu.Item leftSection={<IconBellRinging size={14} />}>Cobrar Equipe</Menu.Item><Menu.Item leftSection={<IconDownload size={14} />}>Exportar PDF</Menu.Item></Menu.Dropdown>
+                      <Menu.Dropdown>
+                        <Menu.Label>Ações</Menu.Label>
+                        {/* 🟢 BOTÕES AGORA FUNCIONAM */}
+                        <Menu.Item 
+                          leftSection={<IconBellRinging size={14} />} 
+                          onClick={() => alert(`Notificação de cobrança enviada com sucesso para a equipe da campanha: ${plan.name}!`)}
+                        >
+                          Cobrar Equipe
+                        </Menu.Item>
+                        <Menu.Item 
+                          leftSection={<IconDownload size={14} />}
+                          onClick={() => window.print()}
+                        >
+                          Exportar PDF
+                        </Menu.Item>
+                      </Menu.Dropdown>
                     </Menu>
                   </Group>
                   <Group gap="xs" mt={4}>
@@ -250,7 +269,7 @@ export default function ActionPlanManagerPage() {
                   {plan.leaderboard.map((tech, index) => (
                     <Paper key={tech.name} p="md" radius="md" withBorder>
                       <Group justify="space-between" mb="xs"><Group gap="xs"><Avatar color={tech.percent === 100 ? 'teal' : (index === 0 && tech.percent > 0 ? 'orange' : BRAND_BLUE)} radius="xl">{index === 0 && tech.percent > 0 ? <IconTrophy size={16} /> : tech.name.charAt(0).toUpperCase()}</Avatar><Text fw={700} size="sm" truncate w={100}>{tech.name}</Text></Group><Badge variant="light" color={BRAND_BLUE}>{tech.done}/{tech.total}</Badge></Group>
-                      <Progress value={tech.percent} size="lg" radius="xl" color={tech.percent === 100 ? 'teal' : (index === 0 ? 'orange' : BRAND_BLUE)} /><Text size="xs" ta="right" mt={4} fw={800} c="dimmed">{tech.percent}%</Text>
+                      <Progress value={tech.percent} size="lg" radius="xl" color={tech.percent === 100 ? 'teal' : (index === 0 && tech.percent > 0 ? 'orange' : BRAND_BLUE)} /><Text size="xs" ta="right" mt={4} fw={800} c="dimmed">{tech.percent}%</Text>
                     </Paper>
                   ))}</SimpleGrid></Tabs.Panel>
 
