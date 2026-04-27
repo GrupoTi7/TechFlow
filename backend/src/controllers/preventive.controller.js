@@ -1,5 +1,6 @@
 // src/controllers/preventive.controller.js
 const preventiveService = require('../services/preventive.service');
+const { prisma } = require('../config/prismaClient'); // 🟢 ADICIONADO: Importação do Prisma para acessar as outras tabelas
 
 async function createPreventive(req, res) {
   try {
@@ -20,11 +21,30 @@ async function createPreventive(req, res) {
       notes: notes
     };
 
+    // 1. Cria a preventiva no histórico
     const newPreventive = await preventiveService.addPreventive(deviceId, preventiveData);
     
+    // 🟢 2. ADICIONADO: Atualiza a data da última preventiva no próprio Dispositivo
+    await prisma.device.update({
+        where: { id: deviceId },
+        data: { lastPreventiveDate: new Date(date) } // Atualiza para a data que o técnico preencheu
+    });
+
+    // 🟢 3. ADICIONADO: Dá baixa automática se a máquina estiver pendente num Plano de Ação
+    await prisma.actionPlanAssignment.updateMany({
+        where: { 
+            deviceId: deviceId,
+            status: 'PENDING' 
+        },
+        data: { 
+            status: 'DONE',
+            completedAt: new Date(date)
+        }
+    });
+
     res.status(201).json({ 
       success: true, 
-      message: 'Preventiva registada com sucesso!', 
+      message: 'Preventiva registada e baixa efetuada com sucesso!', 
       preventive: newPreventive 
     });
 
@@ -53,7 +73,7 @@ async function getPreventivesByDevice(req, res) {
   }
 }
 
-// 🟢 NOVA FUNÇÃO: Busca o histórico completo de todas as máquinas
+// 🟢 Função: Busca o histórico completo de todas as máquinas
 async function getAllPreventives(req, res) {
   try {
     const preventives = await preventiveService.findAllPreventives();
