@@ -5,4 +5,6 @@ const router = express.Router();
 
 router.get('/', getActionPlan);
 
+router.post('/remind', actionPlanController.sendReminder);
+
 module.exports = router;

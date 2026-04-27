@@ -10,7 +10,9 @@ import {
   IconSearch, IconDotsVertical, IconBellRinging, IconDownload, 
   IconFlame, IconHeartRateMonitor
 } from '@tabler/icons-react';
-import { getActionPlans, getUsers } from '../services/api';
+
+// 🟢 Importação limpa e única com a função do E-mail (sendPlanReminder)
+import { getActionPlans, getUsers, sendPlanReminder } from '../services/api';
 
 const BRAND_BLUE = '#0003d9';
 
@@ -221,10 +223,21 @@ export default function ActionPlanManagerPage() {
                       <Menu.Target><ActionIcon variant="subtle" color="gray"><IconDotsVertical size={18} /></ActionIcon></Menu.Target>
                       <Menu.Dropdown>
                         <Menu.Label>Ações</Menu.Label>
-                        {/* 🟢 BOTÕES AGORA FUNCIONAM */}
+                        {/* 🟢 BOTÃO DE E-MAIL CONECTADO À API */}
                         <Menu.Item 
                           leftSection={<IconBellRinging size={14} />} 
-                          onClick={() => alert(`Notificação de cobrança enviada com sucesso para a equipe da campanha: ${plan.name}!`)}
+                          onClick={async () => {
+                            try {
+                              await sendPlanReminder({ 
+                                planName: plan.name, 
+                                totalPending: plan.stats.pending, 
+                                daysLeft: plan.daysLeft || 0 
+                              });
+                              alert(`E-mail de cobrança enviado com sucesso para a equipe sobre o plano: ${plan.name}`);
+                            } catch (error) {
+                              alert('Erro ao enviar e-mail. Verifique a conexão com o servidor SMTP.');
+                            }
+                          }}
                         >
                           Cobrar Equipe
                         </Menu.Item>

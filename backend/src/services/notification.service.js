@@ -30,7 +30,7 @@ async function verifySmtpConnection() {
 }
 
 /**
- * Função Principal
+ * Função Principal (Verificação Diária Automática)
  */
 async function checkAndSendNotifications() {
   console.log('--- [Email Job] Iniciando verificação ---');
@@ -139,4 +139,80 @@ async function checkAndSendNotifications() {
   }
 }
 
-module.exports = { checkAndSendNotifications };
+/**
+ * 🟢 NOVA FUNÇÃO: Disparo manual de cobrança de SLA (Command Center)
+ */
+async function sendActionPlanReminder(planName, totalPending, daysLeft) {
+  console.log(`[Email Job] Disparando cobrança manual para a campanha: ${planName}`);
+
+  const isConnected = await verifySmtpConnection();
+  if (!isConnected) throw new Error(`Falha na conexão SMTP ao tentar enviar cobrança.`);
+
+  const systemLink = "https://10.20.2.75/login";
+  const reportDate = format(new Date(), 'dd/MM/yyyy HH:mm');
+
+  // Lógica de cores baseada na urgência
+  let statusHTML = '';
+  if (daysLeft < 0) {
+      statusHTML = `<span style="color: #e03131; font-weight: bold;">ATRASADO EM ${Math.abs(daysLeft)} DIAS (SLA QUEBRADO)</span>`;
+  } else if (daysLeft <= 3) {
+      statusHTML = `<span style="color: #e67e22; font-weight: bold;">CRÍTICO - Vence em ${daysLeft} dias</span>`;
+  } else {
+      statusHTML = `<span style="color: #0003d9; font-weight: bold;">No prazo (${daysLeft} dias restantes)</span>`;
+  }
+
+  const emailBody = `
+    <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px; border: 1px solid #ddd; border-radius: 8px; overflow: hidden; margin: 0 auto;">
+        <div style="background-color: #0003d9; padding: 20px; color: white; text-align: center;">
+            <h2 style="margin: 0; letter-spacing: 1px;">⚙️ TechFlow Command Center</h2>
+            <p style="margin: 5px 0 0 0; font-size: 14px; opacity: 0.8;">Alerta de Prioridade Operacional</p>
+        </div>
+        
+        <div style="padding: 30px 20px;">
+            <p style="font-size: 16px; margin-top: 0;">Olá, Equipe de Manutenção,</p>
+            <p style="font-size: 16px; line-height: 1.5;">O gestor da operação acabou de emitir um alerta de prioridade para a campanha de preventivas <b>"${planName}"</b>.</p>
+            
+            <div style="background-color: #f8f9fa; padding: 20px; border-left: 5px solid #0003d9; margin: 25px 0; border-radius: 4px;">
+                <ul style="list-style: none; padding: 0; margin: 0;">
+                    <li style="margin-bottom: 12px; font-size: 16px;">
+                        📉 <b>Máquinas Pendentes:</b> <span style="font-size: 20px; color: #e03131; font-weight: 900;">${totalPending}</span> equipamentos
+                    </li>
+                    <li style="font-size: 16px;">
+                        ⏱️ <b>Status do Prazo:</b> ${statusHTML}
+                    </li>
+                </ul>
+            </div>
+            
+            <p style="font-size: 15px; color: #555;">Por favor, direcionem esforços para a conclusão destas tarefas a fim de manter a saúde da operação em 100%.</p>
+            
+            <div style="text-align: center; margin-top: 35px;">
+                <a href="${systemLink}" style="background-color: #0003d9; color: white; padding: 12px 25px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 16px;">Acessar Painel TechFlow</a>
+            </div>
+        </div>
+        
+        <div style="background-color: #f1f3f5; padding: 15px; text-align: center; font-size: 12px; color: #888; border-top: 1px solid #ddd;">
+            <p style="margin: 0;">Relatório gerado em: ${reportDate}</p>
+            <p style="margin: 5px 0 0 0;">Este é um e-mail automático disparado pelo módulo gerencial.</p>
+        </div>
+    </div>
+  `;
+
+  try {
+    const info = await transporter.sendMail({
+      from: process.env.EMAIL_FROM || '"TechFlow Alerts" <support@ptractor.com.br>',
+      to: process.env.EMAIL_TO || 'ti@ptractor.com.br',
+      subject: `[Urgente] Ação Requerida - Campanha: ${planName}`,
+      html: emailBody
+    });
+    console.log(`[Email Job] ✅ Cobrança enviada com sucesso! ID: ${info.messageId}`);
+    return { success: true };
+  } catch (error) {
+    console.error('[Email Job] ❌ Erro ao enviar cobrança:', error);
+    throw error;
+  }
+}
+
+module.exports = { 
+  checkAndSendNotifications,
+  sendActionPlanReminder 
+};
