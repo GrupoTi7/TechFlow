@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { 
   Title, Text, Card, Group, Stack, Progress, Badge, Loader, 
   Center, RingProgress, Paper, SimpleGrid, Divider, Tabs, 
-  ThemeIcon, Grid, Avatar, TextInput, Menu, ActionIcon, Timeline, Tooltip
+  ThemeIcon, Grid, Avatar, TextInput, Menu, ActionIcon, Timeline, Tooltip, Box
 } from '@mantine/core';
 import { 
   IconTrophy, IconActivity, IconClock, IconBuildingStore, 
