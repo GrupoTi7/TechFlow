@@ -417,7 +417,10 @@ export const updateDeviceCategory = async (id, category) => {
     }
 };
 
-// 🟢 CORRIGIDO AQUI: apiClient em vez de api, e rota para /api/preventives
+// ============================================================
+// --- HISTÓRICO E COBRANÇAS ---
+// ============================================================
+
 export const getHistory = async () => {
   try {
     const response = await apiClient.get('/api/preventives'); 
@@ -428,9 +431,10 @@ export const getHistory = async () => {
   }
 };
 
+// 🟢 CORRIGIDO AQUI: Usa apiClient e adiciona '/api' à rota (ajuste para bater certo com a maioria das suas rotas)
 export const sendPlanReminder = async (planData) => {
     try {
-        const response = await api.post('/action-plans/remind', planData);
+        const response = await apiClient.post('/api/action-plans/remind', planData);
         return response.data;
     } catch (error) {
         console.error("Erro ao disparar cobrança:", error);
