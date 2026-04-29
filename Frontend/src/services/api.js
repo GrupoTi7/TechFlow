@@ -433,7 +433,7 @@ export const getHistory = async () => {
 
 export const sendPlanReminder = async (planData) => {
     try {
-        const response = await apiClient.post('/api/action-plan/remind', planData);
+        const response = await apiClient.post('/api/plans/remind', planData);
         return response.data;
     } catch (error) {
         console.error("Erro ao disparar cobrança:", error);

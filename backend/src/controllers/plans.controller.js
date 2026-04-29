@@ -1,4 +1,5 @@
 const { prisma } = require('../config/prismaClient');
+const notificationService = require('../services/notification.service');
 
 const fixedHolidays = ['01-01', '04-21', '05-01', '09-07', '10-12', '11-02', '11-15', '12-25'];
 
@@ -202,4 +203,25 @@ const getUserActionPlan = async (req, res) => {
     } catch (error) { res.status(500).json({ error: error.message }); }
 };
 
-module.exports = { listPlans, createPlan, deletePlan, getUserActionPlan };
+const sendReminder = async (req, res) => {
+    try {
+        const { planId, planName, totalPending, daysLeft } = req.body;
+        
+        const teamEmails = [
+            'marcus.cortez@ptractor.com.br',
+            'alex.maciel@ptractor.com.br',
+            'carlos.oliveira@ptractor.com.br',
+            'vinicius.izidoro@ptractor.com.br'
+        ];
+
+        await notificationService.sendActionPlanReminder(planName, totalPending, daysLeft, teamEmails);
+        
+        res.status(200).json({ success: true, message: 'Cobrança enviada com sucesso!' });
+    } catch (error) {
+        console.error('Erro ao disparar cobrança:', error);
+        res.status(500).json({ success: false, message: 'Erro ao enviar notificação.', error: error.message });
+    }
+};
+
+
+module.exports = { listPlans, createPlan, deletePlan, getUserActionPlan, sendReminder };
