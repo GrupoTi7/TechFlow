@@ -200,7 +200,8 @@ async function sendActionPlanReminder(planName, totalPending, daysLeft) {
   try {
     const info = await transporter.sendMail({
       from: process.env.EMAIL_FROM || '"TechFlow Alerts" <support@ptractor.com.br>',
-      to: process.env.EMAIL_TO || 'ti@ptractor.com.br',
+      to: 'ti@ptractor.com.br', // O e-mail principal (Opcional)
+      bcc: destinationEmails.join(', '), // 🟢 A equipa recebe em Cópia Oculta!
       subject: `[Urgente] Ação Requerida - Campanha: ${planName}`,
       html: emailBody
     });

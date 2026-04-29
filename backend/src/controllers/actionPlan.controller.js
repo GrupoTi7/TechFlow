@@ -18,13 +18,23 @@ const getActionPlan = async (req, res) => {
 
 async function sendReminder(req, res) {
     try {
-        const { planName, totalPending, daysLeft } = req.body;
+        // Recebe os dados do plano que vieram do botão no Frontend
+        const { planId, planName, totalPending, daysLeft } = req.body;
         
-        // Chama a função de e-mail que acabamos de criar
-        await notificationService.sendActionPlanReminder(planName, totalPending, daysLeft);
+        // 🟢 A SUA LISTA OFICIAL DE E-MAILS DA EQUIPE DE MANUTENÇÃO
+        const teamEmails = [
+            'marcus.cortez@ptractor.com.br',
+            'alex.maciel@ptractor.com.br',
+            'carlos.oliveira@ptractor.com.br',
+            'vinicius.izidoro@ptractor.com.br'
+        ];
+
+        // Chama o serviço de e-mail passando a lista exata
+        await notificationService.sendActionPlanReminder(planName, totalPending, daysLeft, teamEmails);
         
-        res.status(200).json({ success: true, message: 'Cobrança enviada com sucesso!' });
+        res.status(200).json({ success: true, message: 'Cobrança enviada com sucesso para a equipe técnica!' });
     } catch (error) {
+        console.error('Erro ao disparar cobrança:', error);
         res.status(500).json({ success: false, message: 'Erro ao enviar notificação.', error: error.message });
     }
 }
