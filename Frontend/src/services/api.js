@@ -431,15 +431,15 @@ export const getHistory = async () => {
   }
 };
 
-// 🟢 CORRIGIDO AQUI: Usa apiClient e adiciona '/api' à rota (ajuste para bater certo com a maioria das suas rotas)
 export const sendPlanReminder = async (planData) => {
     try {
-        const response = await apiClient.post('/api/action-plans/remind', planData);
+        const response = await apiClient.post('/api/action-plan/remind', planData);
         return response.data;
     } catch (error) {
         console.error("Erro ao disparar cobrança:", error);
         throw error;
     }
 };
+
 
 export default apiClient;

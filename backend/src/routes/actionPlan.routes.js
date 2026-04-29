@@ -1,10 +1,11 @@
 const express = require('express');
-const { getActionPlan } = require('../controllers/actionPlan.controller.js');
+// 🟢 IMPORTAÇÃO CORRIGIDA: Agora importamos o ficheiro inteiro como 'actionPlanController'
+const actionPlanController = require('../controllers/actionPlan.controller.js');
 
 const router = express.Router();
 
-router.get('/', getActionPlan);
-
+// 🟢 Usamos o controller.nomeDaFuncao para todas as rotas
+router.get('/', actionPlanController.getActionPlan);
 router.post('/remind', actionPlanController.sendReminder);
 
 module.exports = router;
