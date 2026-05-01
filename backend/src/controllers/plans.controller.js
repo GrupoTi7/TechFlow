@@ -90,22 +90,6 @@ const createPlan = async (req, res) => {
 
     if (techIds.length === 0) return res.status(400).json({ message: "Nenhum técnico selecionado para o plano." });
 
-    // 🟢 MODO DETETIVE: Vamos logar o que o banco encontra isoladamente
-    console.log("\n--- 🔍 INVESTIGAÇÃO DE FILTROS ---");
-    console.log("Tipos alvo:", targetTypes);
-    console.log("Setores alvo:", targetSectors);
-    console.log("Técnicos selecionados:", techIds.length);
-    
-    const countTipo = await prisma.device.count({ where: { deviceType: { in: targetTypes } } });
-    console.log(`Dispositivos encontrados só pelo Tipo: ${countTipo}`);
-    
-    if (targetSectors && targetSectors.length > 0) {
-        const countSetor = await prisma.device.count({ where: { sector: { name: { in: targetSectors } } } });
-        console.log(`Dispositivos encontrados só pelo Setor: ${countSetor}`);
-    }
-
-    // 🟢 CORREÇÃO DE PROTEÇÃO: Em vez de exigir que isActive seja true (o que falha se for null), 
-    // agora exigimos apenas que NÃO seja false.
     let whereClause = { isActive: { not: false } }; 
     whereClause.AND = [];
     
@@ -113,9 +97,13 @@ const createPlan = async (req, res) => {
         whereClause.AND.push({ deviceType: { in: targetTypes } });
     }
 
+    // 🟢 A SOLUÇÃO: Busca tanto no relacionamento (caso exista no futuro) quanto na coluna de texto real (setorName)
     if (targetSectors && targetSectors.length > 0) {
         whereClause.AND.push({
-            sector: { name: { in: targetSectors } }
+            OR: [
+                { sector: { name: { in: targetSectors } } },
+                { setorName: { in: targetSectors } }
+            ]
         });
     }
 
@@ -125,9 +113,6 @@ const createPlan = async (req, res) => {
         where: whereClause,
         include: { sector: true } 
     });
-
-    console.log(`Resultado final cruzando TODOS os filtros: ${devices.length} dispositivos encontrados.`);
-    console.log("----------------------------------\n");
 
     if (devices.length === 0) {
         const nomeTipo = targetTypes.length > 0 ? targetTypes.join(' ou ') : 'dispositivo';
@@ -192,7 +177,8 @@ const getUserActionPlan = async (req, res) => {
                 plansMap[a.planId] = { id: a.plan.id, name: a.plan.name, deadline: a.plan.deadline, assignments: [] };
             }
             const isLate = a.plan.deadline && new Date(a.plan.deadline) < new Date();
-            const setorName = a.device.sector?.name || a.device.setor || 'S/ Setor';
+            // 🟢 A CORREÇÃO DE EXIBIÇÃO: Lendo de setorName em vez de setor
+            const setorName = a.device.sector?.name || a.device.setorName || 'S/ Setor';
             
             plansMap[a.planId].assignments.push({
                 id: a.device.id, name: a.device.name, type: a.device.deviceType,
