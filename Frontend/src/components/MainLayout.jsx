@@ -18,7 +18,7 @@ import {
   IconFileAnalytics, 
   IconSettings, 
   IconLogout,
-  IconActivity // Ícone da Diretoria
+  IconActivity
 } from '@tabler/icons-react';
 
 const BRAND_BLUE = '#0003d9';
@@ -34,25 +34,31 @@ export default function MainLayout() {
   const storedUser = localStorage.getItem('user');
   const userObj = storedUser ? JSON.parse(storedUser) : null;
 
+  // 🟢 2. LÓGICA DE PERMISSÃO CORRIGIDA E BLINDADA
+  // Pega o username ou email e força para minúsculo para evitar falhas de case-sensitive
+  const checkUsername = (userObj?.username || userObj?.email || '').toLowerCase();
+  const checkName = (userObj?.name || '').toLowerCase();
+
+  // A Nossa "Lista VIP"
+  const gestores = ['vinicius.izidoro', 'eduardo.nakai', 'juliano.veroneze'];
+
   const isGestorUser = 
     userObj?.role === 'ADMIN' || 
-    userObj?.username === 'vinicius.izidoro' || 
-    userObj?.name?.toLowerCase().includes('juliano') || 
-    userObj?.username?.toLowerCase().includes('juliano') ||
-    userObj?.name?.toLowerCase().includes('eduardo') ||
-    userObj?.username?.toLowerCase().includes('eduardo');
+    gestores.some(gestor => checkUsername.includes(gestor)) || 
+    checkName.includes('eduardo') || 
+    checkName.includes('juliano');
 
-  // 🟢 2. MENU FIXO (Visível para todo mundo, sem esconder nada!)
+  // 🟢 3. MENU FIXO (Visível para todo mundo, sem esconder nada!)
   const navItems = [
     { label: 'Painel', icon: IconLayoutDashboard, to: '/' },
     { label: 'Dispositivos', icon: IconDeviceDesktopAnalytics, to: '/devices' },
     { label: 'Relatórios', icon: IconFileAnalytics, to: '/reports' },
-    { label: 'Administração', icon: IconSettings, to: '/admin' } // <-- Voltou para cá!
+    { label: 'Administração', icon: IconSettings, to: '/admin' } 
   ];
 
-  // 🟢 3. MENU DINÂMICO (Adiciona a Torre de Controle SÓ para a chefia)
+  // 🟢 4. MENU DINÂMICO (Adiciona a aba SÓ para quem passou na verificação acima)
   if (isGestorUser) {
-      navItems.push({ label: 'Monitor de Campanhas', icon: IconActivity, to: '/campaign-monitor' });
+      navItems.push({ label: 'Acompanhar Campanhas', icon: IconActivity, to: '/campaign-monitor' });
   }
 
   return (
