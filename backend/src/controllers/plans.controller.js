@@ -39,12 +39,12 @@ function countBusinessDays(startDate, endDate) {
 const listPlans = async (req, res) => {
   try {
     const plans = await prisma.actionPlan.findMany({
-      where: { status: { not: 'COMPLETED' } }, // 🟢 Só pega os planos que estão rodando
+      where: { status: { not: 'COMPLETED' } }, 
       orderBy: { createdAt: 'desc' },
       include: { 
-        _count: { select: { assignments: { where: { status: 'PENDING' } } } }, // 🟢 Conta apenas os PENDENTES
+        _count: { select: { assignments: { where: { status: 'PENDING' } } } }, 
         assignments: {
-          where: { status: 'PENDING' }, // 🟢 A MÁGICA 1: Só envia para a fila as máquinas PENDENTES
+          where: { status: 'PENDING' }, 
           include: {
             device: true 
           }
@@ -90,14 +90,29 @@ const createPlan = async (req, res) => {
 
     if (techIds.length === 0) return res.status(400).json({ message: "Nenhum técnico selecionado para o plano." });
 
-    let whereClause = { isActive: true };
+    // 🟢 MODO DETETIVE: Vamos logar o que o banco encontra isoladamente
+    console.log("\n--- 🔍 INVESTIGAÇÃO DE FILTROS ---");
+    console.log("Tipos alvo:", targetTypes);
+    console.log("Setores alvo:", targetSectors);
+    console.log("Técnicos selecionados:", techIds.length);
+    
+    const countTipo = await prisma.device.count({ where: { deviceType: { in: targetTypes } } });
+    console.log(`Dispositivos encontrados só pelo Tipo: ${countTipo}`);
+    
+    if (targetSectors && targetSectors.length > 0) {
+        const countSetor = await prisma.device.count({ where: { sector: { name: { in: targetSectors } } } });
+        console.log(`Dispositivos encontrados só pelo Setor: ${countSetor}`);
+    }
+
+    // 🟢 CORREÇÃO DE PROTEÇÃO: Em vez de exigir que isActive seja true (o que falha se for null), 
+    // agora exigimos apenas que NÃO seja false.
+    let whereClause = { isActive: { not: false } }; 
     whereClause.AND = [];
     
     if (targetTypes && targetTypes.length > 0) {
         whereClause.AND.push({ deviceType: { in: targetTypes } });
     }
 
-    // 🟢 CORREÇÃO: Removido o campo "setor" inexistente. Agora busca apenas pelo relacionamento "sector"
     if (targetSectors && targetSectors.length > 0) {
         whereClause.AND.push({
             sector: { name: { in: targetSectors } }
@@ -110,6 +125,9 @@ const createPlan = async (req, res) => {
         where: whereClause,
         include: { sector: true } 
     });
+
+    console.log(`Resultado final cruzando TODOS os filtros: ${devices.length} dispositivos encontrados.`);
+    console.log("----------------------------------\n");
 
     if (devices.length === 0) {
         const nomeTipo = targetTypes.length > 0 ? targetTypes.join(' ou ') : 'dispositivo';
@@ -160,7 +178,6 @@ const getUserActionPlan = async (req, res) => {
         const userId = req.user.id || req.user.userId;
         if (!userId) return res.status(401).json({ error: "Não identificado" });
 
-        // 🟢 A MÁGICA 2: Traz todas as tarefas pendentes deste técnico
         const assignments = await prisma.actionPlanAssignment.findMany({
             where: { technicianId: userId, status: 'PENDING', plan: { status: { not: 'COMPLETED' } } },
             include: { device: { include: { sector: true } }, plan: true },
@@ -169,7 +186,6 @@ const getUserActionPlan = async (req, res) => {
 
         if (assignments.length === 0) return res.json([]);
 
-        // Agrupa as tarefas por Plano (Para podermos escolher na tela!)
         const plansMap = {};
         assignments.forEach(a => {
             if (!plansMap[a.planId]) {
@@ -196,7 +212,7 @@ const getUserActionPlan = async (req, res) => {
             };
         });
 
-        res.json(result); // Envia todos os planos ativos em formato de lista
+        res.json(result); 
 
     } catch (error) { res.status(500).json({ error: error.message }); }
 };
