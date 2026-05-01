@@ -13,7 +13,6 @@ import {
   IconBuildingStore, IconDeviceDesktopAnalytics, IconListCheck, 
   IconTrash, IconEdit, IconArrowRight, IconInfoCircle, 
   IconCheck, IconX, IconCalendar, IconFilter, IconUsers, IconDatabaseImport,
-  // Ícones para o catálogo
   IconDeviceDesktop, IconDeviceLaptop, IconPrinter, IconServer, 
   IconRouter, IconWifi, IconTerminal2, IconBarcode, IconDeviceMobile, IconDevices
 } from '@tabler/icons-react';
@@ -21,16 +20,13 @@ import dayjs from 'dayjs';
 import 'dayjs/locale/pt-br';
 
 dayjs.locale('pt-br');
-import { allSetorOptions, setoresAdministrativos, setoresProducao } from '../utils/sectors';
-import { 
-  getSectors, createSector, updateSector, deleteSector, 
+import { getSectors, createSector, updateSector, deleteSector, 
   getDeviceTypes, createDeviceType, updateDeviceType, deleteDeviceType,
   getUsers, getActionPlans, createActionPlan, deleteActionPlan 
 } from '../services/api';
 
 const BRAND_BLUE = '#0003d9';
 
-// 🟢 MAPA DE ÍCONES DISPONÍVEIS PARA O CATÁLOGO
 const availableIcons = [
   { value: 'IconDeviceDesktop', label: 'Desktop / Computador', icon: <IconDeviceDesktop size={18} /> },
   { value: 'IconDeviceLaptop', label: 'Notebook / Laptop', icon: <IconDeviceLaptop size={18} /> },
@@ -49,7 +45,6 @@ function renderIconPreview(iconName) {
     return found ? found.icon : <IconDevices size={18} color="gray" />;
 }
 
-// 🟢 FUNÇÕES DE CÁLCULO DE DATAS
 function calculateBusinessDays(startDate, endDate) {
     if (!startDate || !endDate) return 0;
     let count = 0;
@@ -89,9 +84,6 @@ function addBusinessDays(startDate, daysToAdd) {
     return currentDate;
 }
 
-// ============================================================================
-// 1. GERENCIADOR DE SETORES
-// ============================================================================
 const SectorsManager = () => {
     const [sectors, setSectors] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -134,7 +126,6 @@ const SectorsManager = () => {
 
     return (
         <Stack gap="lg">
-            {/* 🟢 DESIGN PREMIUM PARA NOVO CADASTRO */}
             <Paper p="md" radius="md" bg="#f8f9fa" style={{ border: '1px solid #e9ecef', borderLeft: `4px solid ${BRAND_BLUE}` }}>
                 <Text size="sm" fw={700} c="dimmed" tt="uppercase" mb="md">
                     {editingId ? 'Editando Setor Existente' : 'Cadastrar Novo Setor'}
@@ -180,9 +171,6 @@ const SectorsManager = () => {
     );
 };
 
-// ============================================================================
-// 2. GERENCIADOR DE TIPOS DE DISPOSITIVO (Profissionalizado)
-// ============================================================================
 const DeviceTypesManager = () => {
     const [types, setTypes] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -225,16 +213,22 @@ const DeviceTypesManager = () => {
 
     return (
         <Stack gap="lg">
-            {/* 🟢 DESIGN PREMIUM E SELECT DE ÍCONES */}
             <Paper p="md" radius="md" bg="#f8f9fa" style={{ border: '1px solid #e9ecef', borderLeft: `4px solid ${BRAND_BLUE}` }}>
                 <Text size="sm" fw={700} c="dimmed" tt="uppercase" mb="md">
                     {editingId ? 'Editando Categoria Existente' : 'Cadastrar Nova Categoria'}
                 </Text>
                 <Group align="flex-end" gap="md">
                     <TextInput label="Nome de Exibição" placeholder="Ex: Roteador de Borda" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} style={{ flex: 1.5 }} />
-                    <TextInput label="Chave de Sistema (Obrigatório)" description="A exata palavra que o inventário envia" placeholder="Ex: switch" required value={form.key} onChange={(e) => setForm({ ...form, key: e.target.value.toLowerCase() })} style={{ flex: 1 }} />
+                    <TextInput 
+                        label="Chave de Sistema (Obrigatório)" 
+                        description="Exato texto do GLPI (Ex: Desktop)" 
+                        placeholder="Ex: Desktop" 
+                        required 
+                        value={form.key} 
+                        onChange={(e) => setForm({ ...form, key: e.target.value })} 
+                        style={{ flex: 1 }} 
+                    />
                     
-                    {/* 🟢 SELECT DE ÍCONES */}
                     <Select 
                         label="Ícone Visual" 
                         placeholder="Escolha um ícone..." 
@@ -263,7 +257,6 @@ const DeviceTypesManager = () => {
                     <Table.Tbody>
                         {types.map((type) => (
                             <Table.Tr key={type.id}>
-                                {/* 🟢 ÍCONE RENDERIZADO DE VERDADE NA TABELA */}
                                 <Table.Td align="center">
                                     <ThemeIcon variant="light" color={BRAND_BLUE} size="md" radius="md">
                                         {renderIconPreview(type.icon)}
@@ -287,9 +280,6 @@ const DeviceTypesManager = () => {
     );
 };
 
-// ============================================================================
-// 3. GERENCIADOR DE PLANOS DE AÇÃO (Polido e com Filtro de Usuário Inteligente)
-// ============================================================================
 const ActionPlansManager = () => {
     const [plans, setPlans] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -303,7 +293,7 @@ const ActionPlansManager = () => {
         startDate: new Date(), 
         deadline: null,
         targetSectors: [], 
-        targetTypes: ['Desktop', 'Notebook', 'Switch'], 
+        targetTypes: [], 
         distributeToAllTechs: true, 
         selectedTechs: []
     });
@@ -314,33 +304,26 @@ const ActionPlansManager = () => {
             const [p, s, t, u] = await Promise.all([getActionPlans(), getSectors(), getDeviceTypes(), getUsers()]);
             setPlans(p);
             setSectors(s.map(i => ({ value: String(i.name), label: i.name }))); 
-            setDeviceTypes(t.map(i => ({ value: i.key, label: i.name })));
             
+            // 🟢 CORREÇÃO CRUCIAL AQUI: Usa a 'key' exata que está no banco, não minúscula.
+            const mappedTypes = t.map(i => ({ value: i.key, label: i.name }));
+            setDeviceTypes(mappedTypes);
+            
+            const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
             const userList = Array.isArray(u.users) ? u.users : (Array.isArray(u) ? u : []);
             
-            // 🟢 IDENTIFICA QUEM É O USUÁRIO LOGADO AGORA
-            const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
-
-            // 🟢 A NOVA REGRA DE FILTRO INTELIGENTE
             const validTechs = userList.filter(user => {
-                // 1. O seu usuário furará SEMPRE o bloqueio, para que possa receber planos.
                 if (user.id === currentUser.id || user.username === currentUser.username || user.name === currentUser.name) {
                     return true;
                 }
-                
-                // 🟢 REMOVIDO: A trava que escondia usuários com role 'ADMIN' estava aqui.
-                // Como os seus outros técnicos devem estar como ADMIN no banco, eles sumiam.
-
-                // 2. Trava nominal para os usuários específicos que você solicitou remover
                 const nameStr = String(user.name || '').toLowerCase();
                 const userStr = String(user.username || '').toLowerCase();
                 if (nameStr.includes('juliano') || userStr.includes('juliano')) return false;
                 if (nameStr.includes('eduardo') || userStr.includes('eduardo')) return false;
 
-                return true; // Mantém os restantes
+                return true; 
             });
 
-            // 🟢 Adicionado um 'fallback' no value para evitar conflitos se o banco não mandar o ID
             setTechnicians(validTechs.map(i => ({ 
                 value: String(i.id || i.username), 
                 label: i.name || i.username || `Técnico Sem Nome`
@@ -377,7 +360,7 @@ const ActionPlansManager = () => {
             setIsCreating(false);
             setNewPlan({
                 name: '', startDate: new Date(), deadline: null,
-                targetSectors: [], targetTypes: ['Desktop', 'Notebook', 'Switch'], distributeToAllTechs: true, selectedTechs: []
+                targetSectors: [], targetTypes: [], distributeToAllTechs: true, selectedTechs: []
             });
             await loadInitialData();
         } catch (error) { 
@@ -429,7 +412,7 @@ const ActionPlansManager = () => {
                                 <MultiSelect 
                                     label="Tipos de Equipamento" 
                                     description="Máquinas que receberão manutenção."
-                                    data={deviceTypes.length > 0 ? deviceTypes : ['Desktop', 'Notebook']} 
+                                    data={deviceTypes} 
                                     value={newPlan.targetTypes} 
                                     onChange={(val) => setNewPlan({...newPlan, targetTypes: val})} 
                                     leftSection={<IconFilter size={16}/>} 
@@ -548,9 +531,6 @@ const ActionPlansManager = () => {
     );
 };
 
-// ============================================================================
-// COMPONENTE PRINCIPAL DA PÁGINA
-// ============================================================================
 export default function ServicesPage() {
   const [activeModal, setActiveModal] = useState(null); 
   const [opened, { open, close }] = useDisclosure(false);
