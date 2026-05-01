@@ -7,7 +7,7 @@ import {
 import { useDisclosure } from '@mantine/hooks';
 import { 
   IconHome, IconDeviceDesktop, IconLogout, IconHistory, 
-  IconBriefcase, IconChartBar, IconTrophy // 🟢 Ícone novo
+  IconBriefcase, IconChartBar, IconTrophy 
 } from '@tabler/icons-react';
 
 const BRAND_BLUE = '#0003d9';
@@ -20,12 +20,17 @@ function App() {
   const location = useLocation();
   const { user } = useAuth(); 
   
-  // 🟢 A REGRA DE OURO DA DIRETORIA
+  // 🟢 A REGRA DE OURO DA DIRETORIA (BLINDADA)
+  const checkUsername = (user?.username || user?.email || '').toLowerCase();
+  const checkName = (user?.name || '').toLowerCase();
+  
+  const gestores = ['vinicius.izidoro', 'eduardo.nakai', 'jv3827p'];
+
   const isGestorUser = 
     user?.role === 'ADMIN' || 
-    user?.username === 'vinicius.izidoro' || 
-    user?.name?.toLowerCase().includes('juliano.veroneze') || 
-    user?.name?.toLowerCase().includes('eduardo.nakai');
+    gestores.some(gestor => checkUsername.includes(gestor)) || 
+    checkName.includes('eduardo') || 
+    checkName.includes('juliano');
 
   const handleLogout = () => {
     localStorage.removeItem('authToken');
@@ -120,7 +125,6 @@ function App() {
                     Configurações
                 </Text>
                 
-                {/* Ocultamos configurações críticas de quem não é gestor também, se desejar. Mas mantive padrão. */}
                 <NavLink
                   label="Serviços & Parâmetros"
                   leftSection={<IconBriefcase size="1.2rem" stroke={1.5} />}
