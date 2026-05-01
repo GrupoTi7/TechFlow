@@ -30,6 +30,20 @@ function HomePage() {
   const [error, setError] = useState(null);
   const navigate = useNavigate();
 
+  // 🟢 LÓGICA PARA OCULTAR A FILA DA DIRETORIA
+  const storedUser = localStorage.getItem('user');
+  const userObj = storedUser ? JSON.parse(storedUser) : null;
+  const checkUsername = (userObj?.username || userObj?.email || '').toLowerCase();
+  const checkName = (userObj?.name || '').toLowerCase();
+
+  // Lista restrita: Apenas estes não verão a fila de execução (você continua vendo)
+  const gestoresSemFila = ['eduardo.nakai', 'juliano.veroneze'];
+  
+  const isGestorSemFila = 
+    gestoresSemFila.some(gestor => checkUsername.includes(gestor)) || 
+    checkName.includes('eduardo') || 
+    checkName.includes('juliano');
+
   useEffect(() => {
     const fetchStats = async () => {
       try {
@@ -101,7 +115,6 @@ function HomePage() {
 
   const chartOptions = {
     maintainAspectRatio: false, 
-    // 🟢 CLIQUE NO GRÁFICO (Vai para a tabela nova em /history)
     onClick: (event, elements, chart) => {
       if (elements.length > 0) {
         const dataIndex = elements[0].index;
@@ -146,7 +159,8 @@ function HomePage() {
         </Grid.Col>
       </Grid>
       
-      <ActionPlanWidget />
+      {/* 🟢 O SEGREDO ESTÁ AQUI: O componente só é renderizado se NÃO for um gestor sem fila */}
+      {!isGestorSemFila && <ActionPlanWidget />}
 
       <Grid mt="xl">
         <Grid.Col span={{ base: 12, lg: 7 }}>
