@@ -97,12 +97,10 @@ const createPlan = async (req, res) => {
         whereClause.AND.push({ deviceType: { in: targetTypes } });
     }
 
+    // 🟢 CORREÇÃO: Removido o campo "setor" inexistente. Agora busca apenas pelo relacionamento "sector"
     if (targetSectors && targetSectors.length > 0) {
         whereClause.AND.push({
-            OR: [
-                { sector: { name: { in: targetSectors } } }, 
-                { setor: { in: targetSectors } } 
-            ]
+            sector: { name: { in: targetSectors } }
         });
     }
 
@@ -222,6 +220,5 @@ const sendReminder = async (req, res) => {
         res.status(500).json({ success: false, message: 'Erro ao enviar notificação.', error: error.message });
     }
 };
-
 
 module.exports = { listPlans, createPlan, deletePlan, getUserActionPlan, sendReminder };
