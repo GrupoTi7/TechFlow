@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { 
   Title, Text, Card, Group, Stack, Progress, Badge, Loader, 
   Center, RingProgress, Paper, SimpleGrid, Divider, Tabs, 
@@ -8,10 +8,9 @@ import {
   IconTrophy, IconActivity, IconClock, IconBuildingStore, 
   IconDeviceDesktop, IconCheck, IconAlertCircle, IconUsers,
   IconSearch, IconDotsVertical, IconBellRinging, IconDownload, 
-  IconFlame, IconHeartRateMonitor
+  IconFlame, IconHeartRateMonitor, IconRefresh
 } from '@tabler/icons-react';
 
-// 🟢 Importação limpa e única com a função do E-mail (sendPlanReminder)
 import { getActionPlans, getUsers, sendPlanReminder } from '../services/api';
 
 const BRAND_BLUE = '#0003d9';
@@ -20,6 +19,7 @@ export default function ActionPlanManagerPage() {
   const [plans, setPlans] = useState([]);
   const [searchQuery, setSearchQuery] = useState(''); 
   const [loading, setLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false); // 🟢 Estado para o botão de refresh manual
   
   const [globalStats, setGlobalStats] = useState({ 
     totalPending: 0, 
@@ -28,140 +28,152 @@ export default function ActionPlanManagerPage() {
     healthScore: 100 
   });
 
-  // 🟢 MOTOR DE BUSCA CORRIGIDO: Filtra em tempo real sem travar
   const filteredPlans = useMemo(() => {
     if (!searchQuery) return plans;
     return plans.filter(plan => plan.name.toLowerCase().includes(searchQuery.toLowerCase()));
   }, [searchQuery, plans]);
 
-  useEffect(() => {
-    const fetchPlans = async () => {
-      try {
-        const [plansRaw, usersRaw] = await Promise.all([
-            getActionPlans(),
-            getUsers()
-        ]);
+  // 🟢 FUNÇÃO EXTRAÍDA PARA SER CHAMADA AUTOMATICAMENTE E MANUALMENTE
+  const fetchPlans = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
+    else setIsRefreshing(true);
 
-        const plansData = Array.isArray(plansRaw) ? plansRaw : (plansRaw?.plans || plansRaw?.data || []);
-        const usersData = Array.isArray(usersRaw?.users) ? usersRaw.users : (Array.isArray(usersRaw) ? usersRaw : []);
+    try {
+      const [plansRaw, usersRaw] = await Promise.all([
+          getActionPlans(),
+          getUsers()
+      ]);
 
-        const userMap = {};
-        usersData.forEach(u => { userMap[u.id] = u.name || u.username; });
-        
-        let gPending = 0;
-        let gDone = 0;
-        let onTrackPlans = 0;
+      const plansData = Array.isArray(plansRaw) ? plansRaw : (plansRaw?.plans || plansRaw?.data || []);
+      const usersData = Array.isArray(usersRaw?.users) ? usersRaw.users : (Array.isArray(usersRaw) ? usersRaw : []);
 
-        const enrichedPlans = plansData.map(plan => {
-          const assignments = plan.assignments || [];
-          const total = assignments.length;
-          const planStartDate = new Date(plan.startDate || plan.createdAt || new Date());
-          planStartDate.setHours(0, 0, 0, 0);
+      const userMap = {};
+      usersData.forEach(u => { userMap[u.id] = u.name || u.username; });
+      
+      let gPending = 0;
+      let gDone = 0;
+      let onTrackPlans = 0;
 
-          const completed = [];
-          const recentActivity = [];
+      const enrichedPlans = plansData.map(plan => {
+        const assignments = plan.assignments || [];
+        const total = assignments.length;
+        const planStartDate = new Date(plan.startDate || plan.createdAt || new Date());
+        planStartDate.setHours(0, 0, 0, 0);
 
-          assignments.forEach(a => {
-            const status = String(a.status || '').toUpperCase();
-            const deviceData = a.device || a;
-            const lastPrevStr = deviceData.lastPreventiveDate || deviceData.lastPreventive;
-            
-            let isDone = false;
-            let doneDate = null;
+        const completed = [];
+        const recentActivity = [];
 
-            if (['COMPLETED', 'CONCLUIDO', 'FINALIZADO', 'DONE'].includes(status)) {
+        assignments.forEach(a => {
+          const status = String(a.status || '').toUpperCase();
+          const deviceData = a.device || a;
+          const lastPrevStr = deviceData.lastPreventiveDate || deviceData.lastPreventive;
+          
+          let isDone = false;
+          let doneDate = null;
+
+          if (['COMPLETED', 'CONCLUIDO', 'FINALIZADO', 'DONE'].includes(status)) {
+            isDone = true;
+            doneDate = a.completedAt ? new Date(a.completedAt) : new Date();
+          } else if (lastPrevStr) {
+            const prevDate = new Date(lastPrevStr);
+            prevDate.setHours(0, 0, 0, 0);
+            if (prevDate >= planStartDate) {
               isDone = true;
-              doneDate = a.completedAt ? new Date(a.completedAt) : new Date();
-            } else if (lastPrevStr) {
-              const prevDate = new Date(lastPrevStr);
-              prevDate.setHours(0, 0, 0, 0);
-              if (prevDate >= planStartDate) {
-                isDone = true;
-                doneDate = new Date(lastPrevStr);
-              }
+              doneDate = new Date(lastPrevStr);
             }
-
-            if (isDone) {
-              completed.push(a);
-              const techName = a.technician?.name || a.technician?.username || userMap[a.technicianId] || 'Técnico';
-              recentActivity.push({
-                ...a,
-                deviceName: deviceData.name || 'Dispositivo Desconhecido',
-                techName: techName,
-                doneDate: doneDate
-              });
-            }
-          });
-
-          recentActivity.sort((a, b) => b.doneDate - a.doneDate);
-          gPending += (total - completed.length);
-          gDone += completed.length;
-
-          const techStats = {};
-          const sectorStats = {};
-          const typeStats = {};
-
-          assignments.forEach(a => {
-            const isDone = completed.includes(a);
-            const tName = a.technician?.name || a.technician?.username || userMap[a.technicianId] || 'Técnico';
-            
-            if (!techStats[tName]) techStats[tName] = { total: 0, done: 0 };
-            techStats[tName].total += 1;
-            if (isDone) techStats[tName].done += 1;
-
-            const deviceData = a.device || a;
-            const sName = deviceData.setorName || deviceData.setor || 'S/ Setor';
-            if (!sectorStats[sName]) sectorStats[sName] = { total: 0, done: 0 };
-            sectorStats[sName].total += 1;
-            if (isDone) sectorStats[sName].done += 1;
-
-            const typeName = deviceData.deviceType || deviceData.type || 'Outros';
-            if (!typeStats[typeName]) typeStats[typeName] = { total: 0, done: 0 };
-            typeStats[typeName].total += 1;
-            if (isDone) typeStats[typeName].done += 1;
-          });
-
-          const formatStats = (obj) => Object.keys(obj).map(name => ({
-            name, total: obj[name].total, done: obj[name].done,
-            percent: obj[name].total > 0 ? Math.round((obj[name].done / obj[name].total) * 100) : 0
-          })).sort((a, b) => a.percent - b.percent);
-
-          let daysLeft = null;
-          let urgencyColor = 'blue';
-          let isOnTrack = true;
-
-          if (plan.deadline) {
-            const diffTime = new Date(plan.deadline).getTime() - new Date().getTime();
-            daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-            if (daysLeft < 0 && completed.length < total) { urgencyColor = 'red'; isOnTrack = false; }
-            else if (daysLeft <= 3 && completed.length < total) { urgencyColor = 'orange'; }
           }
 
-          if (isOnTrack || completed.length === total) onTrackPlans++;
-
-          return {
-            ...plan, daysLeft, urgencyColor, isOnTrack,
-            recentActivity: recentActivity.slice(0, 10),
-            stats: {
-              total, done: completed.length, pending: total - completed.length,
-              progress: total > 0 ? Math.round((completed.length / total) * 100) : 0
-            },
-            leaderboard: formatStats(techStats).reverse(), sectors: formatStats(sectorStats), types: formatStats(typeStats)
-          };
+          if (isDone) {
+            completed.push(a);
+            const techName = a.technician?.name || a.technician?.username || userMap[a.technicianId] || 'Técnico';
+            recentActivity.push({
+              ...a,
+              deviceName: deviceData.name || 'Dispositivo Desconhecido',
+              techName: techName,
+              doneDate: doneDate
+            });
+          }
         });
 
-        const health = enrichedPlans.length > 0 ? Math.round((onTrackPlans / enrichedPlans.length) * 100) : 100;
-        setGlobalStats({ totalPending: gPending, totalDone: gDone, activePlans: enrichedPlans.length, healthScore: health });
-        setPlans(enrichedPlans);
-        
-      } catch (error) { 
-        console.error('Erro ao carregar Torre de Controle:', error); 
-      } finally { 
-        setLoading(false); 
-      }
-    };
-    fetchPlans();
+        recentActivity.sort((a, b) => b.doneDate - a.doneDate);
+        gPending += (total - completed.length);
+        gDone += completed.length;
+
+        const techStats = {};
+        const sectorStats = {};
+        const typeStats = {};
+
+        assignments.forEach(a => {
+          const isDone = completed.includes(a);
+          const tName = a.technician?.name || a.technician?.username || userMap[a.technicianId] || 'Técnico';
+          
+          if (!techStats[tName]) techStats[tName] = { total: 0, done: 0 };
+          techStats[tName].total += 1;
+          if (isDone) techStats[tName].done += 1;
+
+          const deviceData = a.device || a;
+          const sName = deviceData.setorName || deviceData.setor || 'S/ Setor';
+          if (!sectorStats[sName]) sectorStats[sName] = { total: 0, done: 0 };
+          sectorStats[sName].total += 1;
+          if (isDone) sectorStats[sName].done += 1;
+
+          const typeName = deviceData.deviceType || deviceData.type || 'Outros';
+          if (!typeStats[typeName]) typeStats[typeName] = { total: 0, done: 0 };
+          typeStats[typeName].total += 1;
+          if (isDone) typeStats[typeName].done += 1;
+        });
+
+        const formatStats = (obj) => Object.keys(obj).map(name => ({
+          name, total: obj[name].total, done: obj[name].done,
+          percent: obj[name].total > 0 ? Math.round((obj[name].done / obj[name].total) * 100) : 0
+        })).sort((a, b) => a.percent - b.percent);
+
+        let daysLeft = null;
+        let urgencyColor = 'blue';
+        let isOnTrack = true;
+
+        if (plan.deadline) {
+          const diffTime = new Date(plan.deadline).getTime() - new Date().getTime();
+          daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          if (daysLeft < 0 && completed.length < total) { urgencyColor = 'red'; isOnTrack = false; }
+          else if (daysLeft <= 3 && completed.length < total) { urgencyColor = 'orange'; }
+        }
+
+        if (isOnTrack || completed.length === total) onTrackPlans++;
+
+        return {
+          ...plan, daysLeft, urgencyColor, isOnTrack,
+          recentActivity: recentActivity.slice(0, 10),
+          stats: {
+            total, done: completed.length, pending: total - completed.length,
+            progress: total > 0 ? Math.round((completed.length / total) * 100) : 0
+          },
+          leaderboard: formatStats(techStats).reverse(), sectors: formatStats(sectorStats), types: formatStats(typeStats)
+        };
+      });
+
+      const health = enrichedPlans.length > 0 ? Math.round((onTrackPlans / enrichedPlans.length) * 100) : 100;
+      setGlobalStats({ totalPending: gPending, totalDone: gDone, activePlans: enrichedPlans.length, healthScore: health });
+      setPlans(enrichedPlans);
+      
+    } catch (error) { 
+      console.error('Erro ao carregar Torre de Controle:', error); 
+    } finally { 
+      if (!silent) setLoading(false);
+      setIsRefreshing(false);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchPlans(); // Busca ao carregar a página
+    
+    // 🟢 A MÁGICA: Atualiza sozinho a cada 30 segundos (modo silencioso, sem travar a tela)
+    const interval = setInterval(() => {
+      fetchPlans(true);
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, [fetchPlans]);
 
   if (loading) return <Center h={400}><Loader color={BRAND_BLUE} size="xl" type="bars" /></Center>;
 
@@ -179,18 +191,36 @@ export default function ActionPlanManagerPage() {
                 <Text style={{ color: 'rgba(255,255,255,0.7)' }} mt={-4} size="sm">Monitoramento tático de eficiência.</Text>
               </div>
             </Group>
-            <TextInput 
-              mt="lg"
-              placeholder="Pesquisar campanha pelo nome..." 
-              leftSection={<IconSearch size={16} color="white" />}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.currentTarget.value)}
-              styles={{ 
-                input: { backgroundColor: 'rgba(255,255,255,0.15)', color: 'white', border: '1px solid rgba(255,255,255,0.2)' },
-                inputPlaceholder: { color: 'rgba(255,255,255,0.6)' }
-              }}
-            />
+            
+            {/* 🟢 BARRA DE BUSCA + BOTÃO DE REFRESH */}
+            <Group mt="lg" gap="sm" wrap="nowrap">
+              <TextInput 
+                placeholder="Pesquisar campanha pelo nome..." 
+                leftSection={<IconSearch size={16} color="white" />}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.currentTarget.value)}
+                style={{ flex: 1 }}
+                styles={{ 
+                  input: { backgroundColor: 'rgba(255,255,255,0.15)', color: 'white', border: '1px solid rgba(255,255,255,0.2)' },
+                  inputPlaceholder: { color: 'rgba(255,255,255,0.6)' }
+                }}
+              />
+              <Tooltip label="Atualizar Dados Agora" position="top">
+                <ActionIcon 
+                  size="36px" 
+                  radius="sm" 
+                  color="white" 
+                  variant="light" 
+                  onClick={() => fetchPlans(true)} 
+                  loading={isRefreshing}
+                  style={{ backgroundColor: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.2)' }}
+                >
+                  <IconRefresh size={18} />
+                </ActionIcon>
+              </Tooltip>
+            </Group>
           </Grid.Col>
+          
           <Grid.Col span={{ base: 12, lg: 7 }}>
             <Group justify="flex-end" gap="xl" wrap="wrap">
               <Stack gap={0} align="center"><Text size="xs" tt="uppercase" fw={700} style={{ color: 'rgba(255,255,255,0.7)' }}>Saúde SLA</Text><Text size="2.5rem" fw={900} c={globalStats.healthScore === 100 ? '#69db7c' : '#ffd43b'} lh={1}>{globalStats.healthScore}%</Text></Stack>
@@ -223,7 +253,6 @@ export default function ActionPlanManagerPage() {
                       <Menu.Target><ActionIcon variant="subtle" color="gray"><IconDotsVertical size={18} /></ActionIcon></Menu.Target>
                       <Menu.Dropdown>
                         <Menu.Label>Ações</Menu.Label>
-                        {/* 🟢 BOTÃO DE E-MAIL CONECTADO À API */}
                         <Menu.Item 
                           leftSection={<IconBellRinging size={14} />} 
                           onClick={async () => {
