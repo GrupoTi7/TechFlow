@@ -42,9 +42,10 @@ const listPlans = async (req, res) => {
       where: { status: { not: 'COMPLETED' } }, 
       orderBy: { createdAt: 'desc' },
       include: { 
-        _count: { select: { assignments: { where: { status: 'PENDING' } } } }, 
+        // 🟢 CORREÇÃO 1: Conta todas as atribuições (total do plano), não apenas as pendentes
+        _count: { select: { assignments: true } }, 
         assignments: {
-          where: { status: 'PENDING' }, 
+          // 🟢 CORREÇÃO 2: Removido o where: { status: 'PENDING' } para enviar as concluídas ao Dashboard
           include: {
             device: true 
           }
