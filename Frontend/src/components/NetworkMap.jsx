@@ -14,6 +14,8 @@ import {
 import WebTerminal from './WebTerminal';
 
 const BRAND_BLUE = '#0003d9';
+// 🟢 O CAMINHO DA NOSSA PLANTA PADRÃO
+const DEFAULT_AP_MAP_BG = '/planta-ap.png'; 
 
 const ImageBackgroundNode = memo(({ data }) => {
   return (
@@ -105,7 +107,13 @@ export default function NetworkMap({ devices, filterType = 'switch' }) {
   const [edges, setEdges] = useState([]);
   const [pingStatus, setPingStatus] = useState({}); 
   const [isLocked, setIsLocked] = useState(true);
-  const [bgImage, setBgImage] = useState(localStorage.getItem(`map_bg_${currentContext}`) || null);
+  
+  // 🟢 CORREÇÃO: Lê do localStorage, se não tiver e for AP, assume a planta padrão
+  const [bgImage, setBgImage] = useState(() => {
+    const saved = localStorage.getItem(`map_bg_${currentContext}`);
+    if (saved) return saved;
+    return isAPMap ? DEFAULT_AP_MAP_BG : null;
+  });
   
   const [selectedDevice, setSelectedDevice] = useState(null);
   const [selectedZone, setSelectedZone] = useState(null);
@@ -152,8 +160,14 @@ export default function NetworkMap({ devices, filterType = 'switch' }) {
     return !isTractor; 
   });
 
+  // 🟢 CORREÇÃO: Ao mudar de aba/contexto, aplica a lógica do fundo padrão
   useEffect(() => {
-    setBgImage(localStorage.getItem(`map_bg_${currentContext}`) || null);
+    const saved = localStorage.getItem(`map_bg_${currentContext}`);
+    if (saved) {
+      setBgImage(saved);
+    } else {
+      setBgImage(currentContext === 'aps' ? DEFAULT_AP_MAP_BG : null);
+    }
   }, [currentContext]);
 
   const loadTopology = async () => {
@@ -172,7 +186,10 @@ export default function NetworkMap({ devices, filterType = 'switch' }) {
         data: { id: dev.id, label: dev.name, ip: dev.ipAddress || '', type: dev.deviceType || 'outros', nobreak: dev.nobreakModel || '', isAlive: pingStatus[dev.ipAddress], isAPMap: isAPMap }
       }));
 
-      const currentBg = localStorage.getItem(`map_bg_${currentContext}`);
+      // 🟢 CORREÇÃO: Injete o fallback na carga inicial da topologia
+      const savedBg = localStorage.getItem(`map_bg_${currentContext}`);
+      const currentBg = savedBg ? savedBg : (currentContext === 'aps' ? DEFAULT_AP_MAP_BG : null);
+
       const bgNode = currentBg ? [{
         id: 'bg-image-node', type: 'bgImage', position: { x: 0, y: 0 }, data: { url: currentBg }, selectable: false, draggable: false, zIndex: -100      
       }] : [];
@@ -241,7 +258,6 @@ export default function NetworkMap({ devices, filterType = 'switch' }) {
     for (const edge of edgesToDelete) await deleteNetworkLink(edge.id);
   };
 
-  // 🟢 CORREÇÃO: Permite apagar a máquina pressionando "Delete" no teclado
   const onNodesDelete = async (nodesToDelete) => {
     for (const node of nodesToDelete) {
       if (node.type === 'device') {
@@ -272,7 +288,6 @@ export default function NetworkMap({ devices, filterType = 'switch' }) {
     try { await clearAllLinks(currentContext); await loadTopology(); } catch(e) { alert("Erro ao limpar cabos."); }
   };
 
-  // 🟢 CORREÇÃO: Lógica de adição de equipamento manual blindada
   const handleAddManualDevice = async () => {
     if (!newData.name) return alert("O nome é obrigatório!");
     try {
@@ -280,20 +295,18 @@ export default function NetworkMap({ devices, filterType = 'switch' }) {
       setNewDeviceModal(false);
       setNewData({ name: '', ip: '', type: isAPMap ? 'Access Point' : 'Switch' });
       
-      // Captura o objeto 'device' corretamente da resposta do backend
       const createdDevice = res.device || res.data?.device || res;
 
       if (createdDevice && createdDevice.id) {
          const newNode = { 
            id: String(createdDevice.id), 
            type: 'device', 
-           position: { x: 300, y: 200 }, // Aparece no meio da tela e não no canto escondido
+           position: { x: 300, y: 200 }, 
            zIndex: 10, 
            data: { id: createdDevice.id, label: newData.name, ip: newData.ip, type: newData.type, isAPMap: isAPMap } 
          };
          setNodes((nds) => [...nds, newNode]);
       } else { 
-         // Fallback de segurança apenas se o banco demorar a responder
          window.location.reload(); 
       }
     } catch (error) { 
@@ -350,8 +363,9 @@ export default function NetworkMap({ devices, filterType = 'switch' }) {
   };
 
   const handleClearBackground = () => {
-    setBgImage(null);
     localStorage.removeItem(`map_bg_${currentContext}`);
+    // 🟢 CORREÇÃO: Ao limpar, se for o mapa de APs, volta para a planta padrão nativa.
+    setBgImage(currentContext === 'aps' ? DEFAULT_AP_MAP_BG : null);
   };
 
   const onNodesChange = useCallback((changes) => setNodes((nds) => applyNodeChanges(changes, nds)), []);
@@ -598,7 +612,7 @@ export default function NetworkMap({ devices, filterType = 'switch' }) {
           onNodeDragStop={onNodeDragStop} 
           onConnect={onConnect} 
           onEdgesDelete={onEdgesDelete} 
-          onNodesDelete={onNodesDelete}   // 🟢 Nova propriedade injetada!
+          onNodesDelete={onNodesDelete}   
           onNodeClick={onNodeClick} 
           nodeTypes={nodeTypes} 
           fitView
