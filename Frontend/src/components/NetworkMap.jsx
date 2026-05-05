@@ -13,12 +13,12 @@ import {
 
 import WebTerminal from './WebTerminal';
 
-// 🟢 1. IMPORTAÇÃO DIRETA DA IMAGEM PELO VITE
+// 🟢 IMPORTAÇÃO DIRETA DA IMAGEM
 import plantaBg from '../assets/planta_ap.png';
 
 const BRAND_BLUE = '#0003d9';
 
-// 🟢 2. A CONSTANTE AGORA USA A IMAGEM IMPORTADA
+// 🟢 A PLANTA PADRÃO
 const DEFAULT_AP_MAP_BG = plantaBg; 
 
 const ImageBackgroundNode = memo(({ data }) => {
@@ -112,10 +112,10 @@ export default function NetworkMap({ devices, filterType = 'switch' }) {
   const [pingStatus, setPingStatus] = useState({}); 
   const [isLocked, setIsLocked] = useState(true);
   
-  // 🟢 CORREÇÃO: Lê do localStorage, se não tiver e for AP, assume a planta padrão
+  // 🟢 DESTRUIDOR DE CACHE: Só aceita a imagem do LocalStorage se for um UPLOAD REAL (base64)
   const [bgImage, setBgImage] = useState(() => {
     const saved = localStorage.getItem(`map_bg_${currentContext}`);
-    if (saved) return saved;
+    if (saved && saved.startsWith('data:image')) return saved;
     return isAPMap ? DEFAULT_AP_MAP_BG : null;
   });
   
@@ -164,15 +164,15 @@ export default function NetworkMap({ devices, filterType = 'switch' }) {
     return !isTractor; 
   });
 
-  // 🟢 CORREÇÃO: Ao mudar de aba/contexto, aplica a lógica do fundo padrão
+  // 🟢 DESTRUIDOR DE CACHE PARA MUDANÇA DE ABAS
   useEffect(() => {
     const saved = localStorage.getItem(`map_bg_${currentContext}`);
-    if (saved) {
+    if (saved && saved.startsWith('data:image')) {
       setBgImage(saved);
     } else {
       setBgImage(currentContext === 'aps' ? DEFAULT_AP_MAP_BG : null);
     }
-  }, [currentContext]);
+  }, [currentContext, isAPMap]);
 
   const loadTopology = async () => {
     try {
@@ -190,9 +190,8 @@ export default function NetworkMap({ devices, filterType = 'switch' }) {
         data: { id: dev.id, label: dev.name, ip: dev.ipAddress || '', type: dev.deviceType || 'outros', nobreak: dev.nobreakModel || '', isAlive: pingStatus[dev.ipAddress], isAPMap: isAPMap }
       }));
 
-      // 🟢 CORREÇÃO: Injete o fallback na carga inicial da topologia
       const savedBg = localStorage.getItem(`map_bg_${currentContext}`);
-      const currentBg = savedBg ? savedBg : (currentContext === 'aps' ? DEFAULT_AP_MAP_BG : null);
+      const currentBg = (savedBg && savedBg.startsWith('data:image')) ? savedBg : (currentContext === 'aps' ? DEFAULT_AP_MAP_BG : null);
 
       const bgNode = currentBg ? [{
         id: 'bg-image-node', type: 'bgImage', position: { x: 0, y: 0 }, data: { url: currentBg }, selectable: false, draggable: false, zIndex: -100      
@@ -368,7 +367,6 @@ export default function NetworkMap({ devices, filterType = 'switch' }) {
 
   const handleClearBackground = () => {
     localStorage.removeItem(`map_bg_${currentContext}`);
-    // 🟢 CORREÇÃO: Ao limpar, se for o mapa de APs, volta para a planta padrão nativa.
     setBgImage(currentContext === 'aps' ? DEFAULT_AP_MAP_BG : null);
   };
 
@@ -394,12 +392,10 @@ export default function NetworkMap({ devices, filterType = 'switch' }) {
         </Tabs>
       )}
 
+      {/* 🟢 O TEXTO "MESA DE OPERAÇÕES" FOI 100% REMOVIDO DAQUI */}
       <Group justify="space-between" mb="sm">
         <Group>
-          <Text fw={700} c="dimmed">
-            Mesa de Operações: {isAPMap ? 'MAPA DE ACESS POINTS' : (currentContext === 'matriz' ? 'PEDERTRACTOR' : 'TRACTOR')}
-          </Text>
-          <Badge color="green" variant="light" size="sm" ml="sm">Monitoramento Ping Ativo</Badge>
+          <Badge color="green" variant="light" size="sm">Monitoramento Ping Ativo</Badge>
         </Group>
         
         <Group>
