@@ -24,13 +24,13 @@ async function createPreventive(req, res) {
     // 1. Cria a preventiva no histórico
     const newPreventive = await preventiveService.addPreventive(deviceId, preventiveData);
     
-    // 🟢 2. ADICIONADO: Atualiza a data da última preventiva no próprio Dispositivo
+    // 2. Atualiza a data da última preventiva no próprio Dispositivo
     await prisma.device.update({
         where: { id: deviceId },
         data: { lastPreventiveDate: new Date(date) } // Atualiza para a data que o técnico preencheu
     });
 
-    // 🟢 3. ADICIONADO: Dá baixa automática se a máquina estiver pendente num Plano de Ação
+    // 3. Dá baixa automática se a máquina estiver pendente num Plano de Ação
     await prisma.actionPlanAssignment.updateMany({
         where: { 
             deviceId: deviceId,
@@ -84,11 +84,56 @@ async function getAllPreventives(req, res) {
   }
 }
 
+// 🟢 A MÁGICA FOI INJETADA AQUI
 async function deletePreventive(req, res) {
   try {
     const { id } = req.params; 
+
+    // 1. Busca a preventiva antes de apagar para descobrirmos de qual máquina ela é
+    const prevToDelete = await prisma.preventive.findUnique({
+      where: { id }
+    });
+
+    if (!prevToDelete) {
+      return res.status(404).json({ success: false, message: 'Preventiva não encontrada.' });
+    }
+
+    const deviceId = prevToDelete.deviceId;
+
+    // 2. Apaga a preventiva do histórico
     await preventiveService.deletePreventive(id);
-    res.status(200).json({ success: true, message: 'Preventiva apagada com sucesso.' });
+
+    // 3. Encontra as atribuições dessa máquina em campanhas que AINDA ESTÃO ATIVAS
+    const assignmentsToRevert = await prisma.actionPlanAssignment.findMany({
+      where: {
+        deviceId: deviceId,
+        status: { in: ['DONE', 'COMPLETED'] }, // Pega se estiver como concluído
+        plan: { status: { not: 'COMPLETED' } } // Apenas de campanhas que estão rodando
+      }
+    });
+
+    // 4. Devolve a máquina para a fila (Volta para PENDING e limpa a data de conclusão)
+    for (const assignment of assignmentsToRevert) {
+      await prisma.actionPlanAssignment.update({
+        where: { id: assignment.id },
+        data: { status: 'PENDING', completedAt: null }
+      });
+    }
+
+    // 5. Recalcula a data da "Última Preventiva" no cadastro da máquina
+    // Busca qual foi a última preventiva que restou no histórico dessa máquina
+    const lastPrev = await prisma.preventive.findFirst({
+      where: { deviceId: deviceId },
+      orderBy: { date: 'desc' }
+    });
+
+    // Atualiza a máquina (se não sobrou nenhuma preventiva, o campo volta a ficar em branco/null)
+    await prisma.device.update({
+      where: { id: deviceId },
+      data: { lastPreventiveDate: lastPrev ? lastPrev.date : null }
+    });
+
+    res.status(200).json({ success: true, message: 'Preventiva apagada, máquina devolvida à fila e data recalculada com sucesso!' });
   } catch (error) {
     console.error('Erro no controller deletePreventive:', error);
     res.status(500).json({ success: false, message: 'Erro ao apagar preventiva.', error: error.message });
