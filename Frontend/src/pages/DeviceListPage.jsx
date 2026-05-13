@@ -129,8 +129,8 @@ function DeviceListPage() {
     } else if (nomenclatureFilter === 'rented') {
         temp = temp.filter(d => {
             const n = (d.name || '').toUpperCase();
-            // Tem de ser da lista de alugados, e NÃO PODE ser um servidor
-            return ['NETSITE', 'VIVO', 'SOROCAMP', 'INFOBRAS', 'LENOVO'].some(p => n.startsWith(p)) && !checkIsServer(d);
+            // 🟢 CMAQ ADICIONADO AQUI: Tem de ser da lista de alugados, e NÃO PODE ser um servidor
+            return ['NETSITE', 'VIVO', 'SOROCAMP', 'INFOBRAS', 'LENOVO', 'CMAQ'].some(p => n.startsWith(p)) && !checkIsServer(d);
         });
     }
 
