@@ -16,10 +16,11 @@ async function getDashboardStats() {
   ]);
 
   // 2. Variáveis de contagem
-  let totalDevices = allActiveDevices.length;
+  let totalDevicesEligible = 0; // 🟢 Novo contador: Só máquinas sujeitas a preventiva
   let overdueCount = 0;
   let upcomingCount = 0;
   let compliantCount = 0;
+  let withoutDataCount = 0; // 🟢 Novo contador: Máquinas sem ciclo/dados definidos
 
   let infraCount = 0;
   let serverCount = 0;
@@ -30,24 +31,14 @@ async function getDashboardStats() {
 
   // 3. O Loop Mestre (Imune a maiúsculas/minúsculas e à prova de falhas)
   for (const d of allActiveDevices) {
-      // Força tudo para maiúsculas para o filtro não falhar nunca mais
       const name = (d.name || '').toUpperCase();
       const type = (d.deviceType || '').toUpperCase();
       const serial = (d.serial || '').toUpperCase();
 
-      // A. Status das Preventivas
-      if (d.nextPreventiveDate) {
-          const nextDate = new Date(d.nextPreventiveDate);
-          nextDate.setHours(0,0,0,0);
-          if (nextDate < today) overdueCount++;
-          else if (nextDate >= today && nextDate <= thirtyDaysFromNow) upcomingCount++;
-          else compliantCount++;
-      }
-
       // B. É Infraestrutura?
       const isInfra = ['SWITCH', 'AP', 'WIFI', 'ACCESS POINT'].some(t => type.includes(t));
 
-      // C. É Servidor? (Procura no nome, no tipo e no serial)
+      // C. É Servidor?
       const isServer = 
           name.includes('SRV') || name.includes('VMWARE') || name.includes('SERVIDOR') ||
           type.includes('SERVER') || type.includes('SERVIDOR') || type.includes('VMWARE') ||
@@ -57,12 +48,26 @@ async function getDashboardStats() {
       if (isInfra) {
           infraCount++;
       } else if (isServer) {
-          serverCount++; // Foi apanhado na malha! Não entra nas contas de utilizadores.
+          serverCount++; 
       } else {
-          // Se não é infra nem servidor, ENTÃO é Estação de Trabalho!
+          // 🟢 SE NÃO É INFRA NEM SERVIDOR, ENTÃO É ELEGÍVEL PARA PREVENTIVA
           computerCount++; 
+          totalDevicesEligible++; // 🟢 Engrossa a conta real do Dashboard
 
-          // Só contamos como "Comprado" ou "Alugado" se for Estação de Trabalho
+          // A. Status das Preventivas (Cálculo apenas para máquinas elegíveis)
+          if (d.nextPreventiveDate) {
+              const nextDate = new Date(d.nextPreventiveDate);
+              nextDate.setHours(0,0,0,0);
+              
+              if (nextDate < today) overdueCount++;
+              else if (nextDate >= today && nextDate <= thirtyDaysFromNow) upcomingCount++;
+              else compliantCount++;
+          } else {
+              // Se não tem data de próxima preventiva, cai no limbo "sem dados"
+              withoutDataCount++;
+          }
+
+          // Contagem de propriedade
           if (name.startsWith('PTR') || name.startsWith('TRC')) {
               ownedCount++;
           } else if (['NETSITE', 'VIVO', 'SOROCAMP', 'INFOBRAS', 'LENOVO'].some(p => name.startsWith(p))) {
@@ -80,14 +85,15 @@ async function getDashboardStats() {
   }, []);
 
   return {
-    totalDevices,
+    totalDevices: totalDevicesEligible, // 🟢 Manda para a tela APENAS as máquinas elegíveis (aprox 300)
     overdueCount,
     upcomingCount,
     compliantCount,
-    ownedCount,        // Limpo, sem servidores!
-    rentedCount,       // Limpo, sem servidores!
+    withoutDataCount, // 🟢 Caso o seu frontend queira exibir isso no gráfico de rosca
+    ownedCount,        
+    rentedCount,       
     preventiveChartData,
-    computerCount,     // Limpo, sem servidores!
+    computerCount,     
     infraCount 
   };
 }
