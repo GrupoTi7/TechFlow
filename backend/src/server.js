@@ -183,6 +183,11 @@ app.all('/api/test-email', async (req, res) => {
 async function startServer() {
   try {
     await connectDB();
+
+    await prisma.device.updateMany({
+      where: { deviceType: { in: ['Switch', 'AP', 'Switch/AP', 'WIFI'] } },
+      data: { isActive: true }
+    });
     
     // 🟢 WORKER ATIVADO NOVAMENTE
     initWorker(); 

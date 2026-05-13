@@ -192,7 +192,11 @@ async function syncGlpiDevices() {
   await prisma.$transaction(operations);
 
   const deactivationResult = await prisma.device.updateMany({
-    where: { glpiId: { notIn: glpiDeviceIds }, isActive: true },
+    where: { 
+      glpiId: { notIn: glpiDeviceIds, not: null }, // 🟢 Nunca desativa máquinas adicionadas manualmente (sem glpiId)
+      deviceType: { notIn: ['Switch', 'AP', 'Switch/AP', 'WIFI'] }, // 🟢 Protege a Infraestrutura contra sumiços
+      isActive: true 
+    },
     data: { isActive: false }
   });
 
