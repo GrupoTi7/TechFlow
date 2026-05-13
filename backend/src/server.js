@@ -4,7 +4,7 @@ const cors = require('cors');
 require('dotenv').config();
 const cron = require('node-cron'); 
 const { Queue } = require('bullmq'); // 🟢 IMPORTAÇÃO DA FILA ADICIONADA
-const { connectDB } = require('./config/prismaClient');
+const { connectDB, prisma } = require('./config/prismaClient');
 const { checkAndSendNotifications } = require('./services/notification.service');
 
 // 🟢 CONFIGURAÇÃO DA FILA PARA O CRON JOB
