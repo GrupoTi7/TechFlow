@@ -7,11 +7,10 @@ import {
 import { 
   IconTrophy, IconActivity, IconClock, IconBuildingStore, 
   IconDeviceDesktop, IconCheck, IconAlertCircle, IconUsers,
-  IconSearch, IconDotsVertical, IconBellRinging, IconDownload, 
-  IconFlame, IconHeartRateMonitor, IconRefresh
+  IconSearch, IconFlame, IconHeartRateMonitor, IconRefresh
 } from '@tabler/icons-react';
 
-import { getActionPlans, getUsers, sendPlanReminder } from '../services/api';
+import { getActionPlans, getUsers } from '../services/api';
 
 const BRAND_BLUE = '#0003d9';
 
@@ -187,8 +186,8 @@ export default function ActionPlanManagerPage() {
             <Group gap="sm">
               <ThemeIcon size={42} radius="md" variant="white" color={BRAND_BLUE}><IconHeartRateMonitor size={26} /></ThemeIcon>
               <div>
-                <Title order={2} fw={900} style={{ letterSpacing: '-1px', color: 'white' }}>Command Center</Title>
-                <Text style={{ color: 'rgba(255,255,255,0.7)' }} mt={-4} size="sm">Monitoramento tático de eficiência.</Text>
+                <Title order={2} fw={900} style={{ letterSpacing: '-1px', color: 'white' }}>Monitoramento de campanhas</Title>
+                <Text style={{ color: 'rgba(255,255,255,0.7)' }} mt={-4} size="sm">Dados de eficiência.</Text>
               </div>
             </Group>
             
@@ -249,35 +248,6 @@ export default function ActionPlanManagerPage() {
                 <div>
                   <Group align="center">
                     <Title order={3} fw={800} c="dark.7">{plan.name}</Title>
-                    <Menu shadow="md" width={200} position="bottom-start">
-                      <Menu.Target><ActionIcon variant="subtle" color="gray"><IconDotsVertical size={18} /></ActionIcon></Menu.Target>
-                      <Menu.Dropdown>
-                        <Menu.Label>Ações</Menu.Label>
-                        <Menu.Item 
-                          leftSection={<IconBellRinging size={14} />} 
-                          onClick={async () => {
-                            try {
-                              await sendPlanReminder({ 
-                                planName: plan.name, 
-                                totalPending: plan.stats.pending, 
-                                daysLeft: plan.daysLeft || 0 
-                              });
-                              alert(`E-mail de cobrança enviado com sucesso para a equipe sobre o plano: ${plan.name}`);
-                            } catch (error) {
-                              alert('Erro ao enviar e-mail. Verifique a conexão com o servidor SMTP.');
-                            }
-                          }}
-                        >
-                          Cobrar Equipe
-                        </Menu.Item>
-                        <Menu.Item 
-                          leftSection={<IconDownload size={14} />}
-                          onClick={() => window.print()}
-                        >
-                          Exportar PDF
-                        </Menu.Item>
-                      </Menu.Dropdown>
-                    </Menu>
                   </Group>
                   <Group gap="xs" mt={4}>
                     <Badge variant="dot" color={plan.stats.progress === 100 ? 'teal' : (!plan.isOnTrack ? 'red' : BRAND_BLUE)}>
