@@ -126,7 +126,8 @@ function ReportsPage() {
     // Gera os KPIs Exatos
     const totalDevices = totalEligible; // 🟢 Agora usa o número real, não mais rawDevices.length
     const totalMaintenances = techReportData.reduce((acc, curr) => acc + curr.value, 0);
-    const complianceRate = totalDevices > 0 ? Math.round((emDia / totalDevices) * 100) : 0;
+    const totalAgendados = emDia + atencao + vencidos; // Soma apenas o que já tem data
+    const complianceRate = totalAgendados > 0 ? Math.round((emDia / totalAgendados) * 100) : 0;
     const topSector = secData.length > 0 ? secData[0] : { name: '-', value: 0 };
 
     return {
