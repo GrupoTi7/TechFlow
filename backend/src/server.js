@@ -3,8 +3,14 @@ const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
 const cron = require('node-cron'); 
+const { Queue } = require('bullmq'); // 🟢 IMPORTAÇÃO DA FILA ADICIONADA
 const { connectDB } = require('./config/prismaClient');
 const { checkAndSendNotifications } = require('./services/notification.service');
+
+// 🟢 CONFIGURAÇÃO DA FILA PARA O CRON JOB
+const glpiCronQueue = new Queue('glpi-sync-queue', {
+  connection: { host: 'redis', port: 6379 }
+});
 
 // 🟢 IMPORTAÇÃO NECESSÁRIA PARA O PING DO TERMINAL VIRTUAL
 const { spawn } = require('child_process');
@@ -180,7 +186,7 @@ async function startServer() {
     
     // 🟢 WORKER ATIVADO NOVAMENTE
     initWorker(); 
-    console.log("⚙️ Worker de sincronização do GLPI está online.");
+    console.log("⚙️ Worker de sincronização do GLPI está online."); 
 
     // 🟢 MUDANÇA: Usamos server.listen para iniciar tanto Express quanto WebSockets!
     server.listen(PORT, '0.0.0.0', () => {
@@ -189,6 +195,12 @@ async function startServer() {
       // Cron Jobs
       cron.schedule('0 8 * * *', () => {
         checkAndSendNotifications(); 
+      }, { scheduled: true, timezone: "America/Sao_Paulo" });
+
+      // 🟢 NOVO CRON: Sincronização automática do GLPI a cada 1 hora
+      cron.schedule('0 * * * *', () => {
+        console.log('⏰ [CRON] Disparando sincronização automática com o GLPI...');
+        glpiCronQueue.add('auto-glpi-sync', { triggeredBy: 'CronJob' });
       }, { scheduled: true, timezone: "America/Sao_Paulo" });
 
     });
