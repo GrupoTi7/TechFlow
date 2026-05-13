@@ -70,7 +70,8 @@ async function getDashboardStats() {
           // Contagem de propriedade
           if (name.startsWith('PTR') || name.startsWith('TRC')) {
               ownedCount++;
-          } else if (['NETSITE', 'VIVO', 'SOROCAMP', 'INFOBRAS', 'LENOVO'].some(p => name.startsWith(p))) {
+          // 🟢 ADICIONADO O PREFIXO 'CMAQ' AQUI NA LISTA DE ALUGADOS!
+          } else if (['NETSITE', 'VIVO', 'SOROCAMP', 'INFOBRAS', 'LENOVO', 'CMAQ'].some(p => name.startsWith(p))) {
               rentedCount++;
           }
       }
