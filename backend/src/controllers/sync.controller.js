@@ -2,7 +2,7 @@
 const { Queue } = require('bullmq');
 
 // Aponta para a fila 'syncQueue' no Redis
-const syncQueue = new Queue('syncQueue', {
+const syncQueue = new Queue('glpi-sync-queue', {
   connection: {
     host: 'redis', // O nome do serviço no docker-compose
     port: 6379

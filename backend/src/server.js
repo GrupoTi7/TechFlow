@@ -178,9 +178,9 @@ async function startServer() {
   try {
     await connectDB();
     
-    // Worker DESATIVADO para debug
-    // initWorker(); 
-    console.log("⚠️ ATENÇÃO: Worker de sincronização DESATIVADO temporariamente para liberar a API.");
+    // 🟢 WORKER ATIVADO NOVAMENTE
+    initWorker(); 
+    console.log("⚙️ Worker de sincronização do GLPI está online.");
 
     // 🟢 MUDANÇA: Usamos server.listen para iniciar tanto Express quanto WebSockets!
     server.listen(PORT, '0.0.0.0', () => {
