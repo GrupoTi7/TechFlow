@@ -62,7 +62,8 @@ function HomePage() {
                       serverCount++;
                       if (name.startsWith('PTR') || name.startsWith('TRC')) {
                           serverOwnedCount++;
-                      } else if (['NETSITE','VIVO','SOROCAMP','INFOBRAS','LENOVO'].some(p => name.startsWith(p))) {
+                      // 🟢 CENTERMAQ adicionada ao filtro de exclusão de servidores alugados
+                      } else if (['NETSITE','VIVO','SOROCAMP','INFOBRAS','LENOVO','CENTERMAQ'].some(p => name.startsWith(p))) {
                           serverRentedCount++;
                       }
                   }
@@ -177,7 +178,9 @@ function HomePage() {
         <Grid.Col span={{ base: 12, lg: 5 }}>
            <Stack gap="xl">
              <StatCard title="Dispositivos Internos (Comprados)" value={stats.ownedCount || 0} description="Prefixos PTR e TRC." icon={<IconBuildingStore />} color={BRAND_BLUE} onClick={() => handleNomenclatureClick('owned')} valueSize="2.5rem" />
-             <StatCard title="Dispositivos Alugados" value={stats.rentedCount || 0} description="Prefixos NETSITE, VIVO, SOROCAMP e INFOBRAS." icon={<IconBuildingFactory />} color={VIVID_GRAY} onClick={() => handleNomenclatureClick('rented')} valueSize="2.5rem" />
+             
+             {/* 🟢 O TEXTO DA CENTERMAQ ADICIONADO AQUI */}
+             <StatCard title="Dispositivos Alugados" value={stats.rentedCount || 0} description="Prefixos NETSITE, VIVO, SOROCAMP, INFOBRAS e CENTERMAQ." icon={<IconBuildingFactory />} color={VIVID_GRAY} onClick={() => handleNomenclatureClick('rented')} valueSize="2.5rem" />
            </Stack>
         </Grid.Col>
       </Grid>
