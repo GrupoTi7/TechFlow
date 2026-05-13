@@ -184,9 +184,28 @@ async function startServer() {
   try {
     await connectDB();
 
+    console.log("Buscando tipos de dispositivos no banco");
+
+    // 1. Converte as categorias perdidas para Desktop e Notebook
     await prisma.device.updateMany({
-      where: { deviceType: { in: ['Switch', 'AP', 'Switch/AP', 'WIFI'] } },
-      data: { isActive: true }
+      where: { deviceType: { in: ['Unknown', 'UNKNOWN'] } },
+      data: { deviceType: 'Desktop' }
+    });
+    await prisma.device.updateMany({
+      where: { deviceType: { in: ['Docking Station', 'DOCKING STATION'] } },
+      data: { deviceType: 'Notebook' }
+    });
+
+    // 2. Padroniza todos os nomes de Wi-Fi para "AP" e ressuscita eles
+    await prisma.device.updateMany({
+      where: { deviceType: { in: ['Access Point', 'ACCESS POINT', 'WIFI', 'AP', 'Roteador'] } },
+      data: { deviceType: 'AP', isActive: true }
+    });
+
+    // 3. Ressuscita os Switches
+    await prisma.device.updateMany({
+      where: { deviceType: { in: ['Switch', 'SWITCH', 'Switch/AP'] } },
+      data: { deviceType: 'Switch', isActive: true }
     });
     
     // 🟢 WORKER ATIVADO NOVAMENTE

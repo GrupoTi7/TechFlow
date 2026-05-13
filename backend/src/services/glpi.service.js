@@ -152,20 +152,33 @@ async function syncGlpiDevices() {
       
       // 🟢 O NOVO DICIONÁRIO BLINDADO
       deviceType: (() => {
-        if (glpiDevice._forcedType) return glpiDevice._forcedType;
+        // Se vier da rede, assume Switch para não criar categorias estranhas
+        if (glpiDevice._forcedType) return 'Switch'; 
         
-        // Remove espaços vazios e transforma tudo em maiúsculas para evitar erros
-        const tipoOriginal = String(glpiDevice.computertypes_id || 'Desconhecido').trim().toUpperCase();
+        // Remove espaços vazios e transforma tudo em maiúsculas
+        const tipoOriginal = String(glpiDevice.computertypes_id || 'Desktop').trim().toUpperCase();
         
+        // Regra para Desktops (incluindo Unknown)
         if (tipoOriginal.includes('MINI PC') || 
             tipoOriginal.includes('DX58SO') || 
             tipoOriginal.includes('CHASSIS') || 
             tipoOriginal.includes('TOWER') || 
+            tipoOriginal.includes('UNKNOWN') || 
             tipoOriginal.includes('DESKTOP')) {
           return 'Desktop';
         }
         
-        return typeof glpiDevice.computertypes_id === 'string' ? glpiDevice.computertypes_id : 'Desconhecido';
+        // Regra para Notebooks (incluindo Docking Stations)
+        if (tipoOriginal.includes('DOCKING') || 
+            tipoOriginal.includes('NOTEBOOK') || 
+            tipoOriginal.includes('LAPTOP')) {
+          return 'Notebook';
+        }
+        
+        // Se for um nome muito maluco, joga para Desktop por padrão
+        return typeof glpiDevice.computertypes_id === 'string' && glpiDevice.computertypes_id.trim() !== '' 
+               ? glpiDevice.computertypes_id 
+               : 'Desktop';
       })(),
       
       department: glpiDevice.locations_id || null, 
