@@ -291,7 +291,7 @@ const ActionPlansManager = () => {
     const [newPlan, setNewPlan] = useState({
         name: '', 
         startDate: new Date(), 
-        dailyCapacity: 4, 
+        dailyCapacity: 1, // 🟢 Alterado o padrão para 1
         targetSectors: [], 
         targetTypes: [], 
         distributeToAllTechs: true, 
@@ -352,7 +352,7 @@ const ActionPlansManager = () => {
             
             setIsCreating(false);
             setNewPlan({
-                name: '', startDate: new Date(), dailyCapacity: 4,
+                name: '', startDate: new Date(), dailyCapacity: 1, // 🟢 Alterado o reset para 1
                 targetSectors: [], targetTypes: [], distributeToAllTechs: true, selectedTechs: []
             });
             await loadInitialData();
@@ -384,12 +384,12 @@ const ActionPlansManager = () => {
                     <Card withBorder padding="xl" radius="lg" shadow="sm">
                         <Stack gap="xl">
                             <Divider label={<Text fw={700} c={BRAND_BLUE} size="sm">1. CRONOGRAMA & CAPACIDADE</Text>} labelPosition="left" variant="dashed" />
-                            <SimpleGrid cols={{ base: 1, sm: 3 }}>
+                            <SimpleGrid cols={{ base: 1, sm: 3 }} align="flex-end">
                                 <TextInput label="Nome da Campanha" placeholder="Ex: Preventiva Geral Q3" required value={newPlan.name} onChange={(e) => setNewPlan({...newPlan, name: e.target.value})} />
                                 <DatePickerInput label="Data de Início" required value={newPlan.startDate} onChange={(date) => setNewPlan({...newPlan, startDate: date})} leftSection={<IconCalendar size={16} color={BRAND_BLUE}/>} valueFormat="DD/MM/YYYY" />
+                                {/* 🟢 REMOVIDO o 'description' e movida a explicação para a Label para alinhar perfeitamente */}
                                 <NumberInput 
-                                    label="Capacidade Diária (por Técnico)" 
-                                    description="Qtd de máquinas / dia" 
+                                    label="Capacidade Diária (maq/dia) *" 
                                     value={newPlan.dailyCapacity} 
                                     onChange={(val) => setNewPlan({...newPlan, dailyCapacity: val})} 
                                     min={1} max={50} required 
@@ -460,7 +460,7 @@ const ActionPlansManager = () => {
                         const totalTechs = plan.technicianCount || 1;
                         const finalDeadline = plan.deadline ? new Date(plan.deadline) : new Date();
                         
-                        const metaDiariaTecnico = plan.dailyCapacity || 4;
+                        const metaDiariaTecnico = plan.dailyCapacity || 1;
                         const metaSemanalTecnico = metaDiariaTecnico * 5;
 
                         return (
@@ -515,7 +515,6 @@ const ActionPlansManager = () => {
         </Stack>
     );
 };
-
 export default function ServicesPage() {
   const [activeModal, setActiveModal] = useState(null); 
   const [opened, { open, close }] = useDisclosure(false);
