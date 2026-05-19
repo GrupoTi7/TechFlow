@@ -21,19 +21,6 @@ import {
 
 const BRAND_BLUE = '#0003d9';
 
-const calculatePreciseEndDate = (totalPending, dailyGoal) => {
-    if (!totalPending || totalPending === 0) return null;
-    const daysNeeded = Math.ceil(totalPending / dailyGoal);
-    let date = new Date(); 
-    let daysCounted = 0;
-    while (daysCounted < daysNeeded) {
-        if (date.getDay() !== 0 && date.getDay() !== 6) daysCounted++;
-        if (daysCounted >= daysNeeded) break;
-        date.setDate(date.getDate() + 1);
-    }
-    return date;
-};
-
 const DeviceCardWidget = ({ device, index, onStart }) => {
     const isPriority = device.priority === 'ALTA';
     const [loading, setLoading] = useState(false);
@@ -321,10 +308,9 @@ const ActionPlanWidget = () => {
   // 🟢 FIM DO FILTRO VISUAL SEGURO
   // =======================================================================
 
-  const metaDiariaReal = planData.stats?.dailyGoal || Math.max(Math.min(Math.ceil(pendentes / 22), pendentes), 1);
-  const metaSemanalReal = planData.stats?.weeklyGoal || Math.min(metaDiariaReal * 5, pendentes);
-  
-  const dataFimReal = calculatePreciseEndDate(pendentes, metaDiariaReal);
+  const metaDiariaReal = planData.stats?.dailyGoal || 4;
+const metaSemanalReal = planData.stats?.weeklyGoal || (metaDiariaReal * 5);
+const dataFimReal = planData.stats?.estimatedEndDate ? new Date(planData.stats.estimatedEndDate) : null;
 
   const viewLimits = {
     diaria: { label: 'Meta Diária', total: metaDiariaReal },

@@ -133,6 +133,8 @@ model ActionPlan {
   deadline  DateTime?
   status    String    @default("PENDING") // PENDING, ACTIVE, COMPLETED
   createdAt DateTime  @default(now())
+  dailyCapacity Int @default(4)
+  plannedDate DateTime?
 
   // Relacionamentos
   assignments ActionPlanAssignment[]

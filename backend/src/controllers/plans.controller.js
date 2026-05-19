@@ -3,20 +3,20 @@ const notificationService = require('../services/notification.service');
 
 const fixedHolidays = ['01-01', '04-21', '05-01', '09-07', '10-12', '11-02', '11-15', '12-25'];
 
-function addBusinessDays(startDate, daysToAdd) {
-    if (daysToAdd <= 0) return new Date(startDate);
-    let currentDate = new Date(startDate);
-    let addedDays = 0;
-    while (addedDays < daysToAdd) {
-        currentDate.setDate(currentDate.getDate() + 1);
-        const dayOfWeek = currentDate.getDay(); 
-        const monthDay = String(currentDate.getMonth() + 1).padStart(2, '0') + '-' + String(currentDate.getDate()).padStart(2, '0');
-        if (dayOfWeek !== 0 && dayOfWeek !== 6 && !fixedHolidays.includes(monthDay)) {
-            addedDays++;
+// 🟢 FUNÇÃO INTELIGENTE: Pula para o próximo dia útil disponível
+const snapToBusinessDay = (date) => {
+    let d = new Date(date);
+    while (true) {
+        const dayOfWeek = d.getDay();
+        const monthDay = String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+        if (dayOfWeek === 0 || dayOfWeek === 6 || fixedHolidays.includes(monthDay)) {
+            d.setDate(d.getDate() + 1);
+        } else {
+            break;
         }
     }
-    return currentDate;
-}
+    return d;
+};
 
 function countBusinessDays(startDate, endDate) {
     if (!startDate || !endDate) return 1;
@@ -42,13 +42,9 @@ const listPlans = async (req, res) => {
       where: { status: { not: 'COMPLETED' } }, 
       orderBy: { createdAt: 'desc' },
       include: { 
-        // 🟢 CORREÇÃO 1: Conta todas as atribuições (total do plano), não apenas as pendentes
         _count: { select: { assignments: true } }, 
         assignments: {
-          // 🟢 CORREÇÃO 2: Removido o where: { status: 'PENDING' } para enviar as concluídas ao Dashboard
-          include: {
-            device: true 
-          }
+          include: { device: true }
         }
       }
     });
@@ -71,11 +67,12 @@ const listPlans = async (req, res) => {
 
 const createPlan = async (req, res) => {
   const { 
-      name, startDate, deadline, 
+      name, startDate, 
       targetSectors = [], 
       targetTypes = [], 
       distributeToAllTechs = true, 
-      selectedTechs = [] 
+      selectedTechs = [],
+      dailyCapacity = 4 // 🟢 A CAPACIDADE QUE VEM DO FRONTEND
   } = req.body;
 
   try {
@@ -98,7 +95,6 @@ const createPlan = async (req, res) => {
         whereClause.AND.push({ deviceType: { in: targetTypes } });
     }
 
-    // 🟢 A SOLUÇÃO: Busca tanto no relacionamento (caso exista no futuro) quanto na coluna de texto real (setorName)
     if (targetSectors && targetSectors.length > 0) {
         whereClause.AND.push({
             OR: [
@@ -129,23 +125,56 @@ const createPlan = async (req, res) => {
 
     if (availableDevices.length === 0) return res.status(400).json({ message: "Todos os dispositivos encontrados já estão em uso em outro plano ativo." });
 
-    let finalDeadline = deadline ? new Date(deadline) : null;
-    if (!finalDeadline) {
-        finalDeadline = addBusinessDays(new Date(startDate), 22);
+    // 🟢 =========================================================================
+    // 🟢 NOVA LÓGICA DE DISTRIBUIÇÃO E CALENDÁRIO
+    // =========================================================================
+    const distribution = [];
+    let currentDate = snapToBusinessDay(new Date(startDate));
+    let currentTechIndex = 0;
+    let currentTechAssignedToday = 0;
+
+    for (const device of availableDevices) {
+        distribution.push({
+            deviceId: device.id,
+            technicianId: techIds[currentTechIndex],
+            status: 'PENDING',
+            plannedDate: new Date(currentDate) // 🟢 Agendamento exato para a máquina!
+        });
+
+        currentTechAssignedToday++;
+
+        // Se o técnico bateu a capacidade máxima no dia, passa para o próximo técnico
+        if (currentTechAssignedToday >= Number(dailyCapacity)) {
+            currentTechAssignedToday = 0;
+            currentTechIndex++;
+
+            // Se todos os técnicos encheram a agenda do dia, pula para o próximo dia útil
+            if (currentTechIndex >= techIds.length) {
+                currentTechIndex = 0;
+                currentDate.setDate(currentDate.getDate() + 1);
+                currentDate = snapToBusinessDay(currentDate);
+            }
+        }
     }
 
+    // A data exata de conclusão do plano é a última data calculada pelo loop!
+    const finalDeadline = new Date(currentDate);
+    // =========================================================================
+
     const newPlan = await prisma.actionPlan.create({
-        data: { name, startDate: new Date(startDate), deadline: finalDeadline, status: 'PENDING' }
+        data: { 
+            name, 
+            startDate: new Date(startDate), 
+            deadline: finalDeadline, 
+            status: 'PENDING',
+            dailyCapacity: Number(dailyCapacity) // 🟢 Salva a capacidade no banco
+        }
     });
 
-    const assignmentsData = availableDevices.map((device, index) => {
-        const techIndex = index % techIds.length; 
-        return { planId: newPlan.id, deviceId: device.id, technicianId: techIds[techIndex], status: 'PENDING' };
-    });
-
+    const assignmentsData = distribution.map(d => ({ ...d, planId: newPlan.id }));
     await prisma.actionPlanAssignment.createMany({ data: assignmentsData });
 
-    res.json({ success: true, planId: newPlan.id, added: availableDevices.length, skipped: devices.length - availableDevices.length });
+    res.json({ success: true, planId: newPlan.id, added: availableDevices.length, skipped: devices.length - availableDevices.length, deadline: finalDeadline });
   } catch (error) { 
       console.error("Erro no createPlan:", error);
       res.status(500).json({ message: "Erro interno ao criar o plano.", details: error.message }); 
@@ -175,26 +204,31 @@ const getUserActionPlan = async (req, res) => {
         const plansMap = {};
         assignments.forEach(a => {
             if (!plansMap[a.planId]) {
-                plansMap[a.planId] = { id: a.plan.id, name: a.plan.name, deadline: a.plan.deadline, assignments: [] };
+                plansMap[a.planId] = { 
+                    id: a.plan.id, 
+                    name: a.plan.name, 
+                    deadline: a.plan.deadline, 
+                    dailyCapacity: a.plan.dailyCapacity || 4, // 🟢 Puxa a capacidade salva
+                    assignments: [] 
+                };
             }
             const isLate = a.plan.deadline && new Date(a.plan.deadline) < new Date();
-            // 🟢 A CORREÇÃO DE EXIBIÇÃO: Lendo de setorName em vez de setor
             const setorName = a.device.sector?.name || a.device.setorName || 'S/ Setor';
             
             plansMap[a.planId].assignments.push({
                 id: a.device.id, name: a.device.name, type: a.device.deviceType,
                 setor: setorName, priority: isLate ? 'ALTA' : 'NORMAL',
-                lastPreventive: a.device.lastPreventiveDate, assignmentId: a.id
+                lastPreventive: a.device.lastPreventiveDate, assignmentId: a.id,
+                plannedDate: a.plannedDate // 🟢 Envia a data exata para o frontend
             });
         });
 
         const result = Object.values(plansMap).map(plan => {
             const totalPending = plan.assignments.length;
-            let remainingDays = countBusinessDays(new Date(), plan.deadline);
-            let dailyGoal = Math.max(Math.ceil(totalPending / remainingDays), 1);
             return {
                 id: plan.id, name: plan.name,
-                stats: { totalPending, dailyGoal, weeklyGoal: dailyGoal * 5, estimatedEndDate: plan.deadline },
+                // 🟢 Agora os goals (metas) usam o valor real do plano!
+                stats: { totalPending, dailyGoal: plan.dailyCapacity, weeklyGoal: plan.dailyCapacity * 5, estimatedEndDate: plan.deadline },
                 assignments: plan.assignments
             };
         });

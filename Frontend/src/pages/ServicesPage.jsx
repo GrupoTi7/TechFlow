@@ -291,7 +291,7 @@ const ActionPlansManager = () => {
     const [newPlan, setNewPlan] = useState({
         name: '', 
         startDate: new Date(), 
-        deadline: null,
+        dailyCapacity: 4, 
         targetSectors: [], 
         targetTypes: [], 
         distributeToAllTechs: true, 
@@ -305,7 +305,6 @@ const ActionPlansManager = () => {
             setPlans(p);
             setSectors(s.map(i => ({ value: String(i.name), label: i.name }))); 
             
-            // 🟢 CORREÇÃO CRUCIAL AQUI: Usa a 'key' exata que está no banco, não minúscula.
             const mappedTypes = t.map(i => ({ value: i.key, label: i.name }));
             setDeviceTypes(mappedTypes);
             
@@ -336,19 +335,13 @@ const ActionPlansManager = () => {
 
     const handleCreatePlan = async () => {
         if (!newPlan.name) return alert("Dê um nome ao plano.");
-        if (newPlan.deadline && new Date(newPlan.deadline) < new Date(newPlan.startDate)) {
-            return alert("A data final não pode ser anterior ao início.");
-        }
         
         try {
             setLoading(true);
-            let finalDeadline = newPlan.deadline;
-            if (!finalDeadline) finalDeadline = addBusinessDays(newPlan.startDate, 22);
-
             const payload = { 
                 name: newPlan.name,
                 startDate: newPlan.startDate,
-                deadline: finalDeadline,
+                dailyCapacity: newPlan.dailyCapacity, 
                 targetTypes: newPlan.targetTypes,
                 targetSectors: newPlan.targetSectors,
                 distributeToAllTechs: newPlan.distributeToAllTechs,
@@ -359,7 +352,7 @@ const ActionPlansManager = () => {
             
             setIsCreating(false);
             setNewPlan({
-                name: '', startDate: new Date(), deadline: null,
+                name: '', startDate: new Date(), dailyCapacity: 4,
                 targetSectors: [], targetTypes: [], distributeToAllTechs: true, selectedTechs: []
             });
             await loadInitialData();
@@ -390,20 +383,16 @@ const ActionPlansManager = () => {
                     
                     <Card withBorder padding="xl" radius="lg" shadow="sm">
                         <Stack gap="xl">
-                            <Divider label={<Text fw={700} c={BRAND_BLUE} size="sm">1. CRONOGRAMA</Text>} labelPosition="left" variant="dashed" />
-                            <SimpleGrid cols={{ base: 1, sm: 2 }}>
+                            <Divider label={<Text fw={700} c={BRAND_BLUE} size="sm">1. CRONOGRAMA & CAPACIDADE</Text>} labelPosition="left" variant="dashed" />
+                            <SimpleGrid cols={{ base: 1, sm: 3 }}>
                                 <TextInput label="Nome da Campanha" placeholder="Ex: Preventiva Geral Q3" required value={newPlan.name} onChange={(e) => setNewPlan({...newPlan, name: e.target.value})} />
                                 <DatePickerInput label="Data de Início" required value={newPlan.startDate} onChange={(date) => setNewPlan({...newPlan, startDate: date})} leftSection={<IconCalendar size={16} color={BRAND_BLUE}/>} valueFormat="DD/MM/YYYY" />
-                                <DatePickerInput 
-                                    label="Data Limite (Opcional)" 
-                                    description="Se vazio, o sistema assume o ciclo de 1 mês (22 dias úteis)."
-                                    placeholder="Até quando deve terminar?" 
-                                    value={newPlan.deadline} 
-                                    onChange={(date) => setNewPlan({...newPlan, deadline: date})} 
-                                    leftSection={<IconCalendar size={16} color="orange" />} 
-                                    valueFormat="DD/MM/YYYY" 
-                                    minDate={newPlan.startDate} 
-                                    clearable
+                                <NumberInput 
+                                    label="Capacidade Diária (por Técnico)" 
+                                    description="Qtd de máquinas / dia" 
+                                    value={newPlan.dailyCapacity} 
+                                    onChange={(val) => setNewPlan({...newPlan, dailyCapacity: val})} 
+                                    min={1} max={50} required 
                                 />
                             </SimpleGrid>
 
@@ -470,12 +459,9 @@ const ActionPlansManager = () => {
                         const totalDevs = plan._count?.assignments || 0;
                         const totalTechs = plan.technicianCount || 1;
                         const finalDeadline = plan.deadline ? new Date(plan.deadline) : new Date();
-                        const bDays = calculateBusinessDays(plan.startDate, finalDeadline) || 1; 
                         
-                        const cargaPorTecnico = Math.ceil(totalDevs / totalTechs);
-                        const metaDiariaTecnico = Math.ceil(cargaPorTecnico / bDays);
+                        const metaDiariaTecnico = plan.dailyCapacity || 4;
                         const metaSemanalTecnico = metaDiariaTecnico * 5;
-                        const metaMensalTecnico = metaDiariaTecnico * 20;
 
                         return (
                             <Card key={plan.id} shadow="sm" radius="lg" withBorder padding="lg" style={{ transition: 'transform 0.2s', '&:hover': { transform: 'translateY(-2px)', boxShadow: '0 5px 15px rgba(0,0,0,0.05)' }}}>
@@ -507,7 +493,6 @@ const ActionPlansManager = () => {
                                                 <Divider />
                                                 <Group justify="space-between"><Text size="xs" c="dimmed">Equipamentos no Plano:</Text><Text size="xs" fw={700}>{totalDevs}</Text></Group>
                                                 <Group justify="space-between"><Text size="xs" c="dimmed">Técnicos Alocados:</Text><Text size="xs" fw={700}>{totalTechs}</Text></Group>
-                                                <Group justify="space-between"><Text size="xs" c="dimmed">Dias Úteis Disponíveis:</Text><Text size="xs" fw={700}>{bDays} dias</Text></Group>
                                                 <Divider variant="dashed" />
                                                 <Text size="10px" fw={800} c="dimmed" mt={4} tt="uppercase">Metas por Técnico</Text>
                                                 <Group justify="space-between"><Text size="xs" fw={500}>Diária:</Text><Text size="xs" fw={800} c="teal">{metaDiariaTecnico} /dia</Text></Group>
