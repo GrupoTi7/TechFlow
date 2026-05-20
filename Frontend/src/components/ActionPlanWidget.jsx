@@ -316,19 +316,35 @@ const ActionPlanWidget = () => {
   // 🟢 FIM DO FILTRO VISUAL SEGURO
   // =======================================================================
 
- const metaDiariaReal = planData.stats?.dailyGoal || 1;
+ // 🟢 MATEMÁTICA INTELIGENTE DAS METAS
+  const metaDiariaReal = planData.stats?.dailyGoal || 1;
   const metaSemanalReal = planData.stats?.weeklyGoal || (metaDiariaReal * 5);
-  // 🟢 Lendo a data do local unificado que arrumamos lá em cima
+  const metaMensalReal = metaDiariaReal * 20; // 20 dias úteis em média por mês
+  
   const dataFimReal = planData.deadline ? new Date(planData.deadline) : null;
 
+  // Usamos o Math.min para garantir que a meta exibida nunca ultrapasse o que realmente falta fazer
   const viewLimits = {
-    diaria: { label: 'Meta Diária', total: metaDiariaReal },
-    semanal: { label: 'Meta Semanal', total: metaSemanalReal },
-    mensal: { label: 'Meta Mensal', total: pendentes }
+    diaria: { label: 'Meta Diária', total: Math.min(metaDiariaReal, pendentes) },
+    semanal: { label: 'Meta Semanal', total: Math.min(metaSemanalReal, pendentes) },
+    mensal: { label: 'Meta Mensal', total: Math.min(metaMensalReal, pendentes) },
+    total: { label: 'Total da Campanha', total: pendentes }
   };
 
-  const segmentOptions = [ { label: 'Hoje', value: 'diaria' }, { label: 'Semana', value: 'semanal' } ];
-  if (pendentes > metaSemanalReal) segmentOptions.push({ label: 'Mensal', value: 'mensal' });
+  const segmentOptions = [ 
+      { label: 'Hoje', value: 'diaria' }, 
+      { label: 'Semana', value: 'semanal' } 
+  ];
+  
+  // Só mostra a aba "Mensal" se houver mais máquinas do que o técnico consegue fazer numa semana
+  if (pendentes > metaSemanalReal) {
+      segmentOptions.push({ label: 'Mensal', value: 'mensal' });
+  }
+  
+  // Só mostra a aba "Tudo" se o plano for maior do que a capacidade de 1 mês inteiro
+  if (pendentes > metaMensalReal) {
+      segmentOptions.push({ label: 'Tudo', value: 'total' });
+  }
 
   const currentView = viewLimits[viewMode] || viewLimits['diaria'];
   
