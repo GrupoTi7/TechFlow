@@ -160,12 +160,20 @@ const ActionPlanWidget = () => {
                     return true;
                 });
 
+               const metaDiaria = p.dailyCapacity || p.stats?.dailyGoal || 1;
+                const dataFinal = p.deadline || p.stats?.estimatedEndDate;
+
                 return {
                     id: p.id || p.planId,
                     name: p.name,
                     startDate: p.startDate,
-                    deadline: p.deadline || p.stats?.estimatedEndDate,
-                    stats: { ...p.stats, totalPending: pendingOnly.length },
+                    deadline: dataFinal,
+                    stats: { 
+                        ...p.stats, 
+                        totalPending: pendingOnly.length,
+                        dailyGoal: metaDiaria, // Guarda num lugar fixo e seguro
+                        weeklyGoal: metaDiaria * 5
+                    },
                     assignments: pendingOnly 
                 };
             }).filter(p => p.assignments.length > 0);
@@ -308,9 +316,10 @@ const ActionPlanWidget = () => {
   // 🟢 FIM DO FILTRO VISUAL SEGURO
   // =======================================================================
 
-  const metaDiariaReal = planData.stats?.dailyGoal || 4;
-const metaSemanalReal = planData.stats?.weeklyGoal || (metaDiariaReal * 5);
-const dataFimReal = planData.stats?.estimatedEndDate ? new Date(planData.stats.estimatedEndDate) : null;
+ const metaDiariaReal = planData.stats?.dailyGoal || 1;
+  const metaSemanalReal = planData.stats?.weeklyGoal || (metaDiariaReal * 5);
+  // 🟢 Lendo a data do local unificado que arrumamos lá em cima
+  const dataFimReal = planData.deadline ? new Date(planData.deadline) : null;
 
   const viewLimits = {
     diaria: { label: 'Meta Diária', total: metaDiariaReal },
