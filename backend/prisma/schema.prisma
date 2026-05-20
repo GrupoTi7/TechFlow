@@ -131,12 +131,10 @@ model ActionPlan {
   name      String
   startDate DateTime
   deadline  DateTime?
-  status    String    @default("PENDING") // PENDING, ACTIVE, COMPLETED
+  status    String    @default("PENDING") 
   createdAt DateTime  @default(now())
-  dailyCapacity Int @default(4)
-  plannedDate DateTime?
+  dailyCapacity Int @default(1) // 🟢 Agora com padrão 1
 
-  // Relacionamentos
   assignments ActionPlanAssignment[]
 }
 
@@ -151,10 +149,11 @@ model ActionPlanAssignment {
   deviceId String
   device   Device @relation(fields: [deviceId], references: [id])
 
-  status      String    @default("PENDING") // PENDING, DONE
+  status      String    @default("PENDING") 
   completedAt DateTime?
+  plannedDate DateTime? // 🟢 CORREÇÃO: Colocado no lugar certo!
 
-  @@unique([planId, deviceId]) // Garante que um dispositivo não duplique no mesmo plano
+  @@unique([planId, deviceId]) 
 }
 
 // TABELA DE CABOS/CONEXÕES DA TOPOLOGIA
