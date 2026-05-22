@@ -424,7 +424,7 @@ const ActionPlansManager = () => {
                     <Card withBorder radius="lg" shadow="sm" p="xl">
                         <Stack gap="lg">
                             
-                            <Divider label={<Text fw={700} c={BRAND_BLUE} size="sm">1. CRONOGRAMA & CAPACIDADE</Text>} labelPosition="left" variant="dashed" />
+                            <Divider label={<Text fw={700} c={BRAND_BLUE} size="sm">1. Duração e Capacidade</Text>} labelPosition="left" variant="dashed" />
 
                             <SimpleGrid cols={{ base: 1, sm: 2 }} align="flex-end">
                                 <TextInput label="Nome da Campanha *" placeholder="Ex: Geral Q3" required value={newPlan.name} onChange={(e) => setNewPlan({...newPlan, name: e.target.value})} />
@@ -450,13 +450,13 @@ const ActionPlansManager = () => {
                                 />
                             </SimpleGrid>
 
-                            <Divider label={<Text fw={700} c={BRAND_BLUE} size="sm">2. ESCOPO (ALVOS)</Text>} labelPosition="left" variant="dashed" mt="md" />
+                            <Divider label={<Text fw={700} c={BRAND_BLUE} size="sm">2. Dispositivos</Text>} labelPosition="left" variant="dashed" mt="md" />
                             <SimpleGrid cols={{ base: 1, sm: 2 }}>
                                 <MultiSelect label="Tipos de Equipamento" description="Máquinas que receberão manutenção." data={deviceTypes} value={newPlan.targetTypes} onChange={(val) => setNewPlan({...newPlan, targetTypes: val})} searchable clearable />
                                 <MultiSelect label="Restringir por Setor (Opcional)" description="Vazio = Planta Inteira." data={sectors} value={newPlan.targetSectors} onChange={(val) => setNewPlan({...newPlan, targetSectors: val})} searchable clearable />
                             </SimpleGrid>
 
-                            <Divider label={<Text fw={700} c={BRAND_BLUE} size="sm">3. FORÇA DE TRABALHO</Text>} labelPosition="left" variant="dashed" mt="md" />
+                            <Divider label={<Text fw={700} c={BRAND_BLUE} size="sm">3. Técnicos</Text>} labelPosition="left" variant="dashed" mt="md" />
                             
                             <MultiSelect 
                                 label="Selecionar Técnicos Específicos *" 
