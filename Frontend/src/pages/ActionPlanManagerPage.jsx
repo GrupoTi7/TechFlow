@@ -253,7 +253,10 @@ export default function ActionPlanManagerPage() {
                     <Badge variant="dot" color={plan.stats.progress === 100 ? 'teal' : (!plan.isOnTrack ? 'red' : BRAND_BLUE)}>
                       {plan.stats.progress === 100 ? 'Finalizado' : (!plan.isOnTrack ? 'Atrasado' : 'Em Execução')}
                     </Badge>
-                    <Text size="sm" c="dimmed" fw={500}>Início: {new Date(plan.startDate).toLocaleDateString('pt-BR')}</Text>
+                    <Text size="sm" c="dimmed" fw={500}>
+                      Início: {new Date(plan.startDate).toLocaleDateString('pt-BR')} 
+                      {plan.deadline && ` até ${new Date(plan.deadline).toLocaleDateString('pt-BR')}`}
+                    </Text>
                   </Group>
                 </div>
               </Group>
