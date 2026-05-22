@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import '@mantine/dates/styles.css';
 import { 
   Title, Text, SimpleGrid, Card, Group, ThemeIcon, 
@@ -22,7 +22,7 @@ import 'dayjs/locale/pt-br';
 dayjs.locale('pt-br');
 import { getSectors, createSector, updateSector, deleteSector, 
   getDeviceTypes, createDeviceType, updateDeviceType, deleteDeviceType,
-  getUsers, getActionPlans, createActionPlan, deleteActionPlan 
+  getUsers, getActionPlans, createActionPlan, deleteActionPlan , getDevices
 } from '../services/api';
 
 const BRAND_BLUE = '#0003d9';
@@ -286,40 +286,42 @@ const ActionPlansManager = () => {
     const [sectors, setSectors] = useState([]);
     const [deviceTypes, setDeviceTypes] = useState([]);
     const [technicians, setTechnicians] = useState([]);
+    const [allDevices, setAllDevices] = useState([]); // 🟢 Novo estado para guardar as máquinas e calcular a estimativa
     const [isCreating, setIsCreating] = useState(false);
     
     const [newPlan, setNewPlan] = useState({
         name: '', 
         startDate: new Date(), 
-        dailyCapacity: 1, // 🟢 Alterado o padrão para 1
+        dailyCapacity: 1, 
         targetSectors: [], 
         targetTypes: [], 
-        distributeToAllTechs: true, 
         selectedTechs: []
     });
 
     const loadInitialData = async () => {
         setLoading(true);
         try {
-            const [p, s, t, u] = await Promise.all([getActionPlans(), getSectors(), getDeviceTypes(), getUsers()]);
+            // 🟢 Adicionado getDevices() para podermos fazer as contas da estimativa
+            const [p, s, t, u, devsRes] = await Promise.all([
+                getActionPlans(), getSectors(), getDeviceTypes(), getUsers(), getDevices()
+            ]);
+            
             setPlans(p);
             setSectors(s.map(i => ({ value: String(i.name), label: i.name }))); 
             
             const mappedTypes = t.map(i => ({ value: i.key, label: i.name }));
             setDeviceTypes(mappedTypes);
+            setAllDevices(devsRes?.devices || []);
             
             const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
             const userList = Array.isArray(u.users) ? u.users : (Array.isArray(u) ? u : []);
             
             const validTechs = userList.filter(user => {
-                if (user.id === currentUser.id || user.username === currentUser.username || user.name === currentUser.name) {
-                    return true;
-                }
+                if (user.id === currentUser.id || user.username === currentUser.username || user.name === currentUser.name) return true;
                 const nameStr = String(user.name || '').toLowerCase();
                 const userStr = String(user.username || '').toLowerCase();
                 if (nameStr.includes('juliano') || userStr.includes('juliano')) return false;
                 if (nameStr.includes('eduardo') || userStr.includes('eduardo')) return false;
-
                 return true; 
             });
 
@@ -333,8 +335,40 @@ const ActionPlansManager = () => {
 
     useEffect(() => { loadInitialData(); }, []);
 
+    // 🟢 O CÉREBRO DA ESTIMATIVA EM TEMPO REAL
+    const estimation = useMemo(() => {
+        if (!newPlan.startDate || !newPlan.dailyCapacity) return null;
+
+        let filtered = allDevices.filter(d => d.isActive !== false);
+
+        if (newPlan.targetTypes.length > 0) {
+            filtered = filtered.filter(d => newPlan.targetTypes.includes(d.deviceType));
+        }
+
+        if (newPlan.targetSectors.length > 0) {
+            filtered = filtered.filter(d => {
+                const sName = d.sector?.name || d.setor;
+                return newPlan.targetSectors.includes(sName);
+            });
+        }
+
+        const targetCount = filtered.length;
+        if (targetCount === 0) return { targetCount: 0, endDate: null };
+        if (newPlan.selectedTechs.length === 0) return { targetCount, techCount: 0, endDate: null };
+
+        const techCount = newPlan.selectedTechs.length;
+        const capacityPerDay = techCount * newPlan.dailyCapacity;
+        const daysNeeded = Math.ceil(targetCount / capacityPerDay);
+
+        const daysToAdd = Math.max(0, daysNeeded - 1);
+        const finalDate = addBusinessDays(newPlan.startDate, daysToAdd);
+
+        return { targetCount, techCount, endDate: finalDate };
+    }, [newPlan, allDevices]);
+
     const handleCreatePlan = async () => {
         if (!newPlan.name) return alert("Dê um nome ao plano.");
+        if (newPlan.selectedTechs.length === 0) return alert("Selecione ao menos um técnico.");
         
         try {
             setLoading(true);
@@ -344,7 +378,7 @@ const ActionPlansManager = () => {
                 dailyCapacity: newPlan.dailyCapacity, 
                 targetTypes: newPlan.targetTypes,
                 targetSectors: newPlan.targetSectors,
-                distributeToAllTechs: newPlan.distributeToAllTechs,
+                distributeToAllTechs: false, // 🟢 Fixo como false pois não há mais o botão de automático
                 selectedTechs: newPlan.selectedTechs
             };
             
@@ -352,8 +386,8 @@ const ActionPlansManager = () => {
             
             setIsCreating(false);
             setNewPlan({
-                name: '', startDate: new Date(), dailyCapacity: 1, // 🟢 Alterado o reset para 1
-                targetSectors: [], targetTypes: [], distributeToAllTechs: true, selectedTechs: []
+                name: '', startDate: new Date(), dailyCapacity: 1,
+                targetSectors: [], targetTypes: [], selectedTechs: []
             });
             await loadInitialData();
         } catch (error) { 
@@ -387,7 +421,6 @@ const ActionPlansManager = () => {
                             <SimpleGrid cols={{ base: 1, sm: 3 }} align="flex-end">
                                 <TextInput label="Nome da Campanha" placeholder="Ex: Preventiva Geral Q3" required value={newPlan.name} onChange={(e) => setNewPlan({...newPlan, name: e.target.value})} />
                                 <DatePickerInput label="Data de Início" required value={newPlan.startDate} onChange={(date) => setNewPlan({...newPlan, startDate: date})} leftSection={<IconCalendar size={16} color={BRAND_BLUE}/>} valueFormat="DD/MM/YYYY" />
-                                {/* 🟢 REMOVIDO o 'description' e movida a explicação para a Label para alinhar perfeitamente */}
                                 <NumberInput 
                                     label="Capacidade Diária (maq/dia) *" 
                                     value={newPlan.dailyCapacity} 
@@ -419,15 +452,63 @@ const ActionPlansManager = () => {
                             </SimpleGrid>
 
                             <Divider label={<Text fw={700} c={BRAND_BLUE} size="sm">3. FORÇA DE TRABALHO</Text>} labelPosition="left" variant="dashed" mt="md" />
-                            <Box bg="blue.0" p="md" style={{ borderRadius: '8px', border: '1px solid #d0ebff' }}>
-                                <Switch label={<Text fw={600} size="sm">Distribuir tarefas automaticamente para TODOS os técnicos</Text>} checked={newPlan.distributeToAllTechs} onChange={(e) => setNewPlan({...newPlan, distributeToAllTechs: e.currentTarget.checked})} size="md" color={BRAND_BLUE} />
-                            </Box>
                             
-                            {!newPlan.distributeToAllTechs && (
-                                <MultiSelect label="Selecionar Técnicos Específicos" data={technicians} value={newPlan.selectedTechs} onChange={(val) => setNewPlan({...newPlan, selectedTechs: val})} leftSection={<IconUsers size={16}/>} required />
+                            <MultiSelect 
+                                label="Selecionar Técnicos Específicos *" 
+                                placeholder="Escolha quem vai participar..."
+                                data={technicians} 
+                                value={newPlan.selectedTechs} 
+                                onChange={(val) => setNewPlan({...newPlan, selectedTechs: val})} 
+                                leftSection={<IconUsers size={16}/>} 
+                                required 
+                            />
+
+                            {/* 🟢 CARD DINÂMICO DE ESTIMATIVA */}
+                            {estimation && estimation.targetCount > 0 && newPlan.selectedTechs.length > 0 && (
+                                <Paper p="md" radius="md" bg="blue.0" style={{ border: '1px solid #d0ebff' }}>
+                                    <Group wrap="nowrap" align="flex-start">
+                                        <ThemeIcon size="lg" radius="md" color={BRAND_BLUE} variant="light">
+                                            <IconCalendar size={20} />
+                                        </ThemeIcon>
+                                        <div>
+                                            <Text size="sm" fw={700} c="dark.7">Previsão de Conclusão: {estimation.endDate.toLocaleDateString('pt-BR')}</Text>
+                                            <Text size="xs" c="dimmed" mt={2}>
+                                                Estimativa aproximada para <b>{estimation.targetCount}</b> equipamentos distribuídos entre <b>{estimation.techCount}</b> técnicos.
+                                            </Text>
+                                        </div>
+                                    </Group>
+                                </Paper>
+                            )}
+
+                            {estimation && estimation.targetCount === 0 && (
+                                <Paper p="md" radius="md" bg="orange.0" style={{ border: '1px solid #ffe8cc' }}>
+                                    <Group wrap="nowrap" align="flex-start">
+                                        <ThemeIcon size="lg" radius="md" color="orange" variant="light">
+                                            <IconInfoCircle size={20} />
+                                        </ThemeIcon>
+                                        <div>
+                                            <Text size="sm" fw={700} c="orange.9">Nenhum equipamento encontrado</Text>
+                                            <Text size="xs" c="orange.8" mt={2}>
+                                                Os filtros selecionados não retornaram nenhuma máquina elegível. Altere o Escopo (Alvos).
+                                            </Text>
+                                        </div>
+                                    </Group>
+                                </Paper>
+                            )}
+
+                            {!newPlan.selectedTechs.length && (
+                                <Text size="sm" c="dimmed" fs="italic" ta="center">Selecione os técnicos acima para calcular a previsão do plano.</Text>
                             )}
                             
-                            <Button fullWidth size="lg" mt="xl" color={BRAND_BLUE} onClick={handleCreatePlan} loading={loading}>
+                            <Button 
+                                fullWidth 
+                                size="lg" 
+                                mt="sm" 
+                                color={BRAND_BLUE} 
+                                onClick={handleCreatePlan} 
+                                loading={loading}
+                                disabled={estimation?.targetCount === 0 || newPlan.selectedTechs.length === 0}
+                            >
                                 Lançar Plano de Ação
                             </Button>
                         </Stack>
@@ -515,6 +596,7 @@ const ActionPlansManager = () => {
         </Stack>
     );
 };
+
 export default function ServicesPage() {
   const [activeModal, setActiveModal] = useState(null); 
   const [opened, { open, close }] = useDisclosure(false);
