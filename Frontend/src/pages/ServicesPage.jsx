@@ -28,11 +28,11 @@ import { getSectors, createSector, updateSector, deleteSector,
 const BRAND_BLUE = '#0003d9';
 
 const availableIcons = [
-  { value: 'IconDeviceDesktop', label: 'Desktop / Computador', icon: <IconDeviceDesktop size={18} /> },
-  { value: 'IconDeviceLaptop', label: 'Notebook / Laptop', icon: <IconDeviceLaptop size={18} /> },
+  { value: 'IconDeviceDesktop', label: 'Desktop', icon: <IconDeviceDesktop size={18} /> },
+  { value: 'IconDeviceLaptop', label: 'Notebook', icon: <IconDeviceLaptop size={18} /> },
   { value: 'IconPrinter', label: 'Impressora', icon: <IconPrinter size={18} /> },
   { value: 'IconServer', label: 'Servidor', icon: <IconServer size={18} /> },
-  { value: 'IconRouter', label: 'Switch / Rede', icon: <IconRouter size={18} /> },
+  { value: 'IconRouter', label: 'Switch', icon: <IconRouter size={18} /> },
   { value: 'IconWifi', label: 'Access Point (Wi-Fi)', icon: <IconWifi size={18} /> },
   { value: 'IconTerminal2', label: 'Microterminal', icon: <IconTerminal2 size={18} /> },
   { value: 'IconBarcode', label: 'Coletor / Leitor', icon: <IconBarcode size={18} /> },
