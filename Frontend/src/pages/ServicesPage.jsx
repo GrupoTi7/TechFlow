@@ -294,10 +294,9 @@ const ActionPlansManager = () => {
         startDate: new Date(), 
         dailyCapacity: 1, 
         deadline: null, 
-        useManualDeadline: false, // 🟢 Controla se usa capacidade ou data limite
+        lastEdited: 'capacity', // 🟢 Controla quem atualiza quem
         targetSectors: [], 
         targetTypes: [], 
-        distributeToAllTechs: true, // 🟢 Voltou ao normal!
         selectedTechs: []
     });
 
@@ -324,7 +323,7 @@ const ActionPlansManager = () => {
 
     useEffect(() => { loadInitialData(); }, []);
 
-    // 🟢 CÉREBRO DA ESTIMATIVA (Corrigido para aceitar "Todos os técnicos" e não quebrar a data)
+    // 🟢 CÉREBRO DA ESTIMATIVA (Bidirecional e sem quebrar a data)
     const estimation = useMemo(() => {
         if (!newPlan.startDate) return null;
 
@@ -347,46 +346,49 @@ const ActionPlansManager = () => {
         }
 
         const targetCount = filtered.length;
-        // Se distribuir para todos estiver ligado, usa o total da equipe. Se não, usa os selecionados.
-        const techCount = newPlan.distributeToAllTechs ? technicians.length : newPlan.selectedTechs.length;
+        const techCount = newPlan.selectedTechs.length; // 🟢 Apenas técnicos manuais
 
-        if (targetCount === 0 || techCount === 0) return { targetCount, techCount, endDate: null, requiredCapacity: 0 };
+        if (targetCount === 0 || techCount === 0) return { targetCount, techCount, calcDeadline: null, calcCapacity: 0 };
 
-        if (newPlan.useManualDeadline && newPlan.deadline) {
-            const safeDeadline = new Date(newPlan.deadline); // 🟢 Força a ser Date para não dar erro
+        let calcDeadline = null;
+        let calcCapacity = 1;
+
+        if (newPlan.lastEdited === 'deadline' && newPlan.deadline) {
+            // MODO 1: Você mexeu na Data Limite, o sistema calcula a capacidade
+            const safeDeadline = new Date(newPlan.deadline);
             const businessDays = calculateBusinessDays(newPlan.startDate, safeDeadline);
-            
-            if (businessDays <= 0) return { targetCount, techCount, endDate: safeDeadline, requiredCapacity: 'Inválido' };
-            
-            const reqCap = Math.ceil(targetCount / (techCount * businessDays));
-            return { targetCount, techCount, endDate: safeDeadline, requiredCapacity: reqCap };
+            calcCapacity = businessDays > 0 ? Math.ceil(targetCount / (techCount * businessDays)) : 1;
+            calcDeadline = safeDeadline;
         } else {
+            // MODO 2: Você mexeu na Capacidade, o sistema calcula a Data Limite
             const capacityPerDay = techCount * newPlan.dailyCapacity;
             const daysNeeded = Math.ceil(targetCount / capacityPerDay);
-            const finalDate = addBusinessDays(newPlan.startDate, Math.max(0, daysNeeded - 1));
-            return { targetCount, techCount, endDate: finalDate, requiredCapacity: newPlan.dailyCapacity };
+            calcDeadline = addBusinessDays(newPlan.startDate, Math.max(0, daysNeeded - 1));
+            calcCapacity = newPlan.dailyCapacity;
         }
-    }, [newPlan, allDevices, technicians.length]);
+
+        return { targetCount, techCount, calcDeadline, calcCapacity };
+    }, [newPlan, allDevices]);
 
     const handleCreatePlan = async () => {
         if (!newPlan.name) return alert("Dê um nome ao plano.");
-        if (!newPlan.distributeToAllTechs && newPlan.selectedTechs.length === 0) return alert("Selecione ao menos um técnico.");
+        if (newPlan.selectedTechs.length === 0) return alert("Selecione ao menos um técnico.");
         
         try {
             setLoading(true);
             const payload = { 
                 name: newPlan.name,
                 startDate: newPlan.startDate,
-                dailyCapacity: newPlan.useManualDeadline ? estimation.requiredCapacity : newPlan.dailyCapacity, 
+                dailyCapacity: estimation.calcCapacity, // 🟢 Envia sempre a capacidade correta validada
                 targetTypes: newPlan.targetTypes,
                 targetSectors: newPlan.targetSectors,
-                distributeToAllTechs: newPlan.distributeToAllTechs, // 🟢 Voltou a enviar o status automático
+                distributeToAllTechs: false, // 🟢 Distribuição automática desativada na API
                 selectedTechs: newPlan.selectedTechs
             };
             
             await createActionPlan(payload);
             setIsCreating(false);
-            setNewPlan({ name: '', startDate: new Date(), dailyCapacity: 1, deadline: null, useManualDeadline: false, targetSectors: [], targetTypes: [], distributeToAllTechs: true, selectedTechs: [] });
+            setNewPlan({ name: '', startDate: new Date(), dailyCapacity: 1, deadline: null, lastEdited: 'capacity', targetSectors: [], targetTypes: [], selectedTechs: [] });
             await loadInitialData();
         } catch (error) { 
             alert("Erro ao criar plano: " + (error.response?.data?.error || error.message)); 
@@ -407,30 +409,30 @@ const ActionPlansManager = () => {
                     <Card withBorder radius="lg" shadow="sm" p="xl">
                         <Stack gap="lg">
                             
-                            {/* 🟢 SEÇÃO 1 COM BOTÃO ALTERNADOR */}
-                            <Group justify="space-between" align="center" mb="xs">
-                                <Divider label={<Text fw={700} c={BRAND_BLUE} size="sm">1. CRONOGRAMA & CAPACIDADE</Text>} labelPosition="left" variant="dashed" style={{ flex: 1 }} />
-                                <Button size="xs" variant="light" color={newPlan.useManualDeadline ? "blue" : "teal"} onClick={() => setNewPlan({...newPlan, useManualDeadline: !newPlan.useManualDeadline})}>
-                                    {newPlan.useManualDeadline ? "Alternar p/ Quantidade de Máquinas" : "Alternar p/ Data Limite"}
-                                </Button>
-                            </Group>
+                            <Divider label={<Text fw={700} c={BRAND_BLUE} size="sm">1. CRONOGRAMA & CAPACIDADE</Text>} labelPosition="left" variant="dashed" />
 
-                            <SimpleGrid cols={{ base: 1, sm: 3 }} align="flex-end">
+                            <SimpleGrid cols={{ base: 1, sm: 2 }} align="flex-end">
                                 <TextInput label="Nome da Campanha *" placeholder="Ex: Geral Q3" required value={newPlan.name} onChange={(e) => setNewPlan({...newPlan, name: e.target.value})} />
                                 <DatePickerInput label="Data de Início *" required value={newPlan.startDate} onChange={(date) => setNewPlan({...newPlan, startDate: date})} valueFormat="DD/MM/YYYY" />
-                                
-                                {newPlan.useManualDeadline ? (
-                                    <DatePickerInput 
-                                        label="Data Limite de Finalização *" 
-                                        placeholder="Selecione o prazo final"
-                                        value={newPlan.deadline} 
-                                        onChange={(date) => setNewPlan({...newPlan, deadline: date})}
-                                        minDate={newPlan.startDate}
-                                        required
-                                    />
-                                ) : (
-                                    <NumberInput label="Capacidade Diária (maq/dia) *" value={newPlan.dailyCapacity} onChange={(val) => setNewPlan({...newPlan, dailyCapacity: val})} min={1} required />
-                                )}
+                            </SimpleGrid>
+
+                            {/* 🟢 CAMPOS BIDIRECIONAIS MÁGICOS LADO A LADO */}
+                            <SimpleGrid cols={{ base: 1, sm: 2 }} align="flex-end">
+                                <NumberInput 
+                                    label="Capacidade Diária (maq/dia) *" 
+                                    value={newPlan.lastEdited === 'deadline' ? estimation?.calcCapacity || 1 : newPlan.dailyCapacity} 
+                                    onChange={(val) => setNewPlan({...newPlan, dailyCapacity: val || 1, lastEdited: 'capacity'})} 
+                                    min={1} 
+                                    required 
+                                />
+                                <DatePickerInput 
+                                    label="Data Limite de Finalização" 
+                                    placeholder="Calculado automaticamente..."
+                                    value={newPlan.lastEdited === 'capacity' ? estimation?.calcDeadline : newPlan.deadline} 
+                                    onChange={(date) => setNewPlan({...newPlan, deadline: date, lastEdited: 'deadline'})}
+                                    minDate={newPlan.startDate}
+                                    valueFormat="DD/MM/YYYY"
+                                />
                             </SimpleGrid>
 
                             <Divider label={<Text fw={700} c={BRAND_BLUE} size="sm">2. ESCOPO (ALVOS)</Text>} labelPosition="left" variant="dashed" mt="md" />
@@ -439,28 +441,30 @@ const ActionPlansManager = () => {
                                 <MultiSelect label="Restringir por Setor (Opcional)" description="Vazio = Planta Inteira." data={sectors} value={newPlan.targetSectors} onChange={(val) => setNewPlan({...newPlan, targetSectors: val})} searchable clearable />
                             </SimpleGrid>
 
-                            {/* 🟢 SEÇÃO 3 ORIGINAL RECUPERADA */}
                             <Divider label={<Text fw={700} c={BRAND_BLUE} size="sm">3. FORÇA DE TRABALHO</Text>} labelPosition="left" variant="dashed" mt="md" />
-                            <Box bg="blue.0" p="md" style={{ borderRadius: '8px', border: '1px solid #d0ebff' }}>
-                                <Switch label={<Text fw={600} size="sm">Distribuir tarefas automaticamente para TODOS os técnicos</Text>} checked={newPlan.distributeToAllTechs} onChange={(e) => setNewPlan({...newPlan, distributeToAllTechs: e.currentTarget.checked})} size="md" color={BRAND_BLUE} />
-                            </Box>
                             
-                            {!newPlan.distributeToAllTechs && (
-                                <MultiSelect label="Selecionar Técnicos Específicos *" data={technicians} value={newPlan.selectedTechs} onChange={(val) => setNewPlan({...newPlan, selectedTechs: val})} required />
-                            )}
+                            <MultiSelect 
+                                label="Selecionar Técnicos Específicos *" 
+                                placeholder="Escolha quem vai participar da campanha..."
+                                data={technicians} 
+                                value={newPlan.selectedTechs} 
+                                onChange={(val) => setNewPlan({...newPlan, selectedTechs: val})} 
+                                leftSection={<IconUsers size={16}/>} 
+                                required 
+                            />
 
-                            {/* 🟢 ESTIMATIVA DINÂMICA (Não quebra mais!) */}
-                            {estimation && estimation.targetCount > 0 && (newPlan.distributeToAllTechs || newPlan.selectedTechs.length > 0) && (
-                                <Paper p="md" radius="md" bg={newPlan.useManualDeadline ? "teal.0" : "blue.0"} style={{ border: `1px solid ${newPlan.useManualDeadline ? '#b2f2bb' : '#d0ebff'}` }}>
+                            {/* 🟢 CARD DE ANÁLISE DINÂMICA (Protegido contra erros de Data) */}
+                            {estimation && estimation.targetCount > 0 && newPlan.selectedTechs.length > 0 && (
+                                <Paper p="md" radius="md" bg="blue.0" style={{ border: '1px solid #d0ebff' }}>
                                     <Stack gap={4}>
                                         <Group>
-                                            <ThemeIcon color={newPlan.useManualDeadline ? "teal" : BRAND_BLUE} variant="light">
+                                            <ThemeIcon color={BRAND_BLUE} variant="light">
                                                 <IconCalendar size={18} />
                                             </ThemeIcon>
                                             <Text fw={700}>Análise da Campanha</Text>
                                         </Group>
-                                        <Text size="sm">Fim estimado: <b>{estimation.endDate instanceof Date && !isNaN(estimation.endDate.getTime()) ? estimation.endDate.toLocaleDateString('pt-BR') : '---'}</b></Text>
-                                        <Text size="sm">Carga de trabalho: <b>{estimation.requiredCapacity} máquinas / dia</b> por técnico.</Text>
+                                        <Text size="sm">Fim estimado: <b>{estimation.calcDeadline instanceof Date && !isNaN(estimation.calcDeadline.getTime()) ? estimation.calcDeadline.toLocaleDateString('pt-BR') : '---'}</b></Text>
+                                        <Text size="sm">Carga de trabalho: <b>{estimation.calcCapacity} máquinas / dia</b> por técnico.</Text>
                                         <Text size="xs" c="dimmed">Total de {estimation.targetCount} equipamentos para {estimation.techCount} técnicos.</Text>
                                     </Stack>
                                 </Paper>
@@ -487,7 +491,7 @@ const ActionPlansManager = () => {
                                 color={BRAND_BLUE} 
                                 onClick={handleCreatePlan} 
                                 loading={loading} 
-                                disabled={estimation?.targetCount === 0 || (!newPlan.distributeToAllTechs && newPlan.selectedTechs.length === 0)}
+                                disabled={estimation?.targetCount === 0 || newPlan.selectedTechs.length === 0}
                             >
                                 Lançar Plano de Ação
                             </Button>
