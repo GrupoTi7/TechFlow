@@ -183,9 +183,21 @@ const createPlan = async (req, res) => {
 
 const deletePlan = async (req, res) => {
     try {
-        await prisma.actionPlan.delete({ where: { id: req.params.id } });
+        // 🟢 1º Passo: Limpa todas as máquinas/atribuições amarradas a este plano
+        await prisma.actionPlanAssignment.deleteMany({ 
+            where: { planId: req.params.id } 
+        });
+        
+        // 🟢 2º Passo: Agora sim, deleta o plano vazio com segurança
+        await prisma.actionPlan.delete({ 
+            where: { id: req.params.id } 
+        });
+        
         res.json({ success: true });
-    } catch (error) { res.status(500).json({ error: error.message }); }
+    } catch (error) { 
+        console.error("Erro ao deletar plano:", error);
+        res.status(500).json({ error: error.message }); 
+    }
 };
 
 const getUserActionPlan = async (req, res) => {

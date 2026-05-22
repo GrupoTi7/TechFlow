@@ -395,6 +395,21 @@ const ActionPlansManager = () => {
         } finally { setLoading(false); }
     };
 
+    const handleDeletePlan = async (id) => {
+        if(window.confirm("Isso removerá o plano e todas as atribuições. Certeza?")){
+            try {
+                setLoading(true);
+                await deleteActionPlan(id);
+                setPlans(plans.filter(p => p.id !== id));
+            } catch (error) {
+                console.error("Erro ao excluir plano:", error);
+                alert("Erro ao excluir: " + (error.response?.data?.error || error.message));
+            } finally {
+                setLoading(false);
+            }
+        }
+    };
+
     if (loading && !plans) return <Center p="xl"><Loader color={BRAND_BLUE} /></Center>;
 
     if (isCreating) {
