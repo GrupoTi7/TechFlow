@@ -286,13 +286,15 @@ const ActionPlansManager = () => {
     const [sectors, setSectors] = useState([]);
     const [deviceTypes, setDeviceTypes] = useState([]);
     const [technicians, setTechnicians] = useState([]);
-    const [allDevices, setAllDevices] = useState([]); // 🟢 Novo estado para guardar as máquinas e calcular a estimativa
+    const [allDevices, setAllDevices] = useState([]);
     const [isCreating, setIsCreating] = useState(false);
     
     const [newPlan, setNewPlan] = useState({
         name: '', 
         startDate: new Date(), 
         dailyCapacity: 1, 
+        deadline: null, 
+        useManualDeadline: false, 
         targetSectors: [], 
         targetTypes: [], 
         selectedTechs: []
@@ -301,69 +303,67 @@ const ActionPlansManager = () => {
     const loadInitialData = async () => {
         setLoading(true);
         try {
-            // 🟢 Adicionado getDevices() para podermos fazer as contas da estimativa
             const [p, s, t, u, devsRes] = await Promise.all([
                 getActionPlans(), getSectors(), getDeviceTypes(), getUsers(), getDevices()
             ]);
-            
             setPlans(p);
             setSectors(s.map(i => ({ value: String(i.name), label: i.name }))); 
-            
             const mappedTypes = t.map(i => ({ value: i.key, label: i.name }));
             setDeviceTypes(mappedTypes);
             setAllDevices(devsRes?.devices || []);
-            
-            const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
             const userList = Array.isArray(u.users) ? u.users : (Array.isArray(u) ? u : []);
-            
             const validTechs = userList.filter(user => {
-                if (user.id === currentUser.id || user.username === currentUser.username || user.name === currentUser.name) return true;
                 const nameStr = String(user.name || '').toLowerCase();
                 const userStr = String(user.username || '').toLowerCase();
-                if (nameStr.includes('juliano') || userStr.includes('juliano')) return false;
-                if (nameStr.includes('eduardo') || userStr.includes('eduardo')) return false;
-                return true; 
+                return !nameStr.includes('juliano') && !userStr.includes('juliano') && !nameStr.includes('eduardo') && !userStr.includes('eduardo');
             });
-
-            setTechnicians(validTechs.map(i => ({ 
-                value: String(i.id || i.username), 
-                label: i.name || i.username || `Técnico Sem Nome`
-            })));
-            
+            setTechnicians(validTechs.map(i => ({ value: String(i.id || i.username), label: i.name || i.username })));
         } catch (error) {} finally { setLoading(false); }
     };
 
     useEffect(() => { loadInitialData(); }, []);
 
-    // 🟢 O CÉREBRO DA ESTIMATIVA EM TEMPO REAL
+    // 🟢 CÉREBRO DA ESTIMATIVA (Agora totalmente blindado contra maiúsculas/minúsculas)
     const estimation = useMemo(() => {
-        if (!newPlan.startDate || !newPlan.dailyCapacity) return null;
+        if (!newPlan.startDate) return null;
 
         let filtered = allDevices.filter(d => d.isActive !== false);
 
+        // Filtro de Tipos Blindado
         if (newPlan.targetTypes.length > 0) {
-            filtered = filtered.filter(d => newPlan.targetTypes.includes(d.deviceType));
+            const selectedTypes = newPlan.targetTypes.map(t => String(t).trim().toUpperCase());
+            filtered = filtered.filter(d => {
+                const dType = String(d.deviceType || d.type || '').trim().toUpperCase();
+                return selectedTypes.includes(dType);
+            });
         }
 
+        // Filtro de Setores Blindado
         if (newPlan.targetSectors.length > 0) {
+            const selectedSectors = newPlan.targetSectors.map(s => String(s).trim().toUpperCase());
             filtered = filtered.filter(d => {
-                const sName = d.sector?.name || d.setor;
-                return newPlan.targetSectors.includes(sName);
+                const sName = String(d.sector?.name || d.setorName || d.setor || '').trim().toUpperCase();
+                return selectedSectors.includes(sName);
             });
         }
 
         const targetCount = filtered.length;
-        if (targetCount === 0) return { targetCount: 0, endDate: null };
-        if (newPlan.selectedTechs.length === 0) return { targetCount, techCount: 0, endDate: null };
-
         const techCount = newPlan.selectedTechs.length;
-        const capacityPerDay = techCount * newPlan.dailyCapacity;
-        const daysNeeded = Math.ceil(targetCount / capacityPerDay);
 
-        const daysToAdd = Math.max(0, daysNeeded - 1);
-        const finalDate = addBusinessDays(newPlan.startDate, daysToAdd);
+        if (targetCount === 0 || techCount === 0) return { targetCount, techCount, endDate: null, requiredCapacity: 0 };
 
-        return { targetCount, techCount, endDate: finalDate };
+        if (newPlan.useManualDeadline && newPlan.deadline) {
+            const businessDays = calculateBusinessDays(newPlan.startDate, newPlan.deadline);
+            if (businessDays <= 0) return { targetCount, techCount, endDate: newPlan.deadline, requiredCapacity: 'Infinito (Data inválida)' };
+            
+            const reqCap = Math.ceil(targetCount / (techCount * businessDays));
+            return { targetCount, techCount, endDate: newPlan.deadline, requiredCapacity: reqCap };
+        } else {
+            const capacityPerDay = techCount * newPlan.dailyCapacity;
+            const daysNeeded = Math.ceil(targetCount / capacityPerDay);
+            const finalDate = addBusinessDays(newPlan.startDate, Math.max(0, daysNeeded - 1));
+            return { targetCount, techCount, endDate: finalDate, requiredCapacity: newPlan.dailyCapacity };
+        }
     }, [newPlan, allDevices]);
 
     const handleCreatePlan = async () => {
@@ -375,111 +375,91 @@ const ActionPlansManager = () => {
             const payload = { 
                 name: newPlan.name,
                 startDate: newPlan.startDate,
-                dailyCapacity: newPlan.dailyCapacity, 
+                dailyCapacity: newPlan.useManualDeadline ? estimation.requiredCapacity : newPlan.dailyCapacity, 
                 targetTypes: newPlan.targetTypes,
                 targetSectors: newPlan.targetSectors,
-                distributeToAllTechs: false, // 🟢 Fixo como false pois não há mais o botão de automático
+                distributeToAllTechs: false,
                 selectedTechs: newPlan.selectedTechs
             };
             
             await createActionPlan(payload);
-            
             setIsCreating(false);
-            setNewPlan({
-                name: '', startDate: new Date(), dailyCapacity: 1,
-                targetSectors: [], targetTypes: [], selectedTechs: []
-            });
+            setNewPlan({ name: '', startDate: new Date(), dailyCapacity: 1, deadline: null, useManualDeadline: false, targetSectors: [], targetTypes: [], selectedTechs: [] });
             await loadInitialData();
         } catch (error) { 
             alert("Erro ao criar plano: " + (error.response?.data?.error || error.message)); 
-        } finally { 
-            setLoading(false); 
-        }
-    };
-
-    const handleDeletePlan = async (id) => {
-        if(window.confirm("Isso removerá o plano e as atribuições. Certeza?")){
-            await deleteActionPlan(id);
-            setPlans(plans.filter(p => p.id !== id));
-        }
+        } finally { setLoading(false); }
     };
 
     if (loading && !plans) return <Center p="xl"><Loader color={BRAND_BLUE} /></Center>;
 
     if (isCreating) {
         return (
-            <DatesProvider settings={{ locale: 'pt-br', firstDayOfWeek: 0 }}>
+            <DatesProvider settings={{ locale: 'pt-br' }}>
                 <Stack gap="xl">
-                    <Group justify="space-between" align="center">
-                        <Title order={3} c="dark.5">Novo Plano Estratégico</Title>
-                        <Button variant="subtle" color="gray" onClick={() => setIsCreating(false)}>Voltar para Lista</Button>
+                    <Group justify="space-between">
+                        <Title order={3}>Novo Plano Estratégico</Title>
+                        <Button variant="subtle" color="gray" onClick={() => setIsCreating(false)}>Cancelar</Button>
                     </Group>
                     
-                    <Card withBorder padding="xl" radius="lg" shadow="sm">
-                        <Stack gap="xl">
-                            <Divider label={<Text fw={700} c={BRAND_BLUE} size="sm">1. CRONOGRAMA & CAPACIDADE</Text>} labelPosition="left" variant="dashed" />
-                            <SimpleGrid cols={{ base: 1, sm: 3 }} align="flex-end">
-                                <TextInput label="Nome da Campanha" placeholder="Ex: Preventiva Geral Q3" required value={newPlan.name} onChange={(e) => setNewPlan({...newPlan, name: e.target.value})} />
-                                <DatePickerInput label="Data de Início" required value={newPlan.startDate} onChange={(date) => setNewPlan({...newPlan, startDate: date})} leftSection={<IconCalendar size={16} color={BRAND_BLUE}/>} valueFormat="DD/MM/YYYY" />
-                                <NumberInput 
-                                    label="Capacidade Diária (maq/dia) *" 
-                                    value={newPlan.dailyCapacity} 
-                                    onChange={(val) => setNewPlan({...newPlan, dailyCapacity: val})} 
-                                    min={1} max={50} required 
-                                />
-                            </SimpleGrid>
-
-                            <Divider label={<Text fw={700} c={BRAND_BLUE} size="sm">2. ESCOPO (ALVOS)</Text>} labelPosition="left" variant="dashed" mt="md" />
-                            <SimpleGrid cols={{ base: 1, sm: 2 }}>
-                                <MultiSelect 
-                                    label="Tipos de Equipamento" 
-                                    description="Máquinas que receberão manutenção."
-                                    data={deviceTypes} 
-                                    value={newPlan.targetTypes} 
-                                    onChange={(val) => setNewPlan({...newPlan, targetTypes: val})} 
-                                    leftSection={<IconFilter size={16}/>} 
-                                    searchable clearable
-                                />
-                                <MultiSelect 
-                                    label="Restringir por Setor (Opcional)" 
-                                    description="Vazio = Planta Inteira."
-                                    data={sectors} 
-                                    value={newPlan.targetSectors} 
-                                    onChange={(val) => setNewPlan({...newPlan, targetSectors: val})} 
-                                    leftSection={<IconBuildingStore size={16}/>} 
-                                    searchable clearable
-                                />
-                            </SimpleGrid>
-
-                            <Divider label={<Text fw={700} c={BRAND_BLUE} size="sm">3. FORÇA DE TRABALHO</Text>} labelPosition="left" variant="dashed" mt="md" />
+                    <Card withBorder radius="lg" shadow="sm" p="xl">
+                        <Stack gap="lg">
+                            <Divider label="1. CRONOGRAMA & REGRAS" labelPosition="left" variant="dashed" />
                             
-                            <MultiSelect 
-                                label="Selecionar Técnicos Específicos *" 
-                                placeholder="Escolha quem vai participar..."
-                                data={technicians} 
-                                value={newPlan.selectedTechs} 
-                                onChange={(val) => setNewPlan({...newPlan, selectedTechs: val})} 
-                                leftSection={<IconUsers size={16}/>} 
-                                required 
-                            />
+                            <Box bg="blue.0" p="md" style={{ borderRadius: '8px', border: '1px solid #d0ebff' }}>
+                                <Switch 
+                                    label="Definir Data Limite manualmente (Calcula maq/dia automaticamente)" 
+                                    checked={newPlan.useManualDeadline}
+                                    onChange={(e) => setNewPlan({...newPlan, useManualDeadline: e.currentTarget.checked})}
+                                    color={BRAND_BLUE}
+                                    fw={600}
+                                />
+                            </Box>
 
-                            {/* 🟢 CARD DINÂMICO DE ESTIMATIVA */}
+                            <SimpleGrid cols={{ base: 1, sm: 3 }} align="flex-end">
+                                <TextInput label="Nome da Campanha" placeholder="Ex: Geral Q3" required value={newPlan.name} onChange={(e) => setNewPlan({...newPlan, name: e.target.value})} />
+                                <DatePickerInput label="Data de Início" required value={newPlan.startDate} onChange={(date) => setNewPlan({...newPlan, startDate: date})} valueFormat="DD/MM/YYYY" />
+                                
+                                {newPlan.useManualDeadline ? (
+                                    <DatePickerInput 
+                                        label="Data Limite de Finalização *" 
+                                        placeholder="Selecione o prazo final"
+                                        value={newPlan.deadline} 
+                                        onChange={(date) => setNewPlan({...newPlan, deadline: date})}
+                                        minDate={newPlan.startDate}
+                                        required
+                                    />
+                                ) : (
+                                    <NumberInput label="Capacidade (maq/dia) *" value={newPlan.dailyCapacity} onChange={(val) => setNewPlan({...newPlan, dailyCapacity: val})} min={1} required />
+                                )}
+                            </SimpleGrid>
+
+                            <Divider label="2. ESCOPO (ALVOS)" labelPosition="left" variant="dashed" />
+                            <SimpleGrid cols={{ base: 1, sm: 2 }}>
+                                <MultiSelect label="Tipos de Equipamento" data={deviceTypes} value={newPlan.targetTypes} onChange={(val) => setNewPlan({...newPlan, targetTypes: val})} searchable clearable />
+                                <MultiSelect label="Restringir por Setor" data={sectors} value={newPlan.targetSectors} onChange={(val) => setNewPlan({...newPlan, targetSectors: val})} searchable clearable />
+                            </SimpleGrid>
+
+                            <Divider label="3. FORÇA DE TRABALHO" labelPosition="left" variant="dashed" />
+                            <MultiSelect label="Selecionar Técnicos *" data={technicians} value={newPlan.selectedTechs} onChange={(val) => setNewPlan({...newPlan, selectedTechs: val})} required />
+
+                            {/* ESTIMATIVA DINÂMICA */}
                             {estimation && estimation.targetCount > 0 && newPlan.selectedTechs.length > 0 && (
-                                <Paper p="md" radius="md" bg="blue.0" style={{ border: '1px solid #d0ebff' }}>
-                                    <Group wrap="nowrap" align="flex-start">
-                                        <ThemeIcon size="lg" radius="md" color={BRAND_BLUE} variant="light">
-                                            <IconCalendar size={20} />
-                                        </ThemeIcon>
-                                        <div>
-                                            <Text size="sm" fw={700} c="dark.7">Previsão de Conclusão: {estimation.endDate.toLocaleDateString('pt-BR')}</Text>
-                                            <Text size="xs" c="dimmed" mt={2}>
-                                                Estimativa aproximada para <b>{estimation.targetCount}</b> equipamentos distribuídos entre <b>{estimation.techCount}</b> técnicos.
-                                            </Text>
-                                        </div>
-                                    </Group>
+                                <Paper p="md" radius="md" bg={newPlan.useManualDeadline ? "teal.0" : "blue.0"} style={{ border: `1px solid ${newPlan.useManualDeadline ? '#b2f2bb' : '#d0ebff'}` }}>
+                                    <Stack gap={4}>
+                                        <Group>
+                                            <ThemeIcon color={newPlan.useManualDeadline ? "teal" : BRAND_BLUE} variant="light">
+                                                <IconCalendar size={18} />
+                                            </ThemeIcon>
+                                            <Text fw={700}>Análise do Plano</Text>
+                                        </Group>
+                                        <Text size="sm">Fim estimado: <b>{estimation.endDate?.toLocaleDateString('pt-BR') || '---'}</b></Text>
+                                        <Text size="sm">Carga de trabalho: <b>{estimation.requiredCapacity} máquinas / dia</b> por técnico.</Text>
+                                        <Text size="xs" c="dimmed">Total de {estimation.targetCount} equipamentos para {estimation.techCount} técnicos.</Text>
+                                    </Stack>
                                 </Paper>
                             )}
-
+                            
                             {estimation && estimation.targetCount === 0 && (
                                 <Paper p="md" radius="md" bg="orange.0" style={{ border: '1px solid #ffe8cc' }}>
                                     <Group wrap="nowrap" align="flex-start">
@@ -500,99 +480,38 @@ const ActionPlansManager = () => {
                                 <Text size="sm" c="dimmed" fs="italic" ta="center">Selecione os técnicos acima para calcular a previsão do plano.</Text>
                             )}
                             
-                            <Button 
-                                fullWidth 
-                                size="lg" 
-                                mt="sm" 
-                                color={BRAND_BLUE} 
-                                onClick={handleCreatePlan} 
-                                loading={loading}
-                                disabled={estimation?.targetCount === 0 || newPlan.selectedTechs.length === 0}
-                            >
+                            <Button fullWidth size="lg" mt="sm" color={BRAND_BLUE} onClick={handleCreatePlan} loading={loading} disabled={estimation?.targetCount === 0 || newPlan.selectedTechs.length === 0}>
                                 Lançar Plano de Ação
                             </Button>
                         </Stack>
                     </Card>
                 </Stack>
             </DatesProvider>
-        )
+        );
     }
 
     return (
         <Stack gap="lg">
-            <Group justify="space-between" align="center" bg="#f8f9fa" p="md" style={{ borderRadius: '8px', border: '1px solid #e9ecef' }}>
-                <Text fw={500} c="dimmed">Gerencie campanhas ativas e acompanhe os prazos.</Text>
-                <Button leftSection={<IconListCheck size={18} />} color={BRAND_BLUE} onClick={() => setIsCreating(true)}>Criar Nova Campanha</Button>
+            <Group justify="space-between" bg="#f8f9fa" p="md" style={{ borderRadius: '8px' }}>
+                <Text fw={500} c="dimmed">Gerencie campanhas ativas.</Text>
+                <Button leftSection={<IconListCheck size={18} />} color={BRAND_BLUE} onClick={() => setIsCreating(true)}>Nova Campanha</Button>
             </Group>
 
-            {plans.length === 0 ? (
-                <Center h={200} style={{ border: '2px dashed #e9ecef', borderRadius: '12px', backgroundColor: '#f8f9fa' }}>
-                    <Stack align="center" gap="xs">
-                        <IconListCheck size={40} color="#adb5bd" />
-                        <Text fw={600} c="dark.3" size="lg">Nenhum plano ativo</Text>
-                        <Text c="dimmed" size="sm">Crie uma campanha para distribuir tarefas para a equipe.</Text>
-                    </Stack>
-                </Center>
-            ) : (
-                <SimpleGrid cols={{ base: 1, md: 2 }}>
-                    {plans.map(plan => {
-                        const isFuture = new Date(plan.startDate) > new Date();
-                        const totalDevs = plan._count?.assignments || 0;
-                        const totalTechs = plan.technicianCount || 1;
-                        const finalDeadline = plan.deadline ? new Date(plan.deadline) : new Date();
-                        
-                        const metaDiariaTecnico = plan.dailyCapacity || 1;
-                        const metaSemanalTecnico = metaDiariaTecnico * 5;
-
-                        return (
-                            <Card key={plan.id} shadow="sm" radius="lg" withBorder padding="lg" style={{ transition: 'transform 0.2s', '&:hover': { transform: 'translateY(-2px)', boxShadow: '0 5px 15px rgba(0,0,0,0.05)' }}}>
-                                <Group justify="space-between" mb="xs">
-                                    <Badge variant="light" color={isFuture ? "orange" : "teal"} size="lg" radius="sm">{isFuture ? "Agendado" : "Em Andamento"}</Badge>
-                                    <ActionIcon color="red" variant="subtle" onClick={() => handleDeletePlan(plan.id)}><IconTrash size={18} /></ActionIcon>
-                                </Group>
-                                
-                                <Text fw={800} size="xl" mt="sm">{plan.name}</Text>
-                                <Text size="sm" c="dimmed" fw={500} mt={4} mb="md">
-                                    <IconCalendar size={14} style={{ verticalAlign: 'middle', marginRight: 4 }} />
-                                    {new Date(plan.startDate).toLocaleDateString('pt-BR')} até {finalDeadline.toLocaleDateString('pt-BR')}
-                                </Text>
-
-                                <Group gap={6} p="sm" bg="gray.0" style={{ borderRadius: '8px' }}>
-                                    <Text size="sm" fw={700} c={BRAND_BLUE}>
-                                        🎯 Meta: {metaDiariaTecnico} maq/dia por técnico
-                                    </Text>
-                                    
-                                    <Popover width={320} position="bottom-start" withArrow shadow="xl">
-                                        <Popover.Target>
-                                            <ActionIcon size="sm" variant="transparent" color="gray" style={{ marginTop: '-2px' }}>
-                                                <IconInfoCircle size={16} />
-                                            </ActionIcon>
-                                        </Popover.Target>
-                                        <Popover.Dropdown p="md">
-                                            <Stack gap="xs">
-                                                <Text size="sm" fw={800} c={BRAND_BLUE} tt="uppercase">Análise de Viabilidade</Text>
-                                                <Divider />
-                                                <Group justify="space-between"><Text size="xs" c="dimmed">Equipamentos no Plano:</Text><Text size="xs" fw={700}>{totalDevs}</Text></Group>
-                                                <Group justify="space-between"><Text size="xs" c="dimmed">Técnicos Alocados:</Text><Text size="xs" fw={700}>{totalTechs}</Text></Group>
-                                                <Divider variant="dashed" />
-                                                <Text size="10px" fw={800} c="dimmed" mt={4} tt="uppercase">Metas por Técnico</Text>
-                                                <Group justify="space-between"><Text size="xs" fw={500}>Diária:</Text><Text size="xs" fw={800} c="teal">{metaDiariaTecnico} /dia</Text></Group>
-                                                <Group justify="space-between"><Text size="xs" fw={500}>Semanal:</Text><Text size="xs" fw={800} c="teal">{metaSemanalTecnico} /sem</Text></Group>
-                                            </Stack>
-                                        </Popover.Dropdown>
-                                    </Popover>
-                                </Group>
-
-                                <Divider my="lg" variant="dotted" />
-                                <Group grow>
-                                    <div style={{ textAlign: 'center' }}><Text size="10px" c="dimmed" tt="uppercase" fw={700}>Equipamentos</Text><Text fw={800} size="lg" c="dark.4">{totalDevs}</Text></div>
-                                    <div style={{ textAlign: 'center', borderLeft: '1px solid #e9ecef' }}><Text size="10px" c="dimmed" tt="uppercase" fw={700}>Técnicos</Text><Text fw={800} size="lg" c="dark.4">{totalTechs}</Text></div>
-                                </Group>
-                            </Card>
-                        )
-                    })}
-                </SimpleGrid>
-            )}
+            <SimpleGrid cols={{ base: 1, md: 2 }}>
+                {plans.map(plan => (
+                    <Card key={plan.id} shadow="sm" radius="lg" withBorder padding="lg">
+                        <Group justify="space-between">
+                            <Badge variant="light" color={new Date(plan.startDate) > new Date() ? "orange" : "teal"}>{new Date(plan.startDate) > new Date() ? "Agendado" : "Ativo"}</Badge>
+                            <ActionIcon color="red" variant="subtle" onClick={() => handleDeletePlan(plan.id)}><IconTrash size={18} /></ActionIcon>
+                        </Group>
+                        <Text fw={800} size="xl" mt="sm">{plan.name}</Text>
+                        <Text size="sm" c="dimmed" mb="md">{new Date(plan.startDate).toLocaleDateString('pt-BR')} até {new Date(plan.deadline).toLocaleDateString('pt-BR')}</Text>
+                        <Group gap={6} p="sm" bg="gray.0" style={{ borderRadius: '8px' }}>
+                            <Text size="sm" fw={700} c={BRAND_BLUE}>🎯 Meta: {plan.dailyCapacity} maq/dia</Text>
+                        </Group>
+                    </Card>
+                ))}
+            </SimpleGrid>
         </Stack>
     );
 };
