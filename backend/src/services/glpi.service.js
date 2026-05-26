@@ -202,12 +202,18 @@ async function syncGlpiDevices() {
     });
   });
 
-  await prisma.$transaction(operations);
+await prisma.$transaction(operations);
 
+  // 🟢 1. Filtramos para garantir que não enviamos IDs inválidos/vazios para a busca
+  const safeGlpiIds = glpiDeviceIds.filter(id => id != null);
+
+  // 🟢 2. Removemos o NOT: { glpiId: null } que crashava o Prisma e substituímos por gt: 0
   const deactivationResult = await prisma.device.updateMany({
     where: { 
-      glpiId: { notIn: glpiDeviceIds },
-      NOT: { glpiId: null }, // 🟢 Sintaxe correta do Prisma para proteger máquinas manuais
+      glpiId: { 
+        notIn: safeGlpiIds,
+        gt: 0 // Garante que afeta apenas máquinas originais do GLPI (IDs positivos)
+      },
       deviceType: { notIn: ['Switch', 'AP', 'Switch/AP', 'WIFI'] }, // Protege a Infraestrutura
       isActive: true 
     },
