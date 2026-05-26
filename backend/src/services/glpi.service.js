@@ -152,30 +152,42 @@ async function syncGlpiDevices() {
       
       // 🟢 O NOVO DICIONÁRIO BLINDADO
       deviceType: (() => {
-        // Se vier da rede, assume Switch para não criar categorias estranhas
+        // Se vier da rede, assume Switch
         if (glpiDevice._forcedType) return 'Switch'; 
         
-        // Remove espaços vazios e transforma tudo em maiúsculas
         const tipoOriginal = String(glpiDevice.computertypes_id || 'Desktop').trim().toUpperCase();
-        
-        // Regra para Desktops (incluindo Unknown)
+        const nomeDaMaquina = String(glpiDevice.name || '').toUpperCase(); // Lemos o nome da máquina
+
+        // 1. Regra para Servidores (Lê pelo nome para não falhar)
+        if (nomeDaMaquina.includes('SRV') || nomeDaMaquina.includes('VMWARE') || nomeDaMaquina.includes('SERVIDOR')) {
+            return 'Servidor';
+        }
+
+        // 2. Regra para Microterminais
+        if (nomeDaMaquina.includes('TERM') || tipoOriginal.includes('MICROTERMINAL')) {
+            return 'Microterminal';
+        }
+
+        // 3. Regra para Desktops
         if (tipoOriginal.includes('MINI PC') || 
             tipoOriginal.includes('DX58SO') || 
             tipoOriginal.includes('CHASSIS') || 
             tipoOriginal.includes('TOWER') || 
-            tipoOriginal.includes('UNKNOWN') || 
+            tipoOriginal.includes('MINI TOWER') || 
+            tipoOriginal.includes('UNKNOWN') ||
+            tipoOriginal.includes('Docking Station') ||  
             tipoOriginal.includes('DESKTOP')) {
           return 'Desktop';
         }
         
-        // Regra para Notebooks (incluindo Docking Stations)
+        // 4. Regra para Notebooks
         if (tipoOriginal.includes('DOCKING') || 
             tipoOriginal.includes('NOTEBOOK') || 
             tipoOriginal.includes('LAPTOP')) {
           return 'Notebook';
         }
         
-        // Se for um nome muito maluco, joga para Desktop por padrão
+        // Se for um nome não mapeado, joga para Desktop por padrão
         return typeof glpiDevice.computertypes_id === 'string' && glpiDevice.computertypes_id.trim() !== '' 
                ? glpiDevice.computertypes_id 
                : 'Desktop';
