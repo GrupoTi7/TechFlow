@@ -417,7 +417,7 @@ const ActionPlansManager = () => {
             <DatesProvider settings={{ locale: 'pt-br' }}>
                 <Stack gap="xl">
                     <Group justify="space-between">
-                        <Title order={3}>Novo Plano Estratégico</Title>
+                        <Title order={3}>Crie um novo plano de preventivas:</Title>
                         <Button variant="subtle" color="gray" onClick={() => setIsCreating(false)}>Cancelar</Button>
                     </Group>
                     
