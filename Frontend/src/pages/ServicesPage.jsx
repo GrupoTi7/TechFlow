@@ -376,14 +376,30 @@ const ActionPlansManager = () => {
         
         try {
             setLoading(true);
+
+            // 🟢 Blindagem do Meio-Dia na Data de Início
+            const dataInicioSegura = new Date(newPlan.startDate);
+            dataInicioSegura.setHours(12, 0, 0, 0);
+
+            // 🟢 Blindagem do Meio-Dia na Data Limite (se o usuário a escolheu)
+            let dataLimiteSegura = null;
+            if (newPlan.deadline && newPlan.lastEdited === 'deadline') {
+                dataLimiteSegura = new Date(newPlan.deadline);
+                dataLimiteSegura.setHours(12, 0, 0, 0);
+            }
+
+            // 🟢 O NOVO PAYLOAD INTELIGENTE
+            // Enviamos apenas o que o utilizador travou. O Backend calcula o resto!
             const payload = { 
                 name: newPlan.name,
-                startDate: newPlan.startDate,
-                dailyCapacity: estimation.calcCapacity, // 🟢 Envia sempre a capacidade correta validada
+                startDate: dataInicioSegura,
+                dailyCapacity: newPlan.lastEdited === 'capacity' ? newPlan.dailyCapacity : null, // Envia NULO se mexeu na data
+                deadline: newPlan.lastEdited === 'deadline' ? dataLimiteSegura : null, // Envia NULO se mexeu na capacidade
                 targetTypes: newPlan.targetTypes,
                 targetSectors: newPlan.targetSectors,
-                distributeToAllTechs: false, // 🟢 Distribuição automática desativada na API
-                selectedTechs: newPlan.selectedTechs
+                distributeToAllTechs: false, 
+                selectedTechs: newPlan.selectedTechs,
+                targetCount: estimation.targetCount
             };
             
             await createActionPlan(payload);
