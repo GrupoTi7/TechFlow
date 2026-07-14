@@ -1,14 +1,22 @@
 const { prisma } = require('../config/prismaClient');
 
-const VELOCITY_PER_TECH_DAILY = 4; 
-
 const generateActionPlan = async (filters = {}) => {
+  // 🟢 1. Lemos TODAS as variáveis que vêm do Controller
   const { 
+    name,
+    startDate,
+    deadline,       // A data limite (blindada contra fuso horário)
+    dailyCapacity,  // A capacidade exata calculada
     targetTypes = [], 
     targetSectors = [], 
     distributeToAllTechs = true, 
     selectedTechs = [] 
   } = filters;
+
+  // 🟢 2. FIM DO HARDCODE! 
+  // Agora a velocidade é a que o utilizador escolheu (ou o Backend calculou). 
+  // Se por acaso vier vazia, assumimos 1.
+  const VELOCITY_PER_TECH_DAILY = dailyCapacity ? Number(dailyCapacity) : 1; 
 
   // =========================================================
   // FILTRO DE TÉCNICOS
@@ -33,12 +41,10 @@ const generateActionPlan = async (filters = {}) => {
   // =========================================================
   let deviceWhere = { isActive: true };
 
-  // 🟢 SÓ FILTRA POR TIPO SE MANDAR ALGO
   if (targetTypes && targetTypes.length > 0) {
       deviceWhere.deviceType = { in: targetTypes };
   }
 
-  // 🟢 SÓ FILTRA POR SETOR SE MANDAR ALGO
   if (targetSectors && targetSectors.length > 0) {
       deviceWhere.setor = { in: targetSectors }; 
   }
@@ -97,15 +103,26 @@ const generateActionPlan = async (filters = {}) => {
   const teamDailyCapacity = availableTechnicians.length * VELOCITY_PER_TECH_DAILY;
   const estimatedDays = Math.ceil(totalPending / teamDailyCapacity) || 1;
 
+  // 🟢 3. O PACOTE DE DADOS PERFEITO PARA O FRONTEND
+  // Adicionámos o "deadline" e "dailyCapacity" no objeto raiz e em "stats"
+  // para que o Widget da Home exiba os dados imaculados.
   return {
     success: true,
+    id: new Date().getTime(), // ID gerado caso não esteja a guardar no banco de dados fisicamente
+    name: name || "Plano Automático",
+    startDate: startDate || new Date(),
+    deadline: deadline, // ❤️ A SUA DATA LIMITE AGORA VAI INTACTA!
+    dailyCapacity: VELOCITY_PER_TECH_DAILY,
+    assignments: assignments, // Garantia de que a home encontra os equipamentos
     data: {
-      date: new Date(),
+      date: startDate || new Date(),
       stats: {
         totalPending,
         teamSize: availableTechnicians.length,
-        dailyCapacityPerTech: VELOCITY_PER_TECH_DAILY,
+        dailyCapacityPerTech: VELOCITY_PER_TECH_DAILY, // Agora mostra o valor certo (ex: 1)
         estimatedDaysToComplete: estimatedDays,
+        estimatedEndDate: deadline, // ❤️ Garantia dupla para o Dashboard
+        dailyGoal: VELOCITY_PER_TECH_DAILY,
         metas: {
           diaria: VELOCITY_PER_TECH_DAILY,
           semanal: VELOCITY_PER_TECH_DAILY * 5
