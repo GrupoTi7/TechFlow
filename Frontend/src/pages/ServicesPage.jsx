@@ -377,29 +377,31 @@ const ActionPlansManager = () => {
         try {
             setLoading(true);
 
-            // 🟢 Blindagem do Meio-Dia na Data de Início
+            // 1. Blindagem da Data de Início (Meio-dia)
             const dataInicioSegura = new Date(newPlan.startDate);
             dataInicioSegura.setHours(12, 0, 0, 0);
 
-            // 🟢 Blindagem do Meio-Dia na Data Limite (se o usuário a escolheu)
+            // 2. Pega exatamente a Data Limite que o sistema calculou ou que você digitou
             let dataLimiteSegura = null;
-            if (newPlan.deadline && newPlan.lastEdited === 'deadline') {
-                dataLimiteSegura = new Date(newPlan.deadline);
+            if (estimation && estimation.calcDeadline) {
+                dataLimiteSegura = new Date(estimation.calcDeadline);
                 dataLimiteSegura.setHours(12, 0, 0, 0);
             }
 
-            // 🟢 O NOVO PAYLOAD INTELIGENTE
-            // Enviamos apenas o que o utilizador travou. O Backend calcula o resto!
+            // 3. Pega exatamente a Capacidade que o sistema calculou ou que você digitou
+            const capacidadeFinal = estimation.calcCapacity || 1;
+
+            // 🟢 O PAYLOAD SUPREMO
+            // Agora enviamos TUDO preenchido. O Backend não vai tentar adivinhar nada, vai apenas salvar o que está na tela!
             const payload = { 
                 name: newPlan.name,
                 startDate: dataInicioSegura,
-                dailyCapacity: newPlan.lastEdited === 'capacity' ? newPlan.dailyCapacity : null, // Envia NULO se mexeu na data
-                deadline: newPlan.lastEdited === 'deadline' ? dataLimiteSegura : null, // Envia NULO se mexeu na capacidade
+                dailyCapacity: capacidadeFinal,    // 🟢 Conserva o valor da tela
+                deadline: dataLimiteSegura,        // 🟢 Conserva o valor da tela
                 targetTypes: newPlan.targetTypes,
                 targetSectors: newPlan.targetSectors,
                 distributeToAllTechs: false, 
-                selectedTechs: newPlan.selectedTechs,
-                targetCount: estimation.targetCount
+                selectedTechs: newPlan.selectedTechs
             };
             
             await createActionPlan(payload);
@@ -410,7 +412,6 @@ const ActionPlansManager = () => {
             alert("Erro ao criar plano: " + (error.response?.data?.error || error.message)); 
         } finally { setLoading(false); }
     };
-
     const handleDeletePlan = async (id) => {
         if(window.confirm("Isso removerá o plano e todas as atribuições. Certeza?")){
             try {
