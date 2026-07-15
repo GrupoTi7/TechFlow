@@ -72,7 +72,8 @@ const createPlan = async (req, res) => {
       targetTypes = [], 
       distributeToAllTechs = true, 
       selectedTechs = [],
-      dailyCapacity = 4 // 🟢 A CAPACIDADE QUE VEM DO FRONTEND
+      dailyCapacity = 1, // 🟢 Alterei o padrão para 1
+      deadline           // 🟢 AGORA ELE RECEBE E LÊ A DATA DA SUA TELA!
   } = req.body;
 
   try {
@@ -125,9 +126,7 @@ const createPlan = async (req, res) => {
 
     if (availableDevices.length === 0) return res.status(400).json({ message: "Todos os dispositivos encontrados já estão em uso em outro plano ativo." });
 
-    // 🟢 =========================================================================
-    // 🟢 NOVA LÓGICA DE DISTRIBUIÇÃO E CALENDÁRIO
-    // =========================================================================
+    // 🟢 MANTEMOS O LOOP APENAS PARA DISTRIBUIR O TRABALHO PARA OS TÉCNICOS
     const distribution = [];
     let currentDate = snapToBusinessDay(new Date(startDate));
     let currentTechIndex = 0;
@@ -138,17 +137,15 @@ const createPlan = async (req, res) => {
             deviceId: device.id,
             technicianId: techIds[currentTechIndex],
             status: 'PENDING',
-            plannedDate: new Date(currentDate) // 🟢 Agendamento exato para a máquina!
+            plannedDate: new Date(currentDate) // Agendamento de cada dia
         });
 
         currentTechAssignedToday++;
 
-        // Se o técnico bateu a capacidade máxima no dia, passa para o próximo técnico
         if (currentTechAssignedToday >= Number(dailyCapacity)) {
             currentTechAssignedToday = 0;
             currentTechIndex++;
 
-            // Se todos os técnicos encheram a agenda do dia, pula para o próximo dia útil
             if (currentTechIndex >= techIds.length) {
                 currentTechIndex = 0;
                 currentDate.setDate(currentDate.getDate() + 1);
@@ -157,24 +154,27 @@ const createPlan = async (req, res) => {
         }
     }
 
-    // A data exata de conclusão do plano é a última data calculada pelo loop!
-    const finalDeadline = new Date(currentDate);
-    // =========================================================================
+    // 🟢 A REGRA DE OURO DA DATA
+    // O loop calculou uma data baseada nas máquinas que encontrou...
+    const calculatedDeadline = new Date(currentDate);
+    
+    // MAS, se o Frontend nos enviou a sua Data Limite explícita, ELA TEM PRIORIDADE MÁXIMA!
+    const dataLimiteDefinitiva = deadline ? new Date(deadline) : calculatedDeadline;
 
     const newPlan = await prisma.actionPlan.create({
         data: { 
             name, 
             startDate: new Date(startDate), 
-            deadline: finalDeadline, 
+            deadline: dataLimiteDefinitiva, // A DATA DA TELA ESTÁ AQUI, INTACTA!
             status: 'PENDING',
-            dailyCapacity: Number(dailyCapacity) // 🟢 Salva a capacidade no banco
+            dailyCapacity: Number(dailyCapacity) // A CAPACIDADE DA TELA TAMBÉM!
         }
     });
 
     const assignmentsData = distribution.map(d => ({ ...d, planId: newPlan.id }));
     await prisma.actionPlanAssignment.createMany({ data: assignmentsData });
 
-    res.json({ success: true, planId: newPlan.id, added: availableDevices.length, skipped: devices.length - availableDevices.length, deadline: finalDeadline });
+    res.json({ success: true, planId: newPlan.id, added: availableDevices.length, skipped: devices.length - availableDevices.length, deadline: dataLimiteDefinitiva });
   } catch (error) { 
       console.error("Erro no createPlan:", error);
       res.status(500).json({ message: "Erro interno ao criar o plano.", details: error.message }); 
