@@ -545,8 +545,13 @@ const ActionPlansManager = () => {
                 {plans.map(plan => (
                     <Card key={plan.id} shadow="sm" radius="lg" withBorder padding="lg">
                         <Group justify="space-between">
-                            <Badge variant="light" color={new Date(plan.startDate) > new Date() ? "orange" : "teal"}>{new Date(plan.startDate) > new Date() ? "Agendado" : "Ativo"}</Badge>
-                            <ActionIcon color="red" variant="subtle" onClick={() => handleDeletePlan(plan.id)}><IconTrash size={18} /></ActionIcon>
+                            {/* 🟢 COMPARAÇÃO CORRIGIDA: Agora ele zera as horas e compara apenas o DIA */}
+                            <Badge variant="light" color={new Date(plan.startDate).setHours(0,0,0,0) > new Date().setHours(0,0,0,0) ? "orange" : "teal"}>
+                                {new Date(plan.startDate).setHours(0,0,0,0) > new Date().setHours(0,0,0,0) ? "Agendado" : "Ativo"}
+                            </Badge>
+                            <ActionIcon color="red" variant="subtle" onClick={() => handleDeletePlan(plan.id)}>
+                                <IconTrash size={18} />
+                            </ActionIcon>
                         </Group>
                         <Text fw={800} size="xl" mt="sm">{plan.name}</Text>
                         <Text size="sm" c="dimmed" mb="md">{new Date(plan.startDate).toLocaleDateString('pt-BR')} até {new Date(plan.deadline).toLocaleDateString('pt-BR')}</Text>
