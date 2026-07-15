@@ -567,7 +567,7 @@ export default function ServicesPage() {
   const services = [
     { key: 'sectors', title: 'Estrutura de Setores', description: 'Configure os setores da fábrica e seus ciclos automáticos de manutenção.', icon: IconBuildingStore, color: 'blue' },
     { key: 'types', title: 'Catálogo de Dispositivos', description: 'Defina as categorias e ícones visuais (ex: Switch, Desktop, Access Point).', icon: IconDeviceDesktopAnalytics, color: 'cyan' },
-    { key: 'plans', title: 'Campanhas de Manutenção', description: 'Crie metas, distribua dispositivos e defina prazos para a equipe de TI.', icon: IconListCheck, color: 'teal' }
+    { key: 'plans', title: 'Campanhas de Manutenção', description: 'Crie campanhas de manutenção de equipamentos.', icon: IconListCheck, color: 'teal' }
   ];
 
   return (
