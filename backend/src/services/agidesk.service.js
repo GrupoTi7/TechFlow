@@ -8,7 +8,7 @@ const agideskToken = (process.env.AGIDESK_TOKEN || '21127a3902c42118058054ea50d2
 const customerId = (process.env.AGIDESK_CUSTOMER_ID || '1').replace(/['"]+/g, '').trim();
 
 const httpsAgent = new https.Agent({ rejectUnauthorized: false });
-const AGIDESK_API = 'https://ptractor.agidesk.com/api/v1/';
+const AGIDESK_API = 'https://ptractor.agidesk.com/api/v1';
 
 // 🟢 CABEÇALHO DE AUTENTICAÇÃO MODERNA (Evita o bloqueio 403 do CloudFront)
 const baseHeaders = {
