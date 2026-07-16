@@ -8,15 +8,15 @@ const customerId = (process.env.AGIDESK_CUSTOMER_ID || '1').replace(/['"]+/g, ''
 
 const httpsAgent = new https.Agent({ rejectUnauthorized: false });
 
-// 🟢 1. O Link volta a ser o oficial da sua empresa
+// A Hiperligação blindada
 const AGIDESK_API = `https://${tenant}.agidesk.com.br/api/v1`;
 
-// 🟢 2. O COFRE DE SEGURANÇA (Passa no Firewall e na API)
+// 🟢 MUDANÇA CRUCIAL: Agora a comunicação é puramente JSON! 
 const baseHeaders = {
     'X-Tenant-ID': tenant,
-    'Authorization': appKey, // A chave vai nua, SEM a palavra "Bearer"
-    'App-Key': appKey,       // Enviamos como margem de segurança dupla
-    'Content-Type': 'application/x-www-form-urlencoded'
+    'Authorization': `Bearer ${appKey}`, 
+    'Content-Type': 'application/json', // O CloudFront adora JSON!
+    'Accept': 'application/json'
 };
 
 const getServiceId = (deviceType) => {
@@ -42,7 +42,6 @@ exports.createPreventiveTicket = async (deviceName, deviceType, techIdentifier, 
         let contactName = techIdentifier;
 
         try {
-            // 🟢 Nenhuma hiperligação tem "?app_key=" mais! Tudo blindado.
             const contactRes = await axios.get(`${AGIDESK_API}/contacts`, {
                 params: searchParams, headers: baseHeaders, httpsAgent
             });
@@ -125,50 +124,39 @@ exports.createPreventiveTicket = async (deviceName, deviceType, techIdentifier, 
                 <div style="display:none;">#${randomId}</div>
             `;
 
-            const params = new URLSearchParams();
-            params.append('title', tituloLimpo); 
-            params.append('htmlcontent', corpoHtml); 
-            params.append('customers', customerId); 
-            params.append('services', serviceId);   
-            params.append('contacts', contactId);
-            params.append('responsible_id', contactId); 
-
-            if (assetId) params.append('assets[]', assetId); 
+            // 🟢 A MÁGICA ACONTECE AQUI: JSON Puro! (Adeus WAF Blocking)
+            const payload = {
+                title: tituloLimpo,
+                htmlcontent: corpoHtml,
+                customers: customerId,
+                services: serviceId,
+                contacts: contactId,
+                responsible_id: contactId,
+                assets: assetId ? [assetId] : undefined,
+                forms: isInfra ? 31 : 34,
+                customfields: []
+            };
 
             if (isInfra) {
-                params.append('forms', 31); 
-                params.append('customfields[0][form_id]', 31);
-                params.append('customfields[0][formfield_id]', 209);
-                params.append('customfields[0][value]', tituloLimpo); 
-                params.append('customfields[0][text]', tituloLimpo);
-                params.append('customfields[1][form_id]', 31);
-                params.append('customfields[1][formfield_id]', 210);
-                params.append('customfields[1][value]', deviceSector);
-                params.append('customfields[1][text]', deviceSector);
-                params.append('customfields[2][form_id]', 31);
-                params.append('customfields[2][formfield_id]', 211);
-                params.append('customfields[2][value]', actionType);
-                params.append('customfields[2][text]', actionType);
+                payload.customfields.push(
+                    { form_id: 31, formfield_id: 209, value: tituloLimpo, text: tituloLimpo },
+                    { form_id: 31, formfield_id: 210, value: deviceSector, text: deviceSector },
+                    { form_id: 31, formfield_id: 211, value: actionType, text: actionType }
+                );
             } else {
-                params.append('forms', 34); 
-                params.append('customfields[0][form_id]', 34);
-                params.append('customfields[0][formfield_id]', 227);
-                params.append('customfields[0][value]', tituloLimpo); 
-                params.append('customfields[0][text]', tituloLimpo);
-                params.append('customfields[1][form_id]', 34);
-                params.append('customfields[1][formfield_id]', 228);
-                params.append('customfields[1][value]', deviceSector);
-                params.append('customfields[1][text]', deviceSector);
-                params.append('customfields[2][form_id]', 34);
-                params.append('customfields[2][formfield_id]', 229);
-                params.append('customfields[2][value]', actionType);
-                params.append('customfields[2][text]', actionType);
+                payload.customfields.push(
+                    { form_id: 34, formfield_id: 227, value: tituloLimpo, text: tituloLimpo },
+                    { form_id: 34, formfield_id: 228, value: deviceSector, text: deviceSector },
+                    { form_id: 34, formfield_id: 229, value: actionType, text: actionType }
+                );
             }
 
             let response;
             try {
-                // 🟢 Chamada Limpa para a criação do Ticket
-                response = await axios.post(`${AGIDESK_API}/issues`, params, { headers: baseHeaders, httpsAgent });
+                // Removemos o envio forçado de nulos no JSON
+                if (!payload.assets) delete payload.assets;
+
+                response = await axios.post(`${AGIDESK_API}/issues`, payload, { headers: baseHeaders, httpsAgent });
                 if (response.data && response.data.error) throw new Error(response.data.error_message);
             } catch (err) {
                 const errorPayload = err.response?.data ? JSON.stringify(err.response.data) : err.message;
@@ -178,8 +166,8 @@ exports.createPreventiveTicket = async (deviceName, deviceType, techIdentifier, 
                 }
                 if (errorPayload.includes('invalid_teams_users')) {
                     console.warn(`--> [AGIDESK] Bypass de responsável acionado...`);
-                    params.delete('responsible_id'); 
-                    response = await axios.post(`${AGIDESK_API}/issues`, params, { headers: baseHeaders, httpsAgent });
+                    delete payload.responsible_id; 
+                    response = await axios.post(`${AGIDESK_API}/issues`, payload, { headers: baseHeaders, httpsAgent });
                     if (response.data && response.data.error) throw new Error(response.data.error_message);
                 } else {
                     throw new Error(errorPayload); 
@@ -198,7 +186,7 @@ exports.createPreventiveTicket = async (deviceName, deviceType, techIdentifier, 
 // ==========================================
 exports.startTicketTimer = async (ticketId) => {
     try {
-        await axios.put(`${AGIDESK_API}/tasks/${ticketId}/start`, null, {
+        await axios.put(`${AGIDESK_API}/tasks/${ticketId}/start`, {}, {
             headers: baseHeaders, httpsAgent
         });
         return true;
@@ -216,10 +204,8 @@ const solveAllChecklists = async (ticketId, headers) => {
                 if (list.items && list.items.length > 0) {
                     for (const item of list.items) {
                         if (item.status !== 2) { 
-                            const params = new URLSearchParams();
-                            params.append('method', 'finish'); 
-                            await axios.put(`${AGIDESK_API}/tasks/${ticketId}/checklistitems/${item.id}`, params, {
-                                headers: { ...headers, 'Content-Type': 'application/x-www-form-urlencoded' }, httpsAgent
+                            await axios.put(`${AGIDESK_API}/tasks/${ticketId}/checklistitems/${item.id}`, { method: 'finish' }, {
+                                headers: headers, httpsAgent
                             });
                         }
                     }
@@ -245,26 +231,26 @@ exports.finishTicket = async (ticketId, relatorioText = "Manutenção preventiva
             }
         } catch (e) {}
 
-        const params = new URLSearchParams();
-        params.append('tasks', ticketId); 
-        params.append('htmlcontent', relatorioText); 
-        params.append('privacy_id', '1'); 
-        params.append('resolution', '1'); 
-        
+        const payload = {
+            tasks: ticketId,
+            htmlcontent: relatorioText,
+            privacy_id: '1',
+            resolution: '1',
+            duration: '1',
+            blockfinish: '0',
+            confirmservice: '0',
+            serviceconfirmation: 'false',
+            undefined: 'true'
+        };
+
         if (!isInfra) {
-            params.append('closure_id', '6'); 
-            params.append('facts[]', '2');    
-            params.append('causes[]', '45');  
-            params.append('actions[]', '3');  
+            payload.closure_id = '6';
+            payload.facts = ['2'];
+            payload.causes = ['45'];
+            payload.actions = ['3'];
         }
 
-        params.append('duration', '1'); 
-        params.append('blockfinish', '0'); 
-        params.append('confirmservice', '0');
-        params.append('serviceconfirmation', 'false');
-        params.append('undefined', 'true'); 
-
-        const response = await axios.post(`${AGIDESK_API}/comments`, params, {
+        const response = await axios.post(`${AGIDESK_API}/comments`, payload, {
             headers: baseHeaders, httpsAgent
         });
         
