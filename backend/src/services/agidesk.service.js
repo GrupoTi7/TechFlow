@@ -1,16 +1,23 @@
 const axios = require('axios');
 const https = require('https');
 
-// 🟢 1. DADOS LIMPOS (Sem aspas duplas a causar problemas)
+// Limpeza das variáveis
 const tenant = (process.env.AGIDESK_TENANT || 'ptractor').replace(/['"]+/g, '').trim();
-// Ele vai tentar ler AGIDESK_TOKEN, se não achar, usa o AGIDESK_APP_KEY, se não achar, usa o fixo!
 const appKey = (process.env.AGIDESK_TOKEN || process.env.AGIDESK_APP_KEY || '21127a3902c42118058054ea50d25f70').replace(/['"]+/g, '').trim(); 
 const customerId = (process.env.AGIDESK_CUSTOMER_ID || '1').replace(/['"]+/g, '').trim();
 
 const httpsAgent = new https.Agent({ rejectUnauthorized: false });
 
-// 🟢 2. A HIPERLIGAÇÃO PERFEITA (Sem barra no fim e com o .br)
+// 🟢 1. O Link volta a ser o oficial da sua empresa
 const AGIDESK_API = `https://${tenant}.agidesk.com.br/api/v1`;
+
+// 🟢 2. O COFRE DE SEGURANÇA (Passa no Firewall e na API)
+const baseHeaders = {
+    'X-Tenant-ID': tenant,
+    'Authorization': appKey, // A chave vai nua, SEM a palavra "Bearer"
+    'App-Key': appKey,       // Enviamos como margem de segurança dupla
+    'Content-Type': 'application/x-www-form-urlencoded'
+};
 
 const getServiceId = (deviceType) => {
     const type = (deviceType || '').toLowerCase();
@@ -29,20 +36,15 @@ exports.createPreventiveTicket = async (deviceName, deviceType, techIdentifier, 
     try {
         const isEmail = techIdentifier.includes('@');
         const searchParams = isEmail ? { email: techIdentifier } : { username: techIdentifier };
-        
-        const agideskHeaders = { 
-            'X-Tenant-ID': tenant,
-            'Content-Type': 'application/x-www-form-urlencoded'
-        };
 
         const isInfra = (deviceType || '').toLowerCase().match(/switch|ap|wifi/);
         let contactId = 1; 
         let contactName = techIdentifier;
 
         try {
-            // 🟢 Voltamos a usar o ?app_key=${appKey} em todas as chamadas!
-            const contactRes = await axios.get(`${AGIDESK_API}/contacts?app_key=${appKey}`, {
-                params: searchParams, headers: { 'X-Tenant-ID': tenant }, httpsAgent
+            // 🟢 Nenhuma hiperligação tem "?app_key=" mais! Tudo blindado.
+            const contactRes = await axios.get(`${AGIDESK_API}/contacts`, {
+                params: searchParams, headers: baseHeaders, httpsAgent
             });
             if (contactRes.data && contactRes.data.length > 0) {
                 contactId = contactRes.data[0].id;
@@ -70,17 +72,15 @@ exports.createPreventiveTicket = async (deviceName, deviceType, techIdentifier, 
 
             while (page <= maxPages && !assetId) {
                 try {
-                    const assetRes = await axios.get(`${AGIDESK_API}/assets?app_key=${appKey}`, {
+                    const assetRes = await axios.get(`${AGIDESK_API}/assets`, {
                         params: { search: deviceName, title: deviceName, limit: 100, page: page }, 
-                        headers: { 'X-Tenant-ID': tenant }, 
+                        headers: baseHeaders, 
                         httpsAgent
                     });
                     
                     const items = assetRes.data;
                     
-                    if (!items || items.length === 0) {
-                        break; 
-                    }
+                    if (!items || items.length === 0) break;
 
                     const ativoEncontrado = items.find(item => {
                         return item.title && normalizeName(item.title).includes(searchTarget);
@@ -93,7 +93,6 @@ exports.createPreventiveTicket = async (deviceName, deviceType, techIdentifier, 
                     }
 
                     if (items.length < 100) break;
-
                     page++;
                 } catch (err) {
                     console.error(`--> [AGIDESK] Erro de rede ao pesquisar na página ${page}:`, err.message);
@@ -167,22 +166,20 @@ exports.createPreventiveTicket = async (deviceName, deviceType, techIdentifier, 
             }
 
             let response;
-            const axiosConfig = { headers: agideskHeaders, httpsAgent };
-
             try {
-                response = await axios.post(`${AGIDESK_API}/issues?app_key=${appKey}`, params, axiosConfig);
+                // 🟢 Chamada Limpa para a criação do Ticket
+                response = await axios.post(`${AGIDESK_API}/issues`, params, { headers: baseHeaders, httpsAgent });
                 if (response.data && response.data.error) throw new Error(response.data.error_message);
             } catch (err) {
                 const errorPayload = err.response?.data ? JSON.stringify(err.response.data) : err.message;
                 
                 if (errorPayload.includes('requiredfield_asset')) {
-                    throw new Error(`O Agidesk exige o vínculo obrigatório desta máquina, mas ela não foi encontrada na base de dados (varredura completa). Verifique no Agidesk se o cadastro existe e está Ativo.`);
+                    throw new Error(`O Agidesk exige o vínculo obrigatório desta máquina, mas ela não foi encontrada na base de dados.`);
                 }
-                
                 if (errorPayload.includes('invalid_teams_users')) {
                     console.warn(`--> [AGIDESK] Bypass de responsável acionado...`);
                     params.delete('responsible_id'); 
-                    response = await axios.post(`${AGIDESK_API}/issues?app_key=${appKey}`, params, axiosConfig);
+                    response = await axios.post(`${AGIDESK_API}/issues`, params, { headers: baseHeaders, httpsAgent });
                     if (response.data && response.data.error) throw new Error(response.data.error_message);
                 } else {
                     throw new Error(errorPayload); 
@@ -190,7 +187,6 @@ exports.createPreventiveTicket = async (deviceName, deviceType, techIdentifier, 
             }
 
             return { ticketId: response.data.id, url: `https://${tenant}.agidesk.com.br/br/painel/atendimentos/todos` };
-
         } catch (err) {
             throw new Error(err.message);
         }
@@ -202,10 +198,9 @@ exports.createPreventiveTicket = async (deviceName, deviceType, techIdentifier, 
 // ==========================================
 exports.startTicketTimer = async (ticketId) => {
     try {
-        await axios.put(`${AGIDESK_API}/tasks/${ticketId}/start?app_key=${appKey}`, null, {
-            headers: { 'X-Tenant-ID': tenant }, httpsAgent
+        await axios.put(`${AGIDESK_API}/tasks/${ticketId}/start`, null, {
+            headers: baseHeaders, httpsAgent
         });
-        console.log(`--> [AGIDESK] Play executado com sucesso no ticket ${ticketId}.`);
         return true;
     } catch (error) {
         console.warn(`⚠️ [AGIDESK] Agidesk bloqueou o Play.`);
@@ -215,7 +210,7 @@ exports.startTicketTimer = async (ticketId) => {
 
 const solveAllChecklists = async (ticketId, headers) => {
     try {
-        const checklistRes = await axios.get(`${AGIDESK_API}/tasks/${ticketId}/checklists?app_key=${appKey}`, { headers, httpsAgent });
+        const checklistRes = await axios.get(`${AGIDESK_API}/tasks/${ticketId}/checklists`, { headers, httpsAgent });
         if (checklistRes.data && checklistRes.data.length > 0) {
             for (const list of checklistRes.data) {
                 if (list.items && list.items.length > 0) {
@@ -223,7 +218,7 @@ const solveAllChecklists = async (ticketId, headers) => {
                         if (item.status !== 2) { 
                             const params = new URLSearchParams();
                             params.append('method', 'finish'); 
-                            await axios.put(`${AGIDESK_API}/tasks/${ticketId}/checklistitems/${item.id}?app_key=${appKey}`, params, {
+                            await axios.put(`${AGIDESK_API}/tasks/${ticketId}/checklistitems/${item.id}`, params, {
                                 headers: { ...headers, 'Content-Type': 'application/x-www-form-urlencoded' }, httpsAgent
                             });
                         }
@@ -236,20 +231,14 @@ const solveAllChecklists = async (ticketId, headers) => {
 
 exports.finishTicket = async (ticketId, relatorioText = "Manutenção preventiva concluída.") => {
     try {
-        const agideskHeaders = { 'X-Tenant-ID': tenant };
-        await solveAllChecklists(ticketId, agideskHeaders);
+        await solveAllChecklists(ticketId, baseHeaders);
         await new Promise(resolve => setTimeout(resolve, 3000));
 
         let isInfra = false;
-        
         try {
-            const ticketInfo = await axios.get(`${AGIDESK_API}/issues/${ticketId}?app_key=${appKey}`, { headers: agideskHeaders, httpsAgent });
-            
+            const ticketInfo = await axios.get(`${AGIDESK_API}/issues/${ticketId}`, { headers: baseHeaders, httpsAgent });
             if (ticketInfo.data) {
-                if (ticketInfo.data.service_id === 174 || ticketInfo.data.service_id === 175) {
-                    isInfra = true;
-                }
-                
+                if (ticketInfo.data.service_id === 174 || ticketInfo.data.service_id === 175) isInfra = true;
                 if (ticketInfo.data.finished_at || ticketInfo.data.taskstatus_id === '4' || ticketInfo.data.taskstatus_id === '5' || ticketInfo.data.taskstatus_id === '6') {
                     return { success: true, message: "Ticket já estava encerrado." };
                 }
@@ -275,19 +264,16 @@ exports.finishTicket = async (ticketId, relatorioText = "Manutenção preventiva
         params.append('serviceconfirmation', 'false');
         params.append('undefined', 'true'); 
 
-        const response = await axios.post(`${AGIDESK_API}/comments?app_key=${appKey}`, params, {
-            headers: { ...agideskHeaders, 'Content-Type': 'application/x-www-form-urlencoded' }, httpsAgent
+        const response = await axios.post(`${AGIDESK_API}/comments`, params, {
+            headers: baseHeaders, httpsAgent
         });
         
         return response.data;
-        
     } catch (error) {
         const errMsg = error.response?.data?.error_message || error.message;
-        
         if (errMsg.toLowerCase().includes('permitid') || errMsg.toLowerCase().includes('status') || errMsg.toLowerCase().includes('encerrad')) {
             return { success: true, forced: true };
         }
-
         throw new Error(errMsg);
     }
 };
