@@ -1,20 +1,16 @@
 const axios = require('axios');
 const https = require('https');
 
-// Limpeza das variáveis do .env e configuração do Novo Token
+// 🟢 1. DADOS LIMPOS (Sem aspas duplas a causar problemas)
 const tenant = (process.env.AGIDESK_TENANT || 'ptractor').replace(/['"]+/g, '').trim();
-// 🟢 AQUI ENTRA O SEU NOVO TOKEN BEARER
-const agideskToken = (process.env.AGIDESK_TOKEN || '21127a3902c42118058054ea50d25f70').replace(/['"]+/g, '').trim(); 
+// Ele vai tentar ler AGIDESK_TOKEN, se não achar, usa o AGIDESK_APP_KEY, se não achar, usa o fixo!
+const appKey = (process.env.AGIDESK_TOKEN || process.env.AGIDESK_APP_KEY || '21127a3902c42118058054ea50d25f70').replace(/['"]+/g, '').trim(); 
 const customerId = (process.env.AGIDESK_CUSTOMER_ID || '1').replace(/['"]+/g, '').trim();
 
 const httpsAgent = new https.Agent({ rejectUnauthorized: false });
-const AGIDESK_API = 'https://ptractor.agidesk.com/api/v1';
 
-// 🟢 CABEÇALHO DE AUTENTICAÇÃO MODERNA (Evita o bloqueio 403 do CloudFront)
-const baseHeaders = {
-    'X-Tenant-ID': tenant,
-    'Authorization': `Bearer ${agideskToken}`
-};
+// 🟢 2. A HIPERLIGAÇÃO PERFEITA (Sem barra no fim e com o .br)
+const AGIDESK_API = `https://${tenant}.agidesk.com.br/api/v1`;
 
 const getServiceId = (deviceType) => {
     const type = (deviceType || '').toLowerCase();
@@ -35,7 +31,7 @@ exports.createPreventiveTicket = async (deviceName, deviceType, techIdentifier, 
         const searchParams = isEmail ? { email: techIdentifier } : { username: techIdentifier };
         
         const agideskHeaders = { 
-            ...baseHeaders,
+            'X-Tenant-ID': tenant,
             'Content-Type': 'application/x-www-form-urlencoded'
         };
 
@@ -44,8 +40,9 @@ exports.createPreventiveTicket = async (deviceName, deviceType, techIdentifier, 
         let contactName = techIdentifier;
 
         try {
-            const contactRes = await axios.get(`${AGIDESK_API}/contacts`, {
-                params: searchParams, headers: baseHeaders, httpsAgent
+            // 🟢 Voltamos a usar o ?app_key=${appKey} em todas as chamadas!
+            const contactRes = await axios.get(`${AGIDESK_API}/contacts?app_key=${appKey}`, {
+                params: searchParams, headers: { 'X-Tenant-ID': tenant }, httpsAgent
             });
             if (contactRes.data && contactRes.data.length > 0) {
                 contactId = contactRes.data[0].id;
@@ -63,7 +60,6 @@ exports.createPreventiveTicket = async (deviceName, deviceType, techIdentifier, 
             assetId = 2799; 
             console.log(`--> [AGIDESK] 2. Ativo PC-TESTE fixado (ID: 2799)`);
         } else {
-            // 🟢 MOTOR DE BUSCA AVANÇADO
             console.log(`--> [AGIDESK] Iniciando Varredura Profunda pela máquina: "${deviceName}"...`);
             
             let page = 1;
@@ -74,16 +70,15 @@ exports.createPreventiveTicket = async (deviceName, deviceType, techIdentifier, 
 
             while (page <= maxPages && !assetId) {
                 try {
-                    const assetRes = await axios.get(`${AGIDESK_API}/assets`, {
+                    const assetRes = await axios.get(`${AGIDESK_API}/assets?app_key=${appKey}`, {
                         params: { search: deviceName, title: deviceName, limit: 100, page: page }, 
-                        headers: baseHeaders, 
+                        headers: { 'X-Tenant-ID': tenant }, 
                         httpsAgent
                     });
                     
                     const items = assetRes.data;
                     
                     if (!items || items.length === 0) {
-                        console.log(`--> [AGIDESK] Fim da base de dados alcançado na página ${page}.`);
                         break; 
                     }
 
@@ -93,24 +88,17 @@ exports.createPreventiveTicket = async (deviceName, deviceType, techIdentifier, 
 
                     if (ativoEncontrado) {
                         assetId = ativoEncontrado.id;
-                        console.log(`--> [AGIDESK] 🎯 SUCESSO: Máquina encontrada na Página ${page}! ID Agidesk = ${assetId}`);
+                        console.log(`--> [AGIDESK] 🎯 SUCESSO: Máquina encontrada! ID Agidesk = ${assetId}`);
                         break;
                     }
 
-                    if (items.length < 100) {
-                        console.log(`--> [AGIDESK] Fim da base de dados alcançado na página ${page} (últimos itens).`);
-                        break;
-                    }
+                    if (items.length < 100) break;
 
                     page++;
                 } catch (err) {
                     console.error(`--> [AGIDESK] Erro de rede ao pesquisar na página ${page}:`, err.message);
                     break;
                 }
-            }
-
-            if (!assetId) {
-                console.log(`--> [AGIDESK] ❌ Máquina NÃO encontrada após varrer ${page} páginas.`);
             }
         }
 
@@ -182,7 +170,7 @@ exports.createPreventiveTicket = async (deviceName, deviceType, techIdentifier, 
             const axiosConfig = { headers: agideskHeaders, httpsAgent };
 
             try {
-                response = await axios.post(`${AGIDESK_API}/issues`, params, axiosConfig);
+                response = await axios.post(`${AGIDESK_API}/issues?app_key=${appKey}`, params, axiosConfig);
                 if (response.data && response.data.error) throw new Error(response.data.error_message);
             } catch (err) {
                 const errorPayload = err.response?.data ? JSON.stringify(err.response.data) : err.message;
@@ -194,7 +182,7 @@ exports.createPreventiveTicket = async (deviceName, deviceType, techIdentifier, 
                 if (errorPayload.includes('invalid_teams_users')) {
                     console.warn(`--> [AGIDESK] Bypass de responsável acionado...`);
                     params.delete('responsible_id'); 
-                    response = await axios.post(`${AGIDESK_API}/issues`, params, axiosConfig);
+                    response = await axios.post(`${AGIDESK_API}/issues?app_key=${appKey}`, params, axiosConfig);
                     if (response.data && response.data.error) throw new Error(response.data.error_message);
                 } else {
                     throw new Error(errorPayload); 
@@ -214,8 +202,8 @@ exports.createPreventiveTicket = async (deviceName, deviceType, techIdentifier, 
 // ==========================================
 exports.startTicketTimer = async (ticketId) => {
     try {
-        await axios.put(`${AGIDESK_API}/tasks/${ticketId}/start`, null, {
-            headers: baseHeaders, httpsAgent
+        await axios.put(`${AGIDESK_API}/tasks/${ticketId}/start?app_key=${appKey}`, null, {
+            headers: { 'X-Tenant-ID': tenant }, httpsAgent
         });
         console.log(`--> [AGIDESK] Play executado com sucesso no ticket ${ticketId}.`);
         return true;
@@ -227,7 +215,7 @@ exports.startTicketTimer = async (ticketId) => {
 
 const solveAllChecklists = async (ticketId, headers) => {
     try {
-        const checklistRes = await axios.get(`${AGIDESK_API}/tasks/${ticketId}/checklists`, { headers, httpsAgent });
+        const checklistRes = await axios.get(`${AGIDESK_API}/tasks/${ticketId}/checklists?app_key=${appKey}`, { headers, httpsAgent });
         if (checklistRes.data && checklistRes.data.length > 0) {
             for (const list of checklistRes.data) {
                 if (list.items && list.items.length > 0) {
@@ -235,7 +223,7 @@ const solveAllChecklists = async (ticketId, headers) => {
                         if (item.status !== 2) { 
                             const params = new URLSearchParams();
                             params.append('method', 'finish'); 
-                            await axios.put(`${AGIDESK_API}/tasks/${ticketId}/checklistitems/${item.id}`, params, {
+                            await axios.put(`${AGIDESK_API}/tasks/${ticketId}/checklistitems/${item.id}?app_key=${appKey}`, params, {
                                 headers: { ...headers, 'Content-Type': 'application/x-www-form-urlencoded' }, httpsAgent
                             });
                         }
@@ -248,13 +236,14 @@ const solveAllChecklists = async (ticketId, headers) => {
 
 exports.finishTicket = async (ticketId, relatorioText = "Manutenção preventiva concluída.") => {
     try {
-        await solveAllChecklists(ticketId, baseHeaders);
+        const agideskHeaders = { 'X-Tenant-ID': tenant };
+        await solveAllChecklists(ticketId, agideskHeaders);
         await new Promise(resolve => setTimeout(resolve, 3000));
 
         let isInfra = false;
         
         try {
-            const ticketInfo = await axios.get(`${AGIDESK_API}/issues/${ticketId}`, { headers: baseHeaders, httpsAgent });
+            const ticketInfo = await axios.get(`${AGIDESK_API}/issues/${ticketId}?app_key=${appKey}`, { headers: agideskHeaders, httpsAgent });
             
             if (ticketInfo.data) {
                 if (ticketInfo.data.service_id === 174 || ticketInfo.data.service_id === 175) {
@@ -286,8 +275,8 @@ exports.finishTicket = async (ticketId, relatorioText = "Manutenção preventiva
         params.append('serviceconfirmation', 'false');
         params.append('undefined', 'true'); 
 
-        const response = await axios.post(`${AGIDESK_API}/comments`, params, {
-            headers: { ...baseHeaders, 'Content-Type': 'application/x-www-form-urlencoded' }, httpsAgent
+        const response = await axios.post(`${AGIDESK_API}/comments?app_key=${appKey}`, params, {
+            headers: { ...agideskHeaders, 'Content-Type': 'application/x-www-form-urlencoded' }, httpsAgent
         });
         
         return response.data;
