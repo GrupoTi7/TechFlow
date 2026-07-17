@@ -1,21 +1,18 @@
 const axios = require('axios');
 const https = require('https');
 
-// 🟢 CONFIGURAÇÃO DIRETA À PROVA DE FALHAS (Igualzinho à documentação)
+// 🟢 CONFIGURAÇÃO DIRETA À PROVA DE FALHAS
 const tenant = "ptractor";
-const appKey = "21127a3902c42118058054ea50d25f70"; // A sua chave exata da imagem/env
+const appKey = "21127a3902c42118058054ea50d25f70";
 const customerId = "1";
 
 const httpsAgent = new https.Agent({ rejectUnauthorized: false });
-
-// 🟢 A URL Base oficial .com
 const AGIDESK_API = `https://ptractor.agidesk.com/api/v1`;
 
-// Headers limpos em JSON como a documentação exige
 const baseHeaders = {
     'X-Tenant-ID': tenant,
     'Content-Type': 'application/json'
-    };
+};
 
 const getServiceId = (deviceType) => {
     const type = (deviceType || '').toLowerCase();
@@ -40,7 +37,6 @@ exports.createPreventiveTicket = async (deviceName, deviceType, techIdentifier, 
         let contactName = techIdentifier;
 
         try {
-            // A chave vai SEMPRE na URL em todas as chamadas
             const contactRes = await axios.get(`${AGIDESK_API}/contacts?app_key=${appKey}`, {
                 params: searchParams, headers: baseHeaders, httpsAgent
             });
@@ -153,10 +149,9 @@ exports.createPreventiveTicket = async (deviceName, deviceType, techIdentifier, 
                 </div>
             `;
 
-            // 🟢 4. FORMATO JSON PURO PARA A CRIAÇÃO
             const payload = {
                 title: tituloLimpo,
-                htmlcontent: corpoHtml,
+                htmlcontent: corpoHtml, // Mantemos aqui por garantia (para os emails do Agidesk)
                 customers: Number(customerId),
                 services: serviceId,
                 contacts: contactId,
@@ -166,35 +161,33 @@ exports.createPreventiveTicket = async (deviceName, deviceType, techIdentifier, 
             };
 
             if (assetId) {
-                payload.assets = [assetId]; // Arrays em JSON
+                payload.assets = [assetId]; 
             }
 
+            // 🟢 A MÁGICA: INJETAMOS O corpoHtml DIRETAMENTE NA CAIXINHA "Descreva sua solicitação"
             if (isInfra) {
                 payload.customfields.push(
                     { form_id: 31, formfield_id: 209, value: tituloLimpo, text: tituloLimpo },
                     { form_id: 31, formfield_id: 210, value: deviceSector, text: deviceSector },
-                    { form_id: 31, formfield_id: 211, value: actionType, text: actionType }
+                    { form_id: 31, formfield_id: 211, value: corpoHtml, text: corpoHtml } // <--- AQUI!
                 );
             } else {
                 payload.customfields.push(
                     { form_id: 34, formfield_id: 227, value: tituloLimpo, text: tituloLimpo },
                     { form_id: 34, formfield_id: 228, value: deviceSector, text: deviceSector },
-                    { form_id: 34, formfield_id: 229, value: actionType, text: actionType }
+                    { form_id: 34, formfield_id: 229, value: corpoHtml, text: corpoHtml } // <--- E AQUI!
                 );
             }
 
             let response;
             try {
-                // Postando como JSON com a app_key na URL
                 response = await axios.post(`${AGIDESK_API}/issues?app_key=${appKey}`, payload, { headers: baseHeaders, httpsAgent });
                 if (response.data && response.data.error) throw new Error(response.data.error_message);
             } catch (err) {
                 const errorPayload = err.response?.data ? JSON.stringify(err.response.data) : err.message;
-                
                 if (errorPayload.includes('requiredfield_asset')) {
                     throw new Error(`O Agidesk exige o vínculo obrigatório desta máquina, mas ela não foi encontrada na base de dados.`);
                 }
-                
                 if (errorPayload.includes('invalid_teams_users')) {
                     delete payload.responsible_id; 
                     response = await axios.post(`${AGIDESK_API}/issues?app_key=${appKey}`, payload, { headers: baseHeaders, httpsAgent });
@@ -213,7 +206,7 @@ exports.createPreventiveTicket = async (deviceName, deviceType, techIdentifier, 
 };
 
 // ==========================================
-// FUNÇÕES DE TIMER E CHECKLIST
+// FUNÇÕES DE TIMER E CHECKLIST (Mantidas Iguais)
 // ==========================================
 exports.startTicketTimer = async (ticketId) => {
     try {
@@ -221,9 +214,7 @@ exports.startTicketTimer = async (ticketId) => {
             headers: baseHeaders, httpsAgent
         });
         return true;
-    } catch (error) {
-        return false;
-    }
+    } catch (error) { return false; }
 };
 
 const solveAllChecklists = async (ticketId, headers) => {
@@ -283,7 +274,6 @@ exports.finishTicket = async (ticketId, relatorioText = "Manutenção preventiva
         const response = await axios.post(`${AGIDESK_API}/comments?app_key=${appKey}`, payload, {
             headers: baseHeaders, httpsAgent
         });
-        
         return response.data;
     } catch (error) {
         const errMsg = error.response?.data?.error_message || error.message;
