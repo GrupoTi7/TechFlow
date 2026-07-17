@@ -96,61 +96,28 @@ exports.createPreventiveTicket = async (deviceName, deviceType, techIdentifier, 
             const randomId = Math.floor(10000 + Math.random() * 90000);
             
             const corpoHtml = isInfra ? `
-                <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-                    <h3 style="color: #0003d9; border-bottom: 2px solid #f0f0f0; padding-bottom: 5px; margin-top: 0;">
-                        🛠️ ${actionType} de Rede
-                    </h3>
-                    <p style="margin-bottom: 15px; font-size: 14px;">
-                        Registro automático de atendimento gerado através do aplicativo <b>TechFlow</b>.
-                    </p>
-                    
-                    <table style="width: 100%; max-width: 600px; border-collapse: collapse; font-size: 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-                        <tr style="background-color: #f8f9fa;">
-                            <td style="padding: 10px 15px; border: 1px solid #dee2e6; width: 35%;"><b>💻 Equipamento:</b></td>
-                            <td style="padding: 10px 15px; border: 1px solid #dee2e6;">${deviceName} <span style="color: #6c757d;">(${deviceType})</span></td>
-                        </tr>
-                        <tr>
-                            <td style="padding: 10px 15px; border: 1px solid #dee2e6;"><b>🌐 Endereço IP:</b></td>
-                            <td style="padding: 10px 15px; border: 1px solid #dee2e6;">${ipAddress}</td>
-                        </tr>
-                        <tr style="background-color: #f8f9fa;">
-                            <td style="padding: 10px 15px; border: 1px solid #dee2e6;"><b>📍 Local / Setor:</b></td>
-                            <td style="padding: 10px 15px; border: 1px solid #dee2e6;">${deviceSector}</td>
-                        </tr>
-                        <tr>
-                            <td style="padding: 10px 15px; border: 1px solid #dee2e6;"><b>👤 Técnico Designado:</b></td>
-                            <td style="padding: 10px 15px; border: 1px solid #dee2e6;">${contactName}</td>
-                        </tr>
-                    </table>
-                    <br>
-                    <span style="font-size: 11px; color: #adb5bd;">ID Automação TechFlow: #${randomId}</span>
-                </div>
+                <h3>🛠️ ${actionType} de Rede</h3>
+                <p>Registro automático de atendimento gerado através do aplicativo <b>TechFlow</b>.</p>
+                <hr>
+                <blockquote>
+                    <b>💻 Equipamento:</b> ${deviceName} (${deviceType})<br><br>
+                    <b>🌐 Endereço IP:</b> ${ipAddress}<br><br>
+                    <b>📍 Local / Setor:</b> ${deviceSector}<br><br>
+                    <b>👤 Técnico Designado:</b> ${contactName}
+                </blockquote>
+                <hr>
+                <p><small>ID Automação TechFlow: #${randomId}</small></p>
             ` : `
-                <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-                    <h3 style="color: #0003d9; border-bottom: 2px solid #f0f0f0; padding-bottom: 5px; margin-top: 0;">
-                        🛠️ ${actionType} de Hardware
-                    </h3>
-                    <p style="margin-bottom: 15px; font-size: 14px;">
-                        Registro automático de atendimento gerado através do aplicativo <b>TechFlow</b>.
-                    </p>
-                    
-                    <table style="width: 100%; max-width: 600px; border-collapse: collapse; font-size: 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-                        <tr style="background-color: #f8f9fa;">
-                            <td style="padding: 10px 15px; border: 1px solid #dee2e6; width: 35%;"><b>💻 Equipamento:</b></td>
-                            <td style="padding: 10px 15px; border: 1px solid #dee2e6;">${deviceName} <span style="color: #6c757d;">(${deviceType})</span></td>
-                        </tr>
-                        <tr>
-                            <td style="padding: 10px 15px; border: 1px solid #dee2e6;"><b>📍 Local / Setor:</b></td>
-                            <td style="padding: 10px 15px; border: 1px solid #dee2e6;">${deviceSector}</td>
-                        </tr>
-                        <tr style="background-color: #f8f9fa;">
-                            <td style="padding: 10px 15px; border: 1px solid #dee2e6;"><b>👤 Técnico Designado:</b></td>
-                            <td style="padding: 10px 15px; border: 1px solid #dee2e6;">${contactName}</td>
-                        </tr>
-                    </table>
-                    <br>
-                    <span style="font-size: 11px; color: #adb5bd;">ID Automação TechFlow: #${randomId}</span>
-                </div>
+                <h3>🛠️ ${actionType} de Hardware</h3>
+                <p>Registro automático de atendimento gerado através do aplicativo <b>TechFlow</b>.</p>
+                <hr>
+                <blockquote>
+                    <b>💻 Equipamento:</b> ${deviceName} (${deviceType})<br><br>
+                    <b>📍 Local / Setor:</b> ${deviceSector}<br><br>
+                    <b>👤 Técnico Designado:</b> ${contactName}
+                </blockquote>
+                <hr>
+                <p><small>ID Automação TechFlow: #${randomId}</small></p>
             `;
 
             // 🟢 4. FORMATO JSON PURO PARA A CRIAÇÃO
