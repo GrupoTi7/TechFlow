@@ -91,15 +91,11 @@ exports.createPreventiveTicket = async (deviceName, deviceType, techIdentifier, 
             const tituloLimpo = `${actionType}: ${deviceName}`;
             const randomId = Math.floor(10000 + Math.random() * 90000);
             
+            // O HTML continua a existir para os e-mails bonitos que o Agidesk dispara!
             const corpoHtml = isInfra ? `
                 <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-                    <h3 style="color: #0003d9; border-bottom: 2px solid #f0f0f0; padding-bottom: 5px; margin-top: 0;">
-                        🛠️ ${actionType} de Rede
-                    </h3>
-                    <p style="margin-bottom: 15px; font-size: 14px;">
-                        Registro automático de atendimento gerado através do aplicativo <b>TechFlow</b>.
-                    </p>
-                    
+                    <h3 style="color: #0003d9; border-bottom: 2px solid #f0f0f0; padding-bottom: 5px; margin-top: 0;">🛠️ ${actionType} de Rede</h3>
+                    <p>Registro automático de atendimento gerado através do aplicativo <b>TechFlow</b>.</p>
                     <table style="width: 100%; max-width: 600px; border-collapse: collapse; font-size: 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
                         <tr style="background-color: #f8f9fa;">
                             <td style="padding: 10px 15px; border: 1px solid #dee2e6; width: 35%;"><b>💻 Equipamento:</b></td>
@@ -118,18 +114,12 @@ exports.createPreventiveTicket = async (deviceName, deviceType, techIdentifier, 
                             <td style="padding: 10px 15px; border: 1px solid #dee2e6;">${contactName}</td>
                         </tr>
                     </table>
-                    <br>
-                    <span style="font-size: 11px; color: #adb5bd;">ID Automação TechFlow: #${randomId}</span>
+                    <br><span style="font-size: 11px; color: #adb5bd;">ID Automação TechFlow: #${randomId}</span>
                 </div>
             ` : `
                 <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-                    <h3 style="color: #0003d9; border-bottom: 2px solid #f0f0f0; padding-bottom: 5px; margin-top: 0;">
-                        🛠️ ${actionType} de Hardware
-                    </h3>
-                    <p style="margin-bottom: 15px; font-size: 14px;">
-                        Registro automático de atendimento gerado através do aplicativo <b>TechFlow</b>.
-                    </p>
-                    
+                    <h3 style="color: #0003d9; border-bottom: 2px solid #f0f0f0; padding-bottom: 5px; margin-top: 0;">🛠️ ${actionType} de Hardware</h3>
+                    <p>Registro automático de atendimento gerado através do aplicativo <b>TechFlow</b>.</p>
                     <table style="width: 100%; max-width: 600px; border-collapse: collapse; font-size: 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
                         <tr style="background-color: #f8f9fa;">
                             <td style="padding: 10px 15px; border: 1px solid #dee2e6; width: 35%;"><b>💻 Equipamento:</b></td>
@@ -144,14 +134,34 @@ exports.createPreventiveTicket = async (deviceName, deviceType, techIdentifier, 
                             <td style="padding: 10px 15px; border: 1px solid #dee2e6;">${contactName}</td>
                         </tr>
                     </table>
-                    <br>
-                    <span style="font-size: 11px; color: #adb5bd;">ID Automação TechFlow: #${randomId}</span>
+                    <br><span style="font-size: 11px; color: #adb5bd;">ID Automação TechFlow: #${randomId}</span>
                 </div>
             `;
 
+            // 🟢 AQUI ESTÁ O NOVO FORMATO! Texto limpo e bonito para os campos do formulário
+            const corpoTexto = isInfra ? 
+`🛠️ MANUTENÇÃO DE REDE: ${actionType.toUpperCase()}
+───────────────────────────────────────
+💻 Equipamento: ${deviceName} (${deviceType})
+🌐 Endereço IP: ${ipAddress}
+📍 Local / Setor: ${deviceSector}
+👤 Técnico Designado: ${contactName}
+───────────────────────────────────────
+🤖 Gerado automaticamente via TechFlow
+🔖 ID de Automação: #${randomId}`
+: 
+`🛠️ MANUTENÇÃO DE HARDWARE: ${actionType.toUpperCase()}
+───────────────────────────────────────
+💻 Equipamento: ${deviceName} (${deviceType})
+📍 Local / Setor: ${deviceSector}
+👤 Técnico Designado: ${contactName}
+───────────────────────────────────────
+🤖 Gerado automaticamente via TechFlow
+🔖 ID de Automação: #${randomId}`;
+
             const payload = {
                 title: tituloLimpo,
-                htmlcontent: corpoHtml, // Mantemos aqui por garantia (para os emails do Agidesk)
+                htmlcontent: corpoHtml, // Vai para os e-mails do Agidesk
                 customers: Number(customerId),
                 services: serviceId,
                 contacts: contactId,
@@ -164,18 +174,18 @@ exports.createPreventiveTicket = async (deviceName, deviceType, techIdentifier, 
                 payload.assets = [assetId]; 
             }
 
-            // 🟢 A MÁGICA: INJETAMOS O corpoHtml DIRETAMENTE NA CAIXINHA "Descreva sua solicitação"
+            // 🟢 Mandamos o TEXTO LIMPO (corpoTexto) para as caixinhas do formulário!
             if (isInfra) {
                 payload.customfields.push(
                     { form_id: 31, formfield_id: 209, value: tituloLimpo, text: tituloLimpo },
                     { form_id: 31, formfield_id: 210, value: deviceSector, text: deviceSector },
-                    { form_id: 31, formfield_id: 211, value: corpoHtml, text: corpoHtml } // <--- AQUI!
+                    { form_id: 31, formfield_id: 211, value: corpoTexto, text: corpoTexto }
                 );
             } else {
                 payload.customfields.push(
                     { form_id: 34, formfield_id: 227, value: tituloLimpo, text: tituloLimpo },
                     { form_id: 34, formfield_id: 228, value: deviceSector, text: deviceSector },
-                    { form_id: 34, formfield_id: 229, value: corpoHtml, text: corpoHtml } // <--- E AQUI!
+                    { form_id: 34, formfield_id: 229, value: corpoTexto, text: corpoTexto }
                 );
             }
 
