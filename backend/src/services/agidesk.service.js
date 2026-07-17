@@ -1,22 +1,21 @@
 const axios = require('axios');
 const https = require('https');
 
-// 🟢 1. Lendo as variáveis corretamente
-const tenant = (process.env.AGIDESK_TENANT || 'ptractor').replace(/['"]+/g, '').trim();
-// Utilizando a chave da sua imagem como fallback seguro
-const appKey = (process.env.AGIDESK_TOKEN || process.env.AGIDESK_APP_KEY || 'c1bcf6a13247c1a84f3ab6660f7193b2').replace(/['"]+/g, '').trim(); 
-const customerId = (process.env.AGIDESK_CUSTOMER_ID || '1').replace(/['"]+/g, '').trim();
+// 🟢 CONFIGURAÇÃO DIRETA À PROVA DE FALHAS (Igualzinho à documentação)
+const tenant = "ptractor";
+const appKey = "21127a3902c42118058054ea50d25f70"; // A sua chave exata da imagem/env
+const customerId = "1";
 
 const httpsAgent = new https.Agent({ rejectUnauthorized: false });
 
-// 🟢 2. URL exata da documentação (.com)
-const AGIDESK_API = `https://${tenant}.agidesk.com/api/v1`;
+// 🟢 A URL Base oficial .com
+const AGIDESK_API = `https://ptractor.agidesk.com/api/v1`;
 
-// 🟢 3. Headers EXATOS da documentação (JSON e X-Tenant-ID apenas)
+// Headers limpos em JSON como a documentação exige
 const baseHeaders = {
     'X-Tenant-ID': tenant,
     'Content-Type': 'application/json'
-};
+    };
 
 const getServiceId = (deviceType) => {
     const type = (deviceType || '').toLowerCase();
