@@ -459,8 +459,8 @@ function DeviceDetailPage() {
                   </>
               ) : (
                   <>
-                      <Alert variant="light" color="blue" icon={<IconServerCog />} title="Agidesk: Iniciar no Laboratório">
-                          Deseja iniciar o cronômetro do chamado antes de ir à campo? Clique abaixo.
+                      <Alert variant="light" color="blue" icon={<IconServerCog />} title="Agidesk: Chamado via API">
+                          Clique aqui para iniciar um atendimento no Agidesk.
                       </Alert>
                       <Button 
                           onClick={handleStartAgidesk} 
